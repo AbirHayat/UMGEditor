@@ -66,3 +66,10 @@ Patch one present float far off screen (e.g. the `Text_Score_Away` slot `Offsets
 ## Canary 2 result (2026-10-19, LDPlayer)
 Mask `Offsets.Left` 129→249 (+120 units, a 1-byte diff). `ss/ss_2.png`: both score digits are visible again (dark navy, score 2–0), shifted right onto the away name box: home digit centre ≈ x 238 → 352, away ≈ 294 → 411, so **≈ +115 px on screen for +120 units**. The game view in the 1920-px screenshot spans x 50–1836 (1786 px), i.e. 1786/1920 = 0.93 px/unit (predicted +112 px). Measured and predicted agree within reading error (±5 px).
 Conclusion: slot offsets are in **1920×1080 design units, scaled uniformly to the render width**. Position edits behave exactly as the numbers say. Feature 3's preview can use this model directly.
+
+## Feature 3 validation, part 1 (2026-10-19)
+- **Scale gate (1786×1000, the measured LDPlayer game view):** UI scale from the game's `Engine/Config/BaseEngine.ini` (DefaultEngine.ini doesn't override it): ShortestSide, curve 480→0.444 / 720→0.666 / 1080→1.0 / 8640→8.0. DPI = 0.92578 at 1000 px. ScaleBox_0 (ScaleToFit, both directions): x 1.00479, y 1.00016 → **height limits**. Result 0.92593 px/unit = **0.93**, matching canary 2. Under a ScaleToFit ScaleBox the DPI cancels: px/unit = min(1786/1920, 1000/1080).
+- **Early layout check against `ss/ss_1.png`** (stock except the canary-moved Mask): 28 visible edges of the home/away colour bars, base plate, score boxes, divider and timer plate: **all within ±1.2 px (≤1.32 design units)**, most within 0.6 px. Not scored: edges covered by other elements in game (plate left under the colour bars, timer right merging with the logo box).
+- **CanvasPanelSlot default Bottom = 30 confirmed:** the colour bars store no Bottom and measure 27.8 px = 30 × 0.926.
+- Expected differences (runtime state, not layout): aggregate/additional rows, red-card bars and the eFootball logo are hidden or animated in play; plate tints and fonts are applied at runtime.
+- **Textures:** all 2,933 UI textures decode (ETC2_RGBA 2,434, ETC2_RGB 243, B8G8R8A8 252, G8 4). The FModel comparison is pending the user's exports.

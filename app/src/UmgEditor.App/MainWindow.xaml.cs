@@ -15,6 +15,7 @@ public partial class MainWindow : Window
         var config = GameConfig.LoadOrDefault(Path.Combine(AppContext.BaseDirectory, "umgeditor.json"));
         _vm = new MainViewModel(config);
         DataContext = _vm;
+        PreviewCanvas.BoxClicked += box => _vm.SelectFromPreview(box);
         Loaded += async (_, _) =>
         {
             SearchBox.Focus();

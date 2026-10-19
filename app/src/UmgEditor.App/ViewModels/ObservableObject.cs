@@ -31,3 +31,12 @@ public sealed class RelayCommand(Action execute, Func<bool>? canExecute = null) 
     public bool CanExecute(object? parameter) => canExecute?.Invoke() ?? true;
     public void Execute(object? parameter) => execute();
 }
+
+/// <summary>Collapsed when the bound value is null.</summary>
+public sealed class NullToVisibilityConverter : System.Windows.Data.IValueConverter
+{
+    public object Convert(object? value, Type targetType, object? parameter, System.Globalization.CultureInfo culture) =>
+        value == null ? System.Windows.Visibility.Collapsed : System.Windows.Visibility.Visible;
+
+    public object ConvertBack(object? value, Type targetType, object? parameter, System.Globalization.CultureInfo culture) => throw new NotSupportedException();
+}

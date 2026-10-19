@@ -1,6 +1,9 @@
 using System.IO;
 using System.Windows.Threading;
+using UmgEditor.App.Preview;
 using UmgEditor.Core;
+using UmgEditor.Core.Layout;
+using UmgEditor.Core.Textures;
 
 namespace UmgEditor.App.ViewModels;
 
@@ -21,7 +24,10 @@ public sealed class MainViewModel : ObservableObject
         _searchDelay = new DispatcherTimer { Interval = TimeSpan.FromMilliseconds(200) };
         _searchDelay.Tick += (_, _) => { _searchDelay.Stop(); ApplyFilter(); };
         RebuildCommand = new RelayCommand(() => _ = LoadAsync(rebuild: true), () => !IsBusy);
+        Preview = new PreviewViewModel(config.WorkDir);
     }
+
+    public PreviewViewModel Preview { get; }
 
     public string PaksDir => _config.PaksDir;
     public RelayCommand RebuildCommand { get; }
@@ -86,6 +92,7 @@ public sealed class MainViewModel : ObservableObject
         set
         {
             if (!Set(ref _selectedNode, value)) return;
+            Preview.Selected = value?.Node;
             OnPropertyChanged(nameof(NodeBoards));
             OnPropertyChanged(nameof(NodeSource));
         }
@@ -96,6 +103,32 @@ public sealed class MainViewModel : ObservableObject
 
     public string NodeSource => SelectedNode?.Node is not { } n ? "" :
         n.IsReadOnly ? $"Embedded from {GamePaths.ShortName(n.PackagePath)} — read-only here; open that package to edit it." : $"In {GamePaths.ShortName(n.PackagePath)} (export #{n.ExportIndex})";
+
+    /// <summary>Preview click: select the matching tree row if it exists, otherwise show the widget on its own.</summary>
+    public WidgetNodeViewModel SelectFromPreview(LayoutBox box)
+    {
+        var vm = Find(TreeRoots, box.Node);
+        if (vm != null) { ExpandTo(TreeRoots, vm); vm.IsSelected = true; }
+        else SelectedNode = vm = new WidgetNodeViewModel(box.Node, p => LoadTree(p, readOnly: true));
+        return vm;
+
+        static WidgetNodeViewModel? Find(IEnumerable<WidgetNodeViewModel> list, WidgetNode node)
+        {
+            foreach (var v in list)
+            {
+                if (ReferenceEquals(v.Node, node)) return v;
+                if (Find(v.Children, node) is { } hit) return hit;
+            }
+            return null;
+        }
+
+        static bool ExpandTo(IEnumerable<WidgetNodeViewModel> list, WidgetNodeViewModel target)
+        {
+            foreach (var v in list)
+                if (v == target || ExpandTo(v.Children, target)) { if (v != target) v.IsExpanded = true; return true; }
+            return false;
+        }
+    }
 
     private string BoardsText(string packagePath)
     {
@@ -122,6 +155,7 @@ public sealed class MainViewModel : ObservableObject
         SelectedNode = null;
         TreeRoots = [];
         PackageBoards = "";
+        Preview.Show(null);
         if (entry == null || _source == null) { TreeStatus = "Select a widget package to see its hierarchy."; return; }
         var packagePath = GamePaths.ToPackagePath(entry.Path);
         PackageBoards = BoardsText(packagePath);
@@ -137,6 +171,7 @@ public sealed class MainViewModel : ObservableObject
             if (tree.Root != null) roots.Add(new WidgetNodeViewModel(tree.Root, loadEmbedded) { IsExpanded = true });
             roots.AddRange(tree.Unattached.Select(n => new WidgetNodeViewModel(n, loadEmbedded)));
             TreeRoots = roots;
+            Preview.Show(tree);
             var animated = tree.All().Count(n => n.IsAnimated);
             TreeStatus = tree.Root == null
                 ? $"{entry.Name} has no layout of its own (empty WidgetTree): a base/template class filled in by subclasses or code."
@@ -159,6 +194,12 @@ public sealed class MainViewModel : ObservableObject
             var source = _source;
             _all = await Task.Run(() => rebuild ? RebuildCache(source, progress) : UiAssetIndex.LoadOrBuild(source, progress));
             _usage = new UsageGraph(_all);
+            var textures = new TextureCache(source, new AssetRipperTextureDecoder());
+            var scale = await Task.Run(() => UiScaleSettings.Load(source));
+            var engine = new LayoutEngine(scale,
+                p => { try { return LoadTree(p, readOnly: true).GetAwaiter().GetResult(); } catch { return null; } },
+                t => textures.Get(t) is { IsPlaceholder: false } img ? (img.Width, img.Height) : null);
+            Preview.Attach(engine, new PreviewRenderer(textures.Get));
             RefreshGroups();
             ApplyFilter();
         }

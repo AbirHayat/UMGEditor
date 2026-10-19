@@ -9,6 +9,8 @@
   <ItemGroup>
     <!-- pin: CUE4Parse pulls Microsoft.Bcl.Memory 9.0.0 transitively (NU1903, GHSA-73j8-2gch-69rq) -->
     <PackageReference Include="Microsoft.Bcl.Memory" Version="9.0.14" />
+    <!-- managed ETC2/ASTC decoders, MIT (github.com/AssetRipper/TextureDecoder), exact pin -->
+    <PackageReference Include="AssetRipper.TextureDecoder" Version="[2.6.2]" />
   </ItemGroup>
 
   <ItemGroup>
