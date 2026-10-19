@@ -3,6 +3,9 @@
     <Project Path="src/UmgEditor.App/UmgEditor.App.csproj" />
     <Project Path="src/UmgEditor.Core/UmgEditor.Core.csproj" />
   </Folder>
+  <Folder Name="/tests/">
+    <Project Path="tests/UmgEditor.Tests/UmgEditor.Tests.csproj" />
+  </Folder>
   <Folder Name="/tools/">
     <Project Path="tools/UmgEditor.Smoke/UmgEditor.Smoke.csproj" />
   </Folder>

@@ -1,0 +1,28 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <TargetFramework>net10.0</TargetFramework>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <Nullable>enable</Nullable>
+    <!-- test-only: never packed, published or referenced by the app -->
+    <IsPackable>false</IsPackable>
+    <IsPublishable>false</IsPublishable>
+    <IsTestProject>true</IsTestProject>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <!-- exact pins, restored from the local NuGet cache only -->
+    <PackageReference Include="Microsoft.NET.Test.Sdk" Version="[17.11.1]" />
+    <PackageReference Include="MSTest.TestAdapter" Version="[3.6.2]" />
+    <PackageReference Include="MSTest.TestFramework" Version="[3.6.2]" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <Using Include="Microsoft.VisualStudio.TestTools.UnitTesting" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\..\src\UmgEditor.Core\UmgEditor.Core.csproj" />
+  </ItemGroup>
+
+</Project>
