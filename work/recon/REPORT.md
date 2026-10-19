@@ -73,3 +73,39 @@ Conclusion: slot offsets are in **1920×1080 design units, scaled uniformly to t
 - **CanvasPanelSlot default Bottom = 30 confirmed:** the colour bars store no Bottom and measure 27.8 px = 30 × 0.926.
 - Expected differences (runtime state, not layout): aggregate/additional rows, red-card bars and the eFootball logo are hidden or animated in play; plate tints and fonts are applied at runtime.
 - **Textures:** all 2,933 UI textures decode (ETC2_RGBA 2,434, ETC2_RGB 243, B8G8R8A8 252, G8 4). The FModel comparison is pending the user's exports.
+
+## Feature 3 validation, part 2: stock screenshot + FModel (2026-10-19)
+
+### Textures vs FModel (`work/scripts/compare_tex.py`, exports in `fmodel_exports/`)
+| Texture | Size | Orientation | Red/blue order | Alpha | G, B, A | Red |
+|---|---|---|---|---|---|---|
+| AlertIconDialog_Progression_ImgUser (ETC2_RGBA) | 132×132 = | OK | OK | identical | identical | FModel +0..3 |
+| SupportersRewardImgEffectBack (ETC2_RGBA) | 436×176 = | OK | OK | identical | identical | FModel −0..6 |
+| BGeSportsGeneral1609 (ETC2_RGB) | 1280×720 = | OK | OK | opaque both | identical | FModel +0..3 |
+
+The red difference is a ramp by x within each 4×4 block, and only in **ETC2 planar-mode** blocks. An independent decoder written from the Khronos spec (`work/scripts/etc2_block.py`) matches **ours in 61,331 of 61,331 planar blocks and FModel in 0**. RH=0 with bit 32 = 0 gives flat red, while FModel ramps as if it used bit 33 (the planar flag) as RH's low bit. Verdict: our decoder is correct; FModel's export has a planar-mode red error.
+
+### Layout vs `ss/stock.png` (LDPlayer 1600×900 @240 dpi, maximized window; game area x 50–1835, y 32–1031)
+- **Scale (checked first):** laying out at the 1600×900 setting with a non-uniform window stretch (x 1.11625, y 1.1111) passed but left a growing x bias (−0.9 → −2.3 px). A fit of the measured edges gives 1.1117 horizontally, the same as the vertical 1.1111. So the rendered viewport has the window area's aspect (1786:1000), not exactly 16:9. **The wrong input was the viewport size**, not the DPI curve (which cancels under ScaleToFit). Using the game view 1786×1000 as the viewport: fit 0.92631 px/unit vs model 0.92593 (0.04 %), offset −0.17 px.
+- **Scored edges (game-view viewport), all PASS ±3 px:**
+
+| Element | Edge | px | design units |
+|---|---|---|---|
+| Img_MatchTimeBg plate | top / bottom | 0.0 / −0.6 | 0.00 / −0.60 |
+| Img_MatchTimeBg_1 (score boxes) | left / right / top / bottom | −0.1 / −0.2 / 0.0 / −0.6 | −0.12 / −0.24 / 0.00 / −0.60 |
+| Img_Line (divider) | left / right | +0.3 / −0.6 | +0.28 / −0.64 |
+| Time_Timer › Plate_MatchTimeBg | left / right / top / bottom | +0.1 / 0.0 / 0.0 / −0.6 | +0.12 / 0.00 / 0.00 / −0.60 |
+
+  The −0.6 on bottom edges is the antialiased half pixel at y = 80.6.
+- **Excluded from scoring (hidden, animated or tinted at runtime):**
+  - Hidden (aggregate row): Time_Aggregate › Plate_MatchTimeBg_0 › Img_Plate, Img_Line, Text_Aggregate_Home, Text_Aggregate_Away
+  - Hidden (added-time row): Time_Additional › Plate_MatchTimeBg › Img_Plate, Text_AdditionalTime
+  - Hidden (red-card bars): MatchTimeCardHome › Img_RedCard_Home_1..4, MatchTimeCardAway › Img_RedCard_Away_1..4
+  - Logo area (animated/hidden): Img_Logo (shown at about half size in game), MatchTimeCompe › Compe › MatchTimeBase_1 › Img_Plate, uiCompe
+  - Tinted at runtime (team colours; white textures shown red/white and white/black): Img_HomeColor_1, Img_HomeColor_2, Img_AwayColor_1, Img_AwayColor_2. Measured for information: all 16 edges within 1.3 px.
+- **Scored plates are not tinted:** the navy base plate and the yellow score/timer plates show their texture colours as-is (difference ≤ 12/765).
+- **Not measurable (no box edges):** the text widgets (Text_TeamName_*, Text_Score_*, Text_Minute_3, Text_Colon, Text_Second_*) and pure containers. Plate edges hidden under other elements weren't scored: the base plate's left/right sit under the colour bars.
+
+### Found and fixed during this run
+- Asset paths differ in letter case from file keys (`MiniGame/CommonHud` vs `CommonHUD`): package loads now resolve case-insensitively, as the engine does (exact match still preferred).
+- Three textures are referenced as `/Game/Platforms/_Windows/...` but ship as `Platforms/_Android/...`: the resolver maps them. All 4,369 uiImage texture references (2,236 distinct) now resolve.

@@ -22,7 +22,9 @@ public sealed class PreviewViewModel : ObservableObject
 
     public IReadOnlyList<ResolutionPreset> Presets { get; } =
     [
+        // validated against stock.png: the rendered viewport has the window area's aspect, not exactly 16:9
         new("Your game view (LDPlayer, measured)", 1786, 1000),
+        new("LDPlayer setting 1600×900 (240 dpi)", 1600, 900),
         new("Design 1920×1080", 1920, 1080),
         new("1280×720", 1280, 720),
         new("Phone 19.5:9", 2340, 1080),

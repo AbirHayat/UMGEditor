@@ -105,7 +105,7 @@ public static class WidgetTreeReader
 
     public static WidgetPackageTree Build(GameSource source, string packagePath, bool readOnly = false)
     {
-        var pkg = source.Provider.LoadPackage(GamePaths.ToFileKey(packagePath));
+        var pkg = source.LoadPackage(packagePath);
         var exports = pkg.ExportsLazy;
         var json = new Dictionary<int, JObject>();
         JObject Json(int i)

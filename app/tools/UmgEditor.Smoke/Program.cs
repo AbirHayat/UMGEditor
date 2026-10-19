@@ -192,20 +192,30 @@ foreach (var (w, h) in new[] { (1920, 1080), (1280, 720), (2400, 1080), (2048, 1
 // uiImage textures that are really materials must come back as labelled placeholders
 var materialPackages = index.Where(e => e.Kind == UiAssetKind.Material).Select(e => GamePaths.ToPackagePath(e.Path)).ToHashSet(StringComparer.OrdinalIgnoreCase);
 var materialRefs = new System.Collections.Concurrent.ConcurrentBag<(string Widget, string Path)>();
+var allImageRefs = new System.Collections.Concurrent.ConcurrentBag<(string Widget, string Path)>();
 Parallel.ForEach(allWidgets.Take(2139), e =>
 {
     try
     {
         foreach (var n in WidgetTreeReader.Build(source, GamePaths.ToPackagePath(e.Path)).All())
-            if (n.ClassName == "uiImage_C" && n.StoredProperties.FirstOrDefault(kv => kv.Key == "texture").Value is { } t && materialPackages.Contains(GamePaths.PackageOf(t)))
-                materialRefs.Add((e.Name + "/" + n.Name, t));
+            if (n.ClassName == "uiImage_C" && n.StoredProperties.FirstOrDefault(kv => kv.Key == "texture").Value is { } t && t != "None")
+            {
+                allImageRefs.Add((e.Name + "/" + n.Name, t));
+                if (materialPackages.Contains(GamePaths.PackageOf(t))) materialRefs.Add((e.Name + "/" + n.Name, t));
+            }
     }
     catch { }
 });
-var matSample = materialRefs.FirstOrDefault();
-var matImg = matSample.Path != null ? texCache.Get(matSample.Path) : null;
-Console.WriteLine($"uiImage widgets pointing at materials: {materialRefs.Count}; e.g. {matSample.Widget} -> {matSample.Path}: {matImg?.PlaceholderReason}");
-Check("material references become 'material' placeholders", materialRefs.IsEmpty || (matImg is { IsPlaceholder: true } && matImg.PlaceholderReason!.Contains("Material")), matImg?.PlaceholderReason ?? "none found");
+var badMaterials = materialRefs.Select(r => (r.Widget, Img: texCache.Get(r.Path)))
+    .Where(r => !(r.Img.IsPlaceholder && r.Img.PlaceholderReason!.Contains("Material"))).ToList();
+Console.WriteLine($"uiImage widgets pointing at materials: {materialRefs.Count}");
+var unresolved = allImageRefs.Select(r => (r.Widget, r.Path, Img: texCache.Get(r.Path)))
+    .Where(r => r.Img.IsPlaceholder && !r.Img.PlaceholderReason!.Contains("Material")).ToList();
+Console.WriteLine($"uiImage texture references: {allImageRefs.Count} ({allImageRefs.Select(r => r.Path).Distinct().Count()} distinct); not drawable: {unresolved.Count}");
+Check("every uiImage texture reference resolves (texture or material)", unresolved.Count == 0,
+    string.Join(" | ", unresolved.Select(u => $"{u.Path}: {u.Img.PlaceholderReason}").Distinct().Take(4)));
+Check("every material reference becomes a 'material' placeholder", badMaterials.Count == 0,
+    string.Join(" | ", badMaterials.Take(3).Select(b => $"{b.Widget}: {b.Img.PlaceholderReason ?? "decoded?"}")));
 
 // canary 2: Mask Left 129 -> 249 must move it by 120 units
 var maskNode = tree.Find("Mask")!;
@@ -216,6 +226,37 @@ var moved = engine.Arrange(tree, 1786, 1000).Find("Mask")!;
 maskNode.Slot = stockSlot;
 var dx = moved.Bounds.X - maskBox!.Bounds.X;
 Check("Mask Left +120 units moves it 120 x scale px (canary 2)", Math.Abs(dx - 120 * ppu) < 0.01, $"{dx:0.###} px = {dx / ppu:0.###} units; canary 2 measured ~114-117 px");
+
+// --dump-mip <objectPath> <file>: raw first-mip bytes (for checking a decoder against the format spec)
+var dumpAt = Array.IndexOf(args, "--dump-mip");
+if (dumpAt >= 0)
+{
+    var tex2d = source.LoadPackage(args[dumpAt + 1]).GetExports().OfType<CUE4Parse.UE4.Assets.Exports.Texture.UTexture2D>().First();
+    var mip = tex2d.GetFirstMip()!;
+    File.WriteAllBytes(args[dumpAt + 2], mip.BulkData!.Data!);
+    Console.WriteLine($"dumped {tex2d.Format} {mip.SizeX}x{mip.SizeY}, {mip.BulkData.Data!.Length} bytes -> {args[dumpAt + 2]}");
+}
+
+// --export-layout <packagePath> <w> <h> <out.json>: same widget-rect JSON as the app's Export (for validate_layout.py)
+var exportLayoutAt = Array.IndexOf(args, "--export-layout");
+if (exportLayoutAt >= 0)
+{
+    var et = WidgetTreeReader.Build(source, args[exportLayoutAt + 1]);
+    var el = engine.Arrange(et, int.Parse(args[exportLayoutAt + 2]), int.Parse(args[exportLayoutAt + 3]));
+    string PathOf(LayoutBox b) { var parts = new List<string>(); for (var x = b; x != null; x = x.Parent) parts.Add(x.Node.Name); parts.Reverse(); return string.Join("/", parts); }
+    var json = System.Text.Json.JsonSerializer.Serialize(new
+    {
+        Package = et.PackagePath, el.ViewportWidth, el.ViewportHeight, el.DpiScale, el.ScaleBoxes,
+        Widgets = el.All().Select(b => new
+        {
+            b.Node.Name, Path = PathOf(b), Class = b.Node.ClassName, Package = GamePaths.ShortName(b.Node.PackagePath), b.Visible,
+            Px = new { b.Bounds.X, b.Bounds.Y, W = b.Bounds.Width, H = b.Bounds.Height }, b.PixelsPerUnit, b.Approximation, b.TexturePath,
+        }),
+    }, new System.Text.Json.JsonSerializerOptions { WriteIndented = true });
+    File.WriteAllText(args[exportLayoutAt + 4], json);
+    var sb0 = el.ScaleBoxes.FirstOrDefault();
+    Console.WriteLine($"exported layout {el.ViewportWidth}x{el.ViewportHeight}: DPI {el.DpiScale:0.#####}, {sb0?.Widget} x {sb0?.ScaleX:0.#####} y {sb0?.ScaleY:0.#####} -> {sb0?.Applied:0.#####} ({sb0?.LimitingAxis} limits) -> {args[exportLayoutAt + 4]}");
+}
 
 // --layout <packagePath> <w> <h>: print one package's layout boxes
 var layoutAt = Array.IndexOf(args, "--layout");

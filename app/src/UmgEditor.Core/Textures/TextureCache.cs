@@ -35,7 +35,7 @@ public sealed class TextureCache(GameSource source, ITextureDecoder decoder)
         DecodedImage image;
         try
         {
-            var pkg = source.Provider.LoadPackage(GamePaths.ToFileKey(package));
+            var pkg = source.LoadPackage(package);
             var tex = pkg.GetExports().OfType<UTexture2D>().FirstOrDefault();
             if (tex == null)
             {

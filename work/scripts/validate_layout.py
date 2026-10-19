@@ -8,7 +8,11 @@
 # Elements are chosen by a path suffix ("Normal_Display/Img_Line") so repeated names resolve to one widget,
 # optionally followed by ":lrtb" to measure only edges that are visible in game (not covered by others).
 #
-# usage: python validate_layout.py preview.json screenshot.png cropX cropY element[:edges]...
+# The layout is in game-viewport pixels; when the screenshot shows the viewport scaled (an emulator window),
+# pass --display sx sy (screenshot px per viewport px). Errors are reported in screenshot px (what is measured)
+# and in design units per axis (screenshot px / (px-per-unit x display scale of that axis)).
+#
+# usage: python validate_layout.py layout.json screenshot.png cropX cropY [--display sx sy] element[:edges]...
 import json, sys
 from PIL import Image
 
@@ -16,9 +20,13 @@ PASS_PX = 3
 STEP = 40          # min RGB step (sum of channel diffs) that counts as an edge
 REACH = 8          # how far outside the predicted edge the walk may go
 
-data = json.load(open(sys.argv[1], encoding='utf-8'))
-shot = Image.open(sys.argv[2]).convert('RGB')
-ox, oy = int(sys.argv[3]), int(sys.argv[4])
+args = sys.argv[1:]
+sx = sy = 1.0
+if '--display' in args:
+    i = args.index('--display'); sx, sy = float(args[i + 1]), float(args[i + 2]); del args[i:i + 3]
+data = json.load(open(args[0], encoding='utf-8'))
+shot = Image.open(args[1]).convert('RGB')
+ox, oy = int(args[2]), int(args[3])
 px = shot.load()
 
 def step(a, b):
@@ -46,11 +54,12 @@ def pick(suffix):
     return hits[0]
 
 rows = []
-for arg in sys.argv[5:]:
+for arg in args[4:]:
     suffix, _, edges = arg.partition(':')
     edges = edges or 'lrtb'
     w = pick(suffix)
-    r = w['Px']; ppu = w['PixelsPerUnit']
+    v = w['Px']; ppu = w['PixelsPerUnit']
+    r = {'X': v['X'] * sx, 'Y': v['Y'] * sy, 'W': v['W'] * sx, 'H': v['H'] * sy}   # in screenshot px, relative to the crop
     xs = [round(r['X'] + r['W'] * f) for f in (0.25, 0.5, 0.75)]
     ys = [round(r['Y'] + r['H'] * f) for f in (0.25, 0.5, 0.75)]
     spec = {'l': ('left', r['X'], True, ys, -1, r['W']), 'r': ('right', r['X'] + r['W'], True, ys, +1, r['W']),
@@ -63,7 +72,7 @@ for arg in sys.argv[5:]:
         positions = [f[0] for f in found]
         best = max(found, key=lambda f: (positions.count(f[0]), f[1]))
         diff = best[0] - pred
-        rows.append((suffix, name, pred, best[0], best[1], diff, diff / ppu))
+        rows.append((suffix, name, pred, best[0], best[1], diff, diff / (ppu * (sx if horiz else sy))))
 
 print(f'{"element":<44}{"edge":<8}{"predicted":>10}{"measured":>10}{"step":>6}{"diff px":>9}{"diff units":>12}  result')
 fails = 0
@@ -74,4 +83,4 @@ for name, edge, pred, pos, strength, diff, units in rows:
     ok = abs(diff) <= PASS_PX
     if not ok: fails += 1
     print(f'{name[-43:]:<44}{edge:<8}{pred:>10.1f}{pos:>10}{strength:>6}{diff:>9.1f}{units:>12.2f}  {"PASS" if ok else "FAIL"}')
-print(f'{len(rows)} edges, {fails} outside +-{PASS_PX} px')
+print(f'{len(rows)} edges, {fails} outside +-{PASS_PX} px (display scale x {sx:.5f}, y {sy:.5f})')
