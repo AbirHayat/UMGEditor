@@ -50,5 +50,60 @@ foreach (var lazy in mtPkg.ExportsLazy)
 Check("all MatchTime exports parse (properties)", parsed == 1473, $"{parsed}/1473 {parseError}");
 Check("no native zlib loaded", CUE4Parse.Compression.ZlibHelper.Instance == null);
 
+// ---- feature 2: widget tree ----
+const string Tv = "/Game/Assets/ui/Data/Widget/TVGraphics/SwitchAssets_Original/";
+sw.Restart();
+var tree = WidgetTreeReader.Build(source, Tv + "MatchTime/MatchTime");
+Console.WriteLine($"MatchTime tree: {tree.WidgetCount} widgets, {tree.AnimationNames.Count} animations, {tree.Unattached.Count} unattached, {sw.ElapsedMilliseconds} ms");
+Check("MatchTime root is CanvasPanel_0", tree.Root?.Name == "CanvasPanel_0", tree.Root?.Name ?? "none");
+Check("no unattached widgets", tree.Unattached.Count == 0, string.Join(",", tree.Unattached.Select(n => n.Name)));
+
+var mask = tree.Find("Mask");
+string F(WidgetNode? n, string path) => n?.Slot?.Fields.FirstOrDefault(f => f.Path == path) is { } f ? $"{(f.Stored ? "stored" : "default")} {f.Value}" : "missing";
+Check("Mask slot is CanvasPanelSlot_29", mask?.Slot is { Name: "CanvasPanelSlot_29", ClassName: "CanvasPanelSlot" }, mask?.Slot?.Name ?? "none");
+Check("Mask Left/Top/Right/Bottom stored 129/7/114/64",
+    F(mask, "LayoutData.Offsets.Left") == "stored 129" && F(mask, "LayoutData.Offsets.Top") == "stored 7"
+    && F(mask, "LayoutData.Offsets.Right") == "stored 114" && F(mask, "LayoutData.Offsets.Bottom") == "stored 64",
+    $"{F(mask, "LayoutData.Offsets.Left")}, {F(mask, "LayoutData.Offsets.Top")}");
+Check("Mask anchors not stored (defaults)", F(mask, "LayoutData.Anchors.Minimum.X") == "default 0");
+Check("Mask is not animated, clips to bounds", mask is { IsAnimated: false, ClipsToBounds: true });
+var home = tree.Find("Text_Score_Home");
+Check("Text_Score_Home: Left/Top not stored, Right stored 54", F(home, "LayoutData.Offsets.Left") == "default 0" && F(home, "LayoutData.Offsets.Right") == "stored 54",
+    $"{F(home, "LayoutData.Offsets.Left")}, {F(home, "LayoutData.Offsets.Right")}");
+Check("Text_Score_Home is animated", home?.IsAnimated == true,
+    string.Join("; ", home?.Animations.Select(a => $"{a.Animation}: {string.Join(",", a.Tracks)}{(a.OnSlot ? " [slot]" : "")}") ?? []));
+var timer = tree.Find("Time_Timer");
+Check("Time_Timer embeds MatchTimeTimer", timer?.EmbeddedPackagePath == Tv + "MatchTime/MatchTimeTimer", timer?.EmbeddedPackagePath ?? "none");
+var embedded = WidgetTreeReader.Build(source, timer!.EmbeddedPackagePath!, readOnly: true);
+Check("embedded MatchTimeTimer tree loads read-only", embedded.Root != null && embedded.All().All(n => n.IsReadOnly), $"{embedded.WidgetCount} widgets");
+
+var graph = new UsageGraph(index);
+string Boards(string p) => string.Join(" + ", graph.ScoreboardsUsing(p).Select(b => b.Label));
+Check("MatchTime → offline scoreboard only", Boards(Tv + "MatchTime/MatchTime") == "Offline scoreboard", Boards(Tv + "MatchTime/MatchTime"));
+Check("MatchTimeBase → offline + online", Boards(Tv + "MatchTime/MatchTimeBase") == "Offline scoreboard + Online scoreboard", Boards(Tv + "MatchTime/MatchTimeBase"));
+Check("MatchTimeConnectionTimer → online only", Boards(Tv + "MatchTimeConnection/MatchTimeConnectionTimer") == "Online scoreboard", Boards(Tv + "MatchTimeConnection/MatchTimeConnectionTimer"));
+var uiText = "/Game/Assets/ui/library/uiText";
+Check("uiText is used by all four boards", graph.ScoreboardsUsing(uiText).Count == 4, Boards(uiText));
+
+var allWidgets = index.Where(e => e.Kind == UiAssetKind.Widget).ToList();
+var treeFailures = new List<string>();
+var rootless = new List<string>();
+sw.Restart();
+Parallel.ForEach(allWidgets, e =>
+{
+    try
+    {
+        var t = WidgetTreeReader.Build(source, GamePaths.ToPackagePath(e.Path));
+        if (t.Root == null)
+        {
+            var hasTree = source.Provider.LoadPackage(e.Path).GetExports().Any(o => o.ExportType == "WidgetTree");
+            lock (treeFailures) rootless.Add(e.Name + ": " + (hasTree ? "WidgetTree has no RootWidget" : "no WidgetTree export"));
+        }
+    }
+    catch (Exception ex) { lock (treeFailures) treeFailures.Add(e.Name + ": " + ex.Message); }
+});
+Console.WriteLine($"rootless widget blueprints: {rootless.Count}"); foreach (var r in rootless.Order()) Console.WriteLine("  " + r);
+Check($"all {allWidgets.Count} widget trees build", treeFailures.Count == 0, $"{treeFailures.Count} failed, {sw.ElapsedMilliseconds} ms; {string.Join(" | ", treeFailures.Take(3))}");
+
 Console.WriteLine(failures == 0 ? "ALL PASSED" : $"{failures} FAILED");
 return failures == 0 ? 0 : 1;

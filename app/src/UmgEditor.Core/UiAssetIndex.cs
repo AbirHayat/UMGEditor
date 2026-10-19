@@ -10,6 +10,7 @@ public enum UiAssetKind { Widget, Texture, Material, Font, Blueprint, Other, Err
 /// <param name="Group">Browsing group, e.g. "Widget/TVGraphics", "ui/library", "Android override"</param>
 /// <param name="MainClass">Class of the package's main export, or why it couldn't be read</param>
 /// <param name="Inspected">False for bulk image sets that are listed without opening the package</param>
+/// <param name="Imports">/Game package paths this package imports (empty when not inspected)</param>
 public sealed record UiAssetEntry(
     string Path,
     string Name,
@@ -22,12 +23,13 @@ public sealed record UiAssetEntry(
     long Size,
     bool IsPlatformOverride,
     bool IsBulkImageSet,
-    bool Inspected);
+    bool Inspected,
+    IReadOnlyList<string> Imports);
 
 /// <summary>Every UI package in the stock containers (anything under a /ui/ folder), classified by export classes.</summary>
 public static class UiAssetIndex
 {
-    private const int FormatVersion = 1;
+    private const int FormatVersion = 2;
 
     // 74k player thumbnails and emblems: game data images, not UMG; listed but not opened
     private static readonly string[] BulkImageFolders = ["/ui/Data/Thumbnail/", "/ui/Data/Symbol/"];
@@ -75,23 +77,28 @@ public static class UiAssetIndex
         var container = source.ContainerOf(path);
 
         if (isBulk)
-            return new UiAssetEntry(path, name, folder, group, container, UiAssetKind.Texture, "(not inspected)", 0, file.Size, isOverride, true, false);
+            return new UiAssetEntry(path, name, folder, group, container, UiAssetKind.Texture, "(not inspected)", 0, file.Size, isOverride, true, false, []);
 
         try
         {
             // header only: export classes are resolved from the export map, properties are not parsed
             if (source.Provider.LoadPackage(file) is not IoPackage pkg)
-                return new UiAssetEntry(path, name, folder, group, container, UiAssetKind.Other, "(not an IoStore package)", 0, file.Size, isOverride, false, true);
+                return new UiAssetEntry(path, name, folder, group, container, UiAssetKind.Other, "(not an IoStore package)", 0, file.Size, isOverride, false, true, []);
 
             var classes = new string[pkg.ExportMap.Length];
             for (int i = 0; i < classes.Length; i++)
                 classes[i] = pkg.ResolveObjectIndex(pkg.ExportMap[i].ClassIndex)?.Name.Text ?? "?";
             var (kind, main) = Classify(classes);
-            return new UiAssetEntry(path, name, folder, group, container, kind, main, classes.Length, file.Size, isOverride, false, true);
+            var imports = pkg.ImportMap.Where(i => !i.IsNull)
+                .Select(i => pkg.ResolveObjectIndex(i)?.GetPathName())
+                .Where(p => p != null && p.StartsWith("/Game/", StringComparison.OrdinalIgnoreCase))
+                .Select(p => GamePaths.PackageOf(p!))
+                .Distinct(StringComparer.OrdinalIgnoreCase).ToList();
+            return new UiAssetEntry(path, name, folder, group, container, kind, main, classes.Length, file.Size, isOverride, false, true, imports);
         }
         catch (Exception e)
         {
-            return new UiAssetEntry(path, name, folder, group, container, UiAssetKind.Error, e.GetType().Name + ": " + e.Message, 0, file.Size, isOverride, false, true);
+            return new UiAssetEntry(path, name, folder, group, container, UiAssetKind.Error, e.GetType().Name + ": " + e.Message, 0, file.Size, isOverride, false, true, []);
         }
     }
 

@@ -58,7 +58,95 @@ public sealed class MainViewModel : ObservableObject
     public bool IncludeBulkImages { get => _includeBulkImages; set { if (Set(ref _includeBulkImages, value)) { RefreshGroups(); ApplyFilter(); } } }
 
     private UiAssetEntry? _selected;
-    public UiAssetEntry? Selected { get => _selected; set => Set(ref _selected, value); }
+    public UiAssetEntry? Selected
+    {
+        get => _selected;
+        set { if (Set(ref _selected, value)) _ = OpenTreeAsync(value); }
+    }
+
+    // ---- feature 2: widget tree of the selected package ----
+
+    private UsageGraph? _usage;
+    private readonly Dictionary<string, Task<WidgetPackageTree>> _trees = new(StringComparer.OrdinalIgnoreCase);
+
+    private IReadOnlyList<WidgetNodeViewModel> _treeRoots = [];
+    public IReadOnlyList<WidgetNodeViewModel> TreeRoots { get => _treeRoots; private set => Set(ref _treeRoots, value); }
+
+    private string _treeStatus = "Select a widget package to see its hierarchy.";
+    public string TreeStatus { get => _treeStatus; private set => Set(ref _treeStatus, value); }
+
+    private string _packageBoards = "";
+    /// <summary>Scoreboards that show the opened package (directly or through other widgets).</summary>
+    public string PackageBoards { get => _packageBoards; private set => Set(ref _packageBoards, value); }
+
+    private WidgetNodeViewModel? _selectedNode;
+    public WidgetNodeViewModel? SelectedNode
+    {
+        get => _selectedNode;
+        set
+        {
+            if (!Set(ref _selectedNode, value)) return;
+            OnPropertyChanged(nameof(NodeBoards));
+            OnPropertyChanged(nameof(NodeSource));
+        }
+    }
+
+    /// <summary>Scoreboards affected by the selected row's package (an embedded row reports its own package).</summary>
+    public string NodeBoards => SelectedNode?.Node is { } n ? BoardsText(n.PackagePath) : "";
+
+    public string NodeSource => SelectedNode?.Node is not { } n ? "" :
+        n.IsReadOnly ? $"Embedded from {GamePaths.ShortName(n.PackagePath)} — read-only here; open that package to edit it." : $"In {GamePaths.ShortName(n.PackagePath)} (export #{n.ExportIndex})";
+
+    private string BoardsText(string packagePath)
+    {
+        if (_usage == null) return "";
+        var boards = _usage.ScoreboardsUsing(packagePath);
+        var direct = _usage.DirectUsers(packagePath).Count;
+        var boardText = boards.Count == 0 ? "no scoreboard" : string.Join(", ", boards.Select(b => b.Label));
+        return $"{boardText}  ·  used directly by {direct} package{(direct == 1 ? "" : "s")}";
+    }
+
+    private Task<WidgetPackageTree> LoadTree(string packagePath, bool readOnly)
+    {
+        lock (_trees)
+        {
+            var key = (readOnly ? "ro:" : "rw:") + packagePath;
+            if (!_trees.TryGetValue(key, out var task))
+                _trees[key] = task = Task.Run(() => WidgetTreeReader.Build(_source!, packagePath, readOnly));
+            return task;
+        }
+    }
+
+    private async Task OpenTreeAsync(UiAssetEntry? entry)
+    {
+        SelectedNode = null;
+        TreeRoots = [];
+        PackageBoards = "";
+        if (entry == null || _source == null) { TreeStatus = "Select a widget package to see its hierarchy."; return; }
+        var packagePath = GamePaths.ToPackagePath(entry.Path);
+        PackageBoards = BoardsText(packagePath);
+        if (entry.Kind != UiAssetKind.Widget) { TreeStatus = $"{entry.Name} is a {entry.Kind}, not a widget blueprint."; return; }
+
+        TreeStatus = $"Loading {entry.Name}…";
+        try
+        {
+            var tree = await LoadTree(packagePath, readOnly: false);
+            if (Selected != entry) return; // the user moved on
+            Func<string, Task<WidgetPackageTree>> loadEmbedded = p => LoadTree(p, readOnly: true);
+            var roots = new List<WidgetNodeViewModel>();
+            if (tree.Root != null) roots.Add(new WidgetNodeViewModel(tree.Root, loadEmbedded) { IsExpanded = true });
+            roots.AddRange(tree.Unattached.Select(n => new WidgetNodeViewModel(n, loadEmbedded)));
+            TreeRoots = roots;
+            var animated = tree.All().Count(n => n.IsAnimated);
+            TreeStatus = tree.Root == null
+                ? $"{entry.Name} has no layout of its own (empty WidgetTree): a base/template class filled in by subclasses or code."
+                : $"{tree.WidgetCount} widgets · {animated} animated · {tree.AnimationNames.Count} animations";
+        }
+        catch (Exception e)
+        {
+            TreeStatus = "Failed to read widget tree: " + e.Message;
+        }
+    }
 
     public async Task LoadAsync(bool rebuild = false)
     {
@@ -70,6 +158,7 @@ public sealed class MainViewModel : ObservableObject
             var progress = new Progress<(int Done, int Total)>(p => Status = $"Indexing UI packages… {p.Done:N0} / {p.Total:N0}");
             var source = _source;
             _all = await Task.Run(() => rebuild ? RebuildCache(source, progress) : UiAssetIndex.LoadOrBuild(source, progress));
+            _usage = new UsageGraph(_all);
             RefreshGroups();
             ApplyFilter();
         }
