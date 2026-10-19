@@ -233,6 +233,15 @@ public static class WidgetTreeReader
         return result;
     }
 
+    /// <summary>Every stored property of one export as dotted path → value text (same naming as SlotField.Path).</summary>
+    public static Dictionary<string, string> StoredValues(UObject export)
+    {
+        var props = (JObject?) JObject.Parse(JsonConvert.SerializeObject(export))["Properties"] ?? [];
+        var result = new Dictionary<string, string>();
+        foreach (var kv in Flatten(props)) result.TryAdd(kv.Key, kv.Value);
+        return result;
+    }
+
     /// <summary>Leaf values with dotted paths, e.g. LayoutData.Offsets.Left = 129.</summary>
     private static IEnumerable<KeyValuePair<string, string>> Flatten(JToken token, string prefix = "")
     {

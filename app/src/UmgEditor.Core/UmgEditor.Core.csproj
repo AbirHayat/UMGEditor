@@ -14,6 +14,11 @@
   </ItemGroup>
 
   <ItemGroup>
+    <!-- test seams (PatchSession.BeforeVerify) -->
+    <InternalsVisibleTo Include="UmgEditor.Tests" />
+  </ItemGroup>
+
+  <ItemGroup>
     <!-- managed decoders only; the CUE4Parse-Natives CMake build is skipped -->
     <ProjectReference Include="..\..\..\tools\CUE4Parse\CUE4Parse\CUE4Parse.csproj" AdditionalProperties="CUE4PARSE_SKIP_NATIVE=true" />
   </ItemGroup>

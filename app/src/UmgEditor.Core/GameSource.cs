@@ -2,6 +2,9 @@ using System.Security.Cryptography;
 using System.Text;
 using CUE4Parse.Encryption.Aes;
 using CUE4Parse.FileProvider;
+using CUE4Parse.UE4.Assets;
+using CUE4Parse.UE4.IO.Objects;
+using CUE4Parse.UE4.Readers;
 using CUE4Parse.UE4.Objects.Core.Misc;
 using CUE4Parse.UE4.Versions;
 using CUE4Parse.UE4.VirtualFileSystem;
@@ -68,6 +71,35 @@ public sealed class GameSource : IDisposable
 
     /// <summary>Loads a package by /Game path (or object path), resolving letter case like the engine.</summary>
     public CUE4Parse.UE4.Assets.IPackage LoadPackage(string packageOrObjectPath) => Provider.LoadPackage(ResolveFileKey(packageOrObjectPath));
+
+    /// <summary>The raw package chunk the provider serves for this package (for IoStore: the ExportBundleData chunk).</summary>
+    public (string FileKey, byte[] Bytes) ReadPackageBytes(string packagePath)
+    {
+        var key = ResolveFileKey(packagePath);
+        if (!Provider.TrySaveAsset(key, out var bytes)) throw new FileNotFoundException($"package not found in the stock containers: {packagePath}", key);
+        return (key, bytes);
+    }
+
+    /// <summary>Parses package bytes from anywhere (e.g. an edited copy) as if they were this IoStore file.</summary>
+    public IoPackage ParsePackage(string fileKey, byte[] bytes)
+    {
+        if (!Provider.Files.TryGetValue(fileKey, out var file) || file is not FIoStoreEntry entry)
+            throw new FileNotFoundException($"not an IoStore package: {fileKey}");
+        return new IoPackage(new FByteArchive(fileKey, bytes, Provider.Versions), entry.IoStoreReader.ContainerHeader, (FArchive?) null, null, Provider);
+    }
+
+    /// <summary>The 12-byte IoStore chunk id as 24 hex digits (on-disk order), the file name `retoc pack-raw` expects.</summary>
+    public string ChunkIdHex(string fileKey)
+    {
+        if (!Provider.Files.TryGetValue(fileKey, out var file) || file is not FIoStoreEntry entry) return "";
+        var id = entry.ChunkId;
+        var b = new byte[12];
+        System.Buffers.Binary.BinaryPrimitives.WriteUInt64LittleEndian(b, id.ChunkId);
+        System.Buffers.Binary.BinaryPrimitives.WriteUInt16LittleEndian(b.AsSpan(8), id._chunkIndex);
+        b[10] = id._padding;
+        b[11] = id.ChunkType;
+        return Convert.ToHexString(b).ToLowerInvariant();
+    }
 
     public string ContainerOf(string path) =>
         Provider.Files.TryGetValue(path, out var file) && file is VfsEntry entry ? entry.Vfs.Name : "?";

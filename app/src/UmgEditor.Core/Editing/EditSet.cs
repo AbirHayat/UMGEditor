@@ -30,6 +30,10 @@ public sealed class EditSet
 
     public bool TryGet(FieldKey key, out double value) => _values.TryGetValue(key, out value);
 
+    /// <summary>Same fields with the same values (dirty state compares the current set with the saved one).</summary>
+    public bool ContentEquals(EditSet other) =>
+        ReferenceEquals(this, other) || Count == other.Count && _values.All(kv => other.TryGet(kv.Key, out var v) && v.Equals(kv.Value));
+
     /// <summary>The value layout should use: edited if present, otherwise the stored/default value from the file.</summary>
     public double Effective(WidgetNode node, string path)
     {
