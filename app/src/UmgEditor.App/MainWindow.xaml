@@ -3,8 +3,14 @@
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
         xmlns:vm="clr-namespace:UmgEditor.App.ViewModels"
         xmlns:pv="clr-namespace:UmgEditor.App.Preview"
-        Title="eFootball Mobile UMG Editor" Height="860" Width="1500" MinWidth="1100" MinHeight="560"
+        Title="{Binding Title}" Height="860" Width="1500" MinWidth="1100" MinHeight="560"
         FontFamily="Segoe UI" FontSize="13">
+    <Window.InputBindings>
+        <KeyBinding Modifiers="Ctrl" Key="Z" Command="{Binding UndoCommand}" />
+        <KeyBinding Modifiers="Ctrl" Key="Y" Command="{Binding RedoCommand}" />
+        <KeyBinding Modifiers="Ctrl+Shift" Key="Z" Command="{Binding RedoCommand}" />
+        <KeyBinding Modifiers="Ctrl" Key="S" Command="{Binding SaveCommand}" />
+    </Window.InputBindings>
     <Window.Resources>
         <BooleanToVisibilityConverter x:Key="BoolToVis" />
         <vm:NullToVisibilityConverter x:Key="NullToVis" />
@@ -34,6 +40,26 @@
             <Setter Property="Foreground" Value="White" />
             <Setter Property="FontWeight" Value="SemiBold" />
         </Style>
+        <!-- an EditWarning, coloured by severity -->
+        <DataTemplate x:Key="WarningTemplate">
+            <Border x:Name="W" Margin="0,2" Padding="6,4" BorderThickness="3,0,0,0" BorderBrush="#9CA3AF" Background="#F9FAFB">
+                <TextBlock TextWrapping="Wrap">
+                    <Run x:Name="Sev" Text="{Binding Severity, Mode=OneWay}" FontWeight="SemiBold" Foreground="#4B5563" /><Run Text="  " /><Run Text="{Binding Message, Mode=OneWay}" />
+                </TextBlock>
+            </Border>
+            <DataTemplate.Triggers>
+                <DataTrigger Binding="{Binding Severity}" Value="Danger">
+                    <Setter TargetName="W" Property="BorderBrush" Value="#DC2626" />
+                    <Setter TargetName="W" Property="Background" Value="#FEF2F2" />
+                    <Setter TargetName="Sev" Property="Foreground" Value="#B91C1C" />
+                </DataTrigger>
+                <DataTrigger Binding="{Binding Severity}" Value="Warning">
+                    <Setter TargetName="W" Property="BorderBrush" Value="#D97706" />
+                    <Setter TargetName="W" Property="Background" Value="#FFFBEB" />
+                    <Setter TargetName="Sev" Property="Foreground" Value="#B45309" />
+                </DataTrigger>
+            </DataTemplate.Triggers>
+        </DataTemplate>
     </Window.Resources>
 
     <DockPanel>
@@ -42,11 +68,20 @@
             <DockPanel>
                 <Button DockPanel.Dock="Right" Content="Rebuild index" Padding="10,2" Command="{Binding RebuildCommand}" />
                 <StackPanel DockPanel.Dock="Right" Orientation="Horizontal" Margin="0,0,16,0">
+                    <Button x:Name="UndoButton" Content="Undo" Padding="8,1" Command="{Binding UndoCommand}" ToolTip="Ctrl+Z: undo the last edit in the project (any package)" />
+                    <Button x:Name="RedoButton" Content="Redo" Padding="8,1" Margin="4,0,0,0" Command="{Binding RedoCommand}" ToolTip="Ctrl+Y" />
+                    <Button x:Name="SaveButton" Content="Save" Padding="10,1" Margin="4,0,0,0" FontWeight="SemiBold" Command="{Binding SaveCommand}"
+                            ToolTip="Ctrl+S: save every package with unsaved edits (rebuilt from the stock copy, checked, then written under work\edits)" />
+                </StackPanel>
+                <StackPanel DockPanel.Dock="Right" Orientation="Horizontal" Margin="0,0,16,0">
                     <TextBlock Text="Project " Foreground="#666" VerticalAlignment="Center" />
                     <ComboBox x:Name="ProjectPicker" Width="140" ItemsSource="{Binding Projects}" SelectedItem="{Binding SelectedProject}"
                               ToolTip="Edit set: default = work\edits, a named project = work\edits\NAME (e.g. the canaries C1, C6)" />
+                    <TextBox x:Name="NewProjectBox" Width="90" Margin="6,0,0,0" Padding="2,1" Text="{Binding NewProjectName, UpdateSourceTrigger=PropertyChanged}"
+                             ToolTip="Name of a new project (letters, digits, _ . -); it is created empty under work\edits\NAME" />
+                    <Button x:Name="CreateProjectButton" Content="New" Padding="8,1" Margin="4,0,0,0" Command="{Binding CreateProjectCommand}" />
                     <TextBlock Margin="8,0,0,0" VerticalAlignment="Center" Foreground="#666" Text="{Binding ProjectInfo}"
-                               MaxWidth="420" TextTrimming="CharacterEllipsis" ToolTip="{Binding ProjectInfo}" />
+                               MaxWidth="360" TextTrimming="CharacterEllipsis" ToolTip="{Binding ProjectInfo}" />
                 </StackPanel>
                 <TextBlock VerticalAlignment="Center">
                     <Run Foreground="#666" Text="Stock Paks (read-only): " /><Run Text="{Binding PaksDir, Mode=OneWay}" />
@@ -89,7 +124,7 @@
                     <CheckBox Grid.Column="2" Margin="8,0,0,0" VerticalAlignment="Center" Content="Thumbs"
                               IsChecked="{Binding IncludeBulkImages}" ToolTip="Include ~74k player thumbnails and emblems (listed, not inspected)" />
                 </Grid>
-                <ListView ItemsSource="{Binding Items}" SelectedItem="{Binding Selected}"
+                <ListView x:Name="PackageList" ItemsSource="{Binding Items}" SelectedItem="{Binding Selected}"
                           VirtualizingPanel.IsVirtualizing="True" VirtualizingPanel.VirtualizationMode="Recycling">
                     <ListView.ItemContainerStyle>
                         <Style TargetType="ListViewItem">
@@ -184,6 +219,8 @@
                                           ToolTip="Orange dashed: geometry from an unmodelled panel or an estimated auto-size" />
                                 <CheckBox Margin="0,0,12,0" Content="Moved by animation" Foreground="#B91C1C" IsChecked="{Binding HighlightAnimated}"
                                           ToolTip="Red dotted: a margin or 2D-transform animation moves this at runtime. The preview shows the stored pose." />
+                                <CheckBox Margin="0,0,12,0" Content="Edited" Foreground="#1D4ED8" IsChecked="{Binding HighlightEdited}"
+                                          ToolTip="Blue dashed: laid out with an edited value from the project" />
                                 <CheckBox Margin="0,0,12,0" Content="Clip rects" IsChecked="{Binding ShowClipRects}" />
                                 <CheckBox Content="Hidden widgets" IsChecked="{Binding ShowHidden}" />
                             </WrapPanel>
@@ -271,22 +308,27 @@
                         <!-- slot fields -->
                         <TextBlock Style="{StaticResource Section}" Text="{Binding SlotTitle}" />
                         <TextBlock Foreground="#666" FontSize="11" TextWrapping="Wrap"
-                                   Text="Black = stored (editable from 6c). Blue = edited in this project. Grey = can't be edited; the reason is below and in the tooltip." />
+                                   Text="Black = stored: type a value and press Enter (Esc reverts). Blue = edited in this project. Grey = can't be edited; the reason is below and in the tooltip." />
                         <ItemsControl x:Name="FieldList" ItemsSource="{Binding Fields}" Margin="0,4,0,0">
                             <ItemsControl.ItemTemplate>
                                 <DataTemplate>
-                                    <Grid Margin="0,1" ToolTip="{Binding Reason}" Background="Transparent">
+                                    <Grid Margin="0,1" ToolTip="{Binding ToolTip}" Background="Transparent">
                                         <Grid.ColumnDefinitions>
                                             <ColumnDefinition Width="*" />
                                             <ColumnDefinition Width="90" />
                                             <ColumnDefinition Width="56" />
                                         </Grid.ColumnDefinitions>
-                                        <TextBlock x:Name="P" Text="{Binding ShortPath}" TextTrimming="CharacterEllipsis" />
-                                        <TextBlock x:Name="V" Grid.Column="1" Text="{Binding DisplayValue}" TextAlignment="Right" FontWeight="SemiBold" />
+                                        <TextBlock x:Name="P" Text="{Binding ShortPath}" TextTrimming="CharacterEllipsis" VerticalAlignment="Center" />
+                                        <TextBlock x:Name="V" Grid.Column="1" Text="{Binding DisplayValue}" TextAlignment="Right" FontWeight="SemiBold" Visibility="Collapsed" />
+                                        <TextBox x:Name="E" Grid.Column="1" Text="{Binding DisplayValue, Mode=OneWay}" TextAlignment="Right" FontWeight="SemiBold"
+                                                 Padding="2,0" IsUndoEnabled="False" PreviewKeyDown="OnFieldKeyDown"
+                                                 AutomationProperties.Name="{Binding ShortPath}" AutomationProperties.AutomationId="{Binding ShortPath, StringFormat='Field_{0}'}" />
                                         <TextBlock x:Name="S" Grid.Column="2" Text="{Binding State}" Foreground="#15803D" FontSize="11" TextAlignment="Right" VerticalAlignment="Center" />
                                     </Grid>
                                     <DataTemplate.Triggers>
                                         <DataTrigger Binding="{Binding Editable}" Value="False">
+                                            <Setter TargetName="E" Property="Visibility" Value="Collapsed" />
+                                            <Setter TargetName="V" Property="Visibility" Value="Visible" />
                                             <Setter TargetName="P" Property="Foreground" Value="#A0A0A0" />
                                             <Setter TargetName="V" Property="Foreground" Value="#A0A0A0" />
                                             <Setter TargetName="V" Property="FontWeight" Value="Normal" />
@@ -295,6 +337,8 @@
                                         </DataTrigger>
                                         <DataTrigger Binding="{Binding IsEdited}" Value="True">
                                             <Setter TargetName="V" Property="Foreground" Value="#1D4ED8" />
+                                            <Setter TargetName="E" Property="Foreground" Value="#1D4ED8" />
+                                            <Setter TargetName="E" Property="Background" Value="#EFF6FF" />
                                             <Setter TargetName="S" Property="Foreground" Value="#1D4ED8" />
                                         </DataTrigger>
                                     </DataTemplate.Triggers>
@@ -311,32 +355,31 @@
                             </ItemsControl.ItemTemplate>
                         </ItemsControl>
 
+                        <!-- 6c: result of the last edit and its warnings -->
+                        <StackPanel x:Name="EditResult" DataContext="{Binding DataContext, RelativeSource={RelativeSource AncestorType=Window}}"
+                                    Visibility="{Binding EditMessage, Converter={StaticResource NullToVis}}" Margin="0,8,0,0">
+                            <Border x:Name="EditMessageBox" Padding="6,4" BorderThickness="1" CornerRadius="3">
+                                <Border.Style>
+                                    <Style TargetType="Border">
+                                        <Setter Property="Background" Value="#EFF6FF" />
+                                        <Setter Property="BorderBrush" Value="#BFDBFE" />
+                                        <Style.Triggers>
+                                            <DataTrigger Binding="{Binding EditRefused}" Value="True">
+                                                <Setter Property="Background" Value="#FEF2F2" />
+                                                <Setter Property="BorderBrush" Value="#FCA5A5" />
+                                            </DataTrigger>
+                                        </Style.Triggers>
+                                    </Style>
+                                </Border.Style>
+                                <TextBlock x:Name="EditMessageText" TextWrapping="Wrap" Text="{Binding EditMessage}" />
+                            </Border>
+                            <ItemsControl x:Name="EditWarningList" ItemsSource="{Binding LastEditWarnings}" ItemTemplate="{StaticResource WarningTemplate}" />
+                        </StackPanel>
+
                         <!-- selection warnings -->
                         <TextBlock Style="{StaticResource Section}" Text="Warnings" />
                         <TextBlock Foreground="#888" Text="No warnings." Visibility="{Binding HasWarnings, Converter={StaticResource InverseBoolToVis}}" />
-                        <ItemsControl x:Name="WarningList" ItemsSource="{Binding Warnings}">
-                            <ItemsControl.ItemTemplate>
-                                <DataTemplate>
-                                    <Border x:Name="W" Margin="0,2" Padding="6,4" BorderThickness="3,0,0,0" BorderBrush="#9CA3AF" Background="#F9FAFB">
-                                        <TextBlock TextWrapping="Wrap">
-                                            <Run x:Name="Sev" Text="{Binding Severity, Mode=OneWay}" FontWeight="SemiBold" Foreground="#4B5563" /><Run Text="  " /><Run Text="{Binding Message, Mode=OneWay}" />
-                                        </TextBlock>
-                                    </Border>
-                                    <DataTemplate.Triggers>
-                                        <DataTrigger Binding="{Binding Severity}" Value="Danger">
-                                            <Setter TargetName="W" Property="BorderBrush" Value="#DC2626" />
-                                            <Setter TargetName="W" Property="Background" Value="#FEF2F2" />
-                                            <Setter TargetName="Sev" Property="Foreground" Value="#B91C1C" />
-                                        </DataTrigger>
-                                        <DataTrigger Binding="{Binding Severity}" Value="Warning">
-                                            <Setter TargetName="W" Property="BorderBrush" Value="#D97706" />
-                                            <Setter TargetName="W" Property="Background" Value="#FFFBEB" />
-                                            <Setter TargetName="Sev" Property="Foreground" Value="#B45309" />
-                                        </DataTrigger>
-                                    </DataTemplate.Triggers>
-                                </DataTemplate>
-                            </ItemsControl.ItemTemplate>
-                        </ItemsControl>
+                        <ItemsControl x:Name="WarningList" ItemsSource="{Binding Warnings}" ItemTemplate="{StaticResource WarningTemplate}" />
                     </StackPanel>
 
                     <!-- layout (from the preview) -->

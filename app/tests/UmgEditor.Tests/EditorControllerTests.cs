@@ -191,6 +191,111 @@ public class EditorControllerTests
         Assert.IsTrue(c.AnyDirty);
     }
 
+    // ---- 6c: typed values, new projects, discard, save report ----
+
+    [TestMethod]
+    public void ParseNumber_InvariantDotDecimal_RefusesTheRest()
+    {
+        Assert.AreEqual(146.5, EditorController.ParseNumber(" 146.5 ").Value);
+        Assert.AreEqual(-20, EditorController.ParseNumber("-20").Value);
+        Assert.AreEqual(100, EditorController.ParseNumber("1e2").Value);
+        foreach (var (text, why) in new[] { ("", "Type a number"), ("1,5", "decimal separator"), ("abc", "not a number"), ("NaN", "not a number"), ("Infinity", "not a number") })
+            StringAssert.Contains(EditorController.ParseNumber(text).Refusal, why, text);
+    }
+
+    [TestMethod]
+    public void SetValue_TypedValue_AsksFirst_RefusesBadInputAndGreyFields_SkipsNoOps()
+    {
+        var c = Controller();
+        var (tree, plate) = Find(Base, "Img_Plate");
+        StringAssert.Contains(c.SetValue(tree, plate, Right, "abc").Refusal, "not a number");
+        var first = c.SetValue(tree, plate, Right, "100");
+        Assert.IsTrue(first.NeedsConfirmation);
+        StringAssert.Contains(first.ConfirmationText, "MatchTimeConnectionGoal");
+        Assert.IsTrue(c.SetValue(tree, plate, Right, "100", confirmed: true).Applied);
+        Assert.AreEqual(100.0, c.Inspect(tree, plate).Fields.Single(f => f.Path == Right).EditedValue);
+        StringAssert.Contains(c.Inspect(tree, plate).Fields.Single(f => f.Path == Right).ToolTip, "Stock value");
+
+        StringAssert.Contains(c.SetValue(tree, plate, "LayoutData.Offsets.Left", "5").Refusal, "not stored");
+        StringAssert.Contains(c.SetValue(tree, plate, "bAutoSize", "1").Refusal, "boolean");
+        var again = c.SetValue(tree, plate, Right, "100.0");
+        Assert.IsFalse(again.Applied || again.NeedsConfirmation || again.Refusal != null, "the same value again is a no-op");
+        Assert.IsTrue(c.Undo());
+        Assert.IsFalse(c.CanUndo, "the no-op added no undo step");
+
+        // a fresh package: typing its current value doesn't trigger the first-edit prompt
+        var (board, box) = Find(MatchTime, "Img_MatchTimeBg_1");
+        var stockLeft = box.Slot!.Fields.Single(f => f.Path == "LayoutData.Offsets.Left").Value;
+        Assert.IsFalse(c.SetValue(board, box, "LayoutData.Offsets.Left", stockLeft).NeedsConfirmation);
+    }
+
+    [TestMethod]
+    public void CreateProject_EmptySetUnderEdits_SwitchesToIt_RefusesDuplicatesAndDirty()
+    {
+        var c = Controller(EditorController.DefaultProject);
+        Assert.IsNull(c.CreateProject(" " + _project + " "));
+        Assert.AreEqual(_project, c.Project);
+        Assert.IsTrue(Directory.Exists(c.ProjectFolder) && c.ProjectFolder.EndsWith(@"edits\" + _project));
+        Assert.AreEqual(0, Directory.EnumerateFileSystemEntries(c.ProjectFolder).Count());
+        CollectionAssert.Contains(EditorController.Projects(Source.Config).ToList(), _project);
+        StringAssert.Contains(c.CreateProject(_project.ToUpperInvariant()), "already exists");
+        StringAssert.Contains(c.CreateProject("Assets"), "reserved");
+        StringAssert.Contains(c.CreateProject("a/b"), "letters, digits");
+
+        Confirmed(c, Base, "Img_Plate", (n, e) => SlotEditor.SetField(n, e, Right, 100));
+        StringAssert.Contains(c.CreateProject(_project + "x"), "unsaved edits in MatchTimeBase");
+        Assert.IsFalse(Directory.Exists(Path.Combine(Edits.Root, _project + "x")));
+    }
+
+    [TestMethod]
+    public void DiscardUnsaved_BackToTheLastSave_AndUndoBringsTheEditsBack()
+    {
+        var c = Controller();
+        Confirmed(c, Base, "Img_Plate", (n, e) => SlotEditor.SetField(n, e, Right, 100));
+        Assert.IsTrue(c.SaveAll().Single().Result.Saved);
+        Assert.IsFalse(c.DiscardUnsaved(), "nothing unsaved");
+        Confirmed(c, Base, "Img_Plate", (n, e) => SlotEditor.SetField(n, e, Right, 110));
+        Confirmed(c, MatchTime, "Img_MatchTimeBg_1", (n, e) => SlotEditor.Move(n, e, 20, 0));
+        Assert.IsTrue(c.IsDirty(Base) && c.IsDirty(MatchTime));
+        Assert.AreEqual("MatchTimeBase, MatchTime", c.UnsavedPackagesText);
+
+        Assert.IsTrue(c.DiscardUnsaved(Base));
+        Assert.IsFalse(c.IsDirty(Base));
+        Assert.IsTrue(c.IsDirty(MatchTime), "only that package");
+        var (tree, plate) = Find(Base, "Img_Plate");
+        Assert.AreEqual(100.0, c.Inspect(tree, plate).Fields.Single(f => f.Path == Right).EditedValue, "the saved value, not stock");
+        Assert.AreEqual(Base, c.NextUndo);
+        Assert.IsTrue(c.Undo());
+        Assert.AreEqual(110.0, c.Inspect(tree, plate).Fields.Single(f => f.Path == Right).EditedValue);
+
+        Assert.IsTrue(c.DiscardUnsaved());
+        Assert.IsFalse(c.AnyDirty);
+        Assert.IsFalse(c.Edits.Values.Any(kv => kv.Key.Package == MatchTime), "MatchTime had no save: back to stock");
+    }
+
+    [TestMethod]
+    public void SaveReport_NamesEachPackage_AndEveryRefusalRule()
+    {
+        var c = Controller();
+        Confirmed(c, Base, "Img_Plate", (n, e) => SlotEditor.SetField(n, e, Right, 100));
+        Confirmed(c, MatchTime, "Img_MatchTimeBg_1", (n, e) => SlotEditor.Move(n, e, 20, 0));
+        c.Session(MatchTime).BeforeVerify = b => [.. b, 0];
+        var results = c.SaveAll();
+        var report = EditorController.SaveReport(results);
+        Console.WriteLine(report);
+        StringAssert.StartsWith(report, "1 of 2 packages were refused");
+        StringAssert.Contains(report, "MatchTimeBase: saved 1 value");
+        StringAssert.Contains(report, "MatchTime: REFUSED");
+        StringAssert.Contains(report, "[SizeChanged]");
+        Assert.IsTrue(c.IsDirty(MatchTime) && !c.IsDirty(Base));
+        Assert.AreEqual("Nothing to save.", EditorController.SaveReport([]));
+
+        c.Session(MatchTime).BeforeVerify = null;
+        Assert.AreEqual(0, c.SavePackage(Base).Count, "nothing unsaved there");
+        Assert.IsTrue(c.SavePackage(MatchTime).Single().Result.Saved);
+        Assert.IsFalse(c.AnyDirty);
+    }
+
     [TestMethod]
     public void BuildMod_RefusedWhileDirty_ThenPacksEverySavedPackage()
     {

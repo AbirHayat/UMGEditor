@@ -120,19 +120,20 @@ public sealed class PreviewViewModel : ObservableObject
     public string Status { get => _status; private set => Set(ref _status, value); }
 
     // ---- overlay toggles ----
-    private bool _outlines, _clipRects, _assumed = true, _hidden, _animated;
+    private bool _outlines, _clipRects, _assumed = true, _hidden, _animated, _edited = true;
     public bool ShowOutlines { get => _outlines; set { if (Set(ref _outlines, value)) OnPropertyChanged(nameof(Options)); } }
     public bool ShowClipRects { get => _clipRects; set { if (Set(ref _clipRects, value)) OnPropertyChanged(nameof(Options)); } }
     public bool HighlightAssumed { get => _assumed; set { if (Set(ref _assumed, value)) OnPropertyChanged(nameof(Options)); } }
     public bool ShowHidden { get => _hidden; set { if (Set(ref _hidden, value)) OnPropertyChanged(nameof(Options)); } }
     public bool HighlightAnimated { get => _animated; set { if (Set(ref _animated, value)) OnPropertyChanged(nameof(Options)); } }
+    public bool HighlightEdited { get => _edited; set { if (Set(ref _edited, value)) OnPropertyChanged(nameof(Options)); } }
 
     private WidgetNode? _selected;
     public WidgetNode? Selected { get => _selected; set { if (Set(ref _selected, value)) { OnPropertyChanged(nameof(Options)); OnPropertyChanged(nameof(SelectedBox)); } } }
 
     public LayoutBox? SelectedBox => Selected == null ? null : Layout?.All().FirstOrDefault(b => ReferenceEquals(b.Node, Selected));
 
-    public PreviewOptions Options => new(_outlines, _clipRects, _assumed, _hidden, _animated, _selected);
+    public PreviewOptions Options => new(_outlines, _clipRects, _assumed, _hidden, _animated, _edited, _selected);
 
     // ---- screenshot underlay ----
     private BitmapSource? _underlay;

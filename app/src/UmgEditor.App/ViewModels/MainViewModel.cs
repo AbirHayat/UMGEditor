@@ -1,4 +1,6 @@
 using System.IO;
+using System.Windows;
+using System.Windows.Input;
 using System.Windows.Threading;
 using UmgEditor.App.Preview;
 using UmgEditor.Core;
@@ -25,6 +27,10 @@ public sealed class MainViewModel : ObservableObject
         _searchDelay = new DispatcherTimer { Interval = TimeSpan.FromMilliseconds(200) };
         _searchDelay.Tick += (_, _) => { _searchDelay.Stop(); ApplyFilter(); };
         RebuildCommand = new RelayCommand(() => _ = LoadAsync(rebuild: true), () => !IsBusy);
+        UndoCommand = new RelayCommand(Undo, () => _controller?.CanUndo == true);
+        RedoCommand = new RelayCommand(Redo, () => _controller?.CanRedo == true);
+        SaveCommand = new RelayCommand(Save, () => _controller?.AnyDirty == true);
+        CreateProjectCommand = new RelayCommand(CreateProject, () => _controller != null && NewProjectName.Trim().Length > 0);
         Preview = new PreviewViewModel(config.WorkDir);
     }
 
@@ -68,7 +74,20 @@ public sealed class MainViewModel : ObservableObject
     public UiAssetEntry? Selected
     {
         get => _selected;
-        set { if (Set(ref _selected, value)) _ = OpenTreeAsync(value); }
+        set
+        {
+            if (value == _selected) return;
+            // leaving a package with unsaved edits: save, discard or stay (the list goes back to the open package)
+            if (_openTree is { } open && _controller?.IsDirty(open.PackagePath) == true
+                && !ResolveUnsaved(open.PackagePath, $"opening {value?.Name ?? "another package"}"))
+            {
+                SwitchRefused?.Invoke(this, EventArgs.Empty);
+                return;
+            }
+            _selected = value;
+            OnPropertyChanged();
+            _ = OpenTreeAsync(value);
+        }
     }
 
     // ---- feature 2: widget tree of the selected package ----
@@ -95,6 +114,7 @@ public sealed class MainViewModel : ObservableObject
             if (!Set(ref _selectedNode, value)) return;
             Preview.Selected = value?.Node;
             OnPropertyChanged(nameof(NodeSource));
+            ClearEditMessage();
             _ = InspectAsync();
         }
     }
@@ -116,6 +136,11 @@ public sealed class MainViewModel : ObservableObject
         set
         {
             if (value == null || value == _project || _controller == null) return;
+            if (_controller.AnyDirty && !ResolveUnsaved(null, $"switching to project {value}"))
+            {
+                SwitchRefused?.Invoke(this, EventArgs.Empty);
+                return;
+            }
             if (_controller.SwitchProject(value) is { } why)
             {
                 Status = why;
@@ -128,8 +153,147 @@ public sealed class MainViewModel : ObservableObject
     }
 
     public string ProjectInfo => _controller == null ? "" :
-        _controller.Edits.Count == 0 ? $"no edits ({_controller.ProjectFolder})"
-        : $"{_controller.Edits.Count} edit{(_controller.Edits.Count == 1 ? "" : "s")} in {string.Join(", ", _controller.Sessions.Where(s => s.Current.Count > 0).Select(s => GamePaths.ShortName(s.PackagePath)))}";
+        (_controller.Edits.Count == 0 ? $"no edits ({_controller.ProjectFolder})"
+        : $"{_controller.Edits.Count} edit{(_controller.Edits.Count == 1 ? "" : "s")} in {string.Join(", ", _controller.Sessions.Where(s => s.Current.Count > 0).Select(s => GamePaths.ShortName(s.PackagePath)))}")
+        + (_controller.AnyDirty ? $" · unsaved: {_controller.UnsavedPackagesText}" : "");
+
+    public string Title => "eFootball Mobile UMG Editor — " + _project + (_controller?.AnyDirty == true ? " *" : "");
+
+    private string _newProjectName = "";
+    public string NewProjectName { get => _newProjectName; set => Set(ref _newProjectName, value ?? ""); }
+
+    /// <summary>A package or project switch was cancelled: the list and picker must show the open one again.</summary>
+    public event EventHandler? SwitchRefused;
+
+    public RelayCommand UndoCommand { get; }
+    public RelayCommand RedoCommand { get; }
+    public RelayCommand SaveCommand { get; }
+    public RelayCommand CreateProjectCommand { get; }
+
+    // ---- 6c: editing ----
+
+    private string? _editMessage;
+    /// <summary>Result of the last edit (applied, refused and why, not applied).</summary>
+    public string? EditMessage { get => _editMessage; private set => Set(ref _editMessage, value); }
+
+    private bool _editRefused;
+    public bool EditRefused { get => _editRefused; private set => Set(ref _editRefused, value); }
+
+    private IReadOnlyList<EditWarning> _editWarnings = [];
+    /// <summary>Warnings for the edit just applied (rescale, other widgets moving, leaving a clip area).</summary>
+    public IReadOnlyList<EditWarning> LastEditWarnings { get => _editWarnings; private set => Set(ref _editWarnings, value); }
+
+    private void ClearEditMessage()
+    {
+        EditMessage = null;
+        EditRefused = false;
+        LastEditWarnings = [];
+    }
+
+    /// <summary>A value typed into the inspector (Enter). Returns true when it was applied.</summary>
+    public bool CommitField(FieldInspection field, string text)
+    {
+        if (_controller is not { } c || _openTree is not { } tree || SelectedNode?.Node is not { } node) return false;
+        if (text.Trim() == field.DisplayValue) return false;
+        var outcome = c.SetValue(tree, node, field.Path, text);
+        if (outcome.NeedsConfirmation)
+        {
+            if (Ask(outcome.ConfirmationText + "\n\nApply this edit?", $"First edit of {GamePaths.ShortName(node.PackagePath)}",
+                    MessageBoxButton.OKCancel, MessageBoxImage.Warning) != MessageBoxResult.OK)
+            {
+                EditMessage = $"{field.ShortPath}: not applied.";
+                EditRefused = false;
+                return false;
+            }
+            outcome = c.SetValue(tree, node, field.Path, text, confirmed: true);
+        }
+        if (outcome.Refusal is { } why)
+        {
+            EditMessage = $"{field.ShortPath}: refused. {why}";
+            EditRefused = true;
+            LastEditWarnings = [];
+            return false;
+        }
+        if (!outcome.Applied) return false;
+        EditMessage = $"{node.Name}.{field.ShortPath} = {SlotEditor.Format(SlotEditor.F32(EditorController.ParseNumber(text).Value))} (unsaved; Ctrl+S saves, Ctrl+Z undoes).";
+        EditRefused = false;
+        LastEditWarnings = outcome.PendingWarnings;
+        return true;
+    }
+
+    private void Undo()
+    {
+        if (_controller is not { } c || c.NextUndo is not { } package || !c.Undo()) return;
+        ClearEditMessage();
+        Status = $"Undid an edit in {GamePaths.ShortName(package)}.";
+    }
+
+    private void Redo()
+    {
+        if (_controller is not { } c || c.NextRedo is not { } package || !c.Redo()) return;
+        ClearEditMessage();
+        Status = $"Redid an edit in {GamePaths.ShortName(package)}.";
+    }
+
+    private void Save() => SaveAndReport(null);
+
+    /// <summary>Saves (one package, or all when null) and shows the save dialog. Returns true when nothing was refused.</summary>
+    private bool SaveAndReport(string? package)
+    {
+        if (_controller is not { } c) return false;
+        var results = package == null ? c.SaveAll() : c.SavePackage(package);
+        var report = EditorController.SaveReport(results);
+        var ok = results.All(r => r.Result.Saved);
+        Status = report.Split('\n')[0];
+        if (results.Count > 0)
+            Ask(report, ok ? "Saved" : "Save refused", MessageBoxButton.OK, ok ? MessageBoxImage.Information : MessageBoxImage.Error);
+        return ok;
+    }
+
+    /// <summary>
+    /// Unsaved edits in a package (or the whole project when null) before an action that leaves them: Yes saves,
+    /// No discards them (an undoable step), Cancel stays. Returns true when the action may go ahead.
+    /// </summary>
+    private bool ResolveUnsaved(string? package, string action)
+    {
+        if (_controller is not { } c) return true;
+        var what = package == null ? c.UnsavedPackagesText : GamePaths.ShortName(package);
+        var answer = Ask($"Unsaved edits in {what}. Save them before {action}?\n\n" +
+                         "Yes = save. No = discard them (Ctrl+Z brings them back while the editor is open). Cancel = stay here.",
+            "Unsaved edits", MessageBoxButton.YesNoCancel, MessageBoxImage.Question);
+        if (answer == MessageBoxResult.Yes) return SaveAndReport(package);
+        if (answer != MessageBoxResult.No) return false;
+        c.DiscardUnsaved(package);
+        Status = $"Discarded the unsaved edits in {what}.";
+        return true;
+    }
+
+    /// <summary>Window closing: false keeps the window open.</summary>
+    public bool ConfirmClose()
+    {
+        if (_controller is not { AnyDirty: true } c) return true;
+        var answer = Ask($"Unsaved edits in {c.UnsavedPackagesText}. Save before closing?\n\n" +
+                         "Yes = save. No = close without saving (the last save stays as it is). Cancel = stay.",
+            "Unsaved edits", MessageBoxButton.YesNoCancel, MessageBoxImage.Question);
+        return answer == MessageBoxResult.No || answer == MessageBoxResult.Yes && SaveAndReport(null);
+    }
+
+    private void CreateProject()
+    {
+        if (_controller is not { } c) return;
+        var name = NewProjectName.Trim();
+        if (c.AnyDirty && !ResolveUnsaved(null, $"creating project {name}")) return;
+        if (c.CreateProject(name) is { } why) { Status = "New project: " + why; return; }
+        Projects = EditorController.Projects(_config);
+        _project = c.Project;
+        OnPropertyChanged(nameof(SelectedProject));
+        OnPropertyChanged(nameof(Title));
+        NewProjectName = "";
+        Status = $"Created project {c.Project} ({c.ProjectFolder}).";
+    }
+
+    private static MessageBoxResult Ask(string text, string caption, MessageBoxButton buttons, MessageBoxImage icon) =>
+        Application.Current?.MainWindow is { IsLoaded: true } w ? MessageBox.Show(w, text, caption, buttons, icon) : MessageBox.Show(text, caption, buttons, icon);
 
     private NodeInspection? _inspection;
     /// <summary>The inspector's data for the selected widget (fields, greyed reasons, boards, embedding packages, warnings).</summary>
@@ -164,6 +328,8 @@ public sealed class MainViewModel : ObservableObject
         if (_controller == null) return;
         Preview.Edits = _controller.Edits;
         OnPropertyChanged(nameof(ProjectInfo));
+        OnPropertyChanged(nameof(Title));
+        CommandManager.InvalidateRequerySuggested();
         _ = InspectAsync();
     }
 

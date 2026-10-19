@@ -14,6 +14,7 @@ public sealed record PreviewOptions(
     bool HighlightAssumed = true,
     bool ShowHidden = false,
     bool HighlightAnimated = false,
+    bool HighlightEdited = true,
     WidgetNode? Selected = null);
 
 /// <summary>Draws a LayoutResult. Shared by the on-screen preview and PNG export so both show the same thing.</summary>
@@ -28,6 +29,7 @@ public sealed class PreviewRenderer(Func<string, DecodedImage> textures)
     private static readonly Pen AssumedPen = Frozen(new Pen(new SolidColorBrush(Color.FromRgb(245, 130, 0)), 1.5) { DashStyle = DashStyles.Dash });
     private static readonly Pen AnimatedPen = Frozen(new Pen(new SolidColorBrush(Color.FromRgb(220, 38, 38)), 1.5) { DashStyle = DashStyles.Dot });
     private static readonly Pen ClipPen = Frozen(new Pen(new SolidColorBrush(Color.FromArgb(180, 120, 120, 120)), 1) { DashStyle = DashStyles.DashDot });
+    private static readonly Pen EditedPen = Frozen(new Pen(new SolidColorBrush(Color.FromRgb(59, 130, 246)), 2) { DashStyle = DashStyles.Dash });
     private static readonly Pen SelectedPen = Frozen(new Pen(new SolidColorBrush(Color.FromRgb(0, 220, 255)), 2.5));
 
     /// <param name="scale">screen px per viewport px</param>
@@ -49,6 +51,7 @@ public sealed class PreviewRenderer(Func<string, DecodedImage> textures)
             if (options.HighlightAssumed && box.Approximation != null) dc.DrawRectangle(null, AssumedPen, r);
             if (options.HighlightAnimated && box.Node.Animations.Any(a => a.MovesWidget)) dc.DrawRectangle(null, AnimatedPen, r);
             if (options.ClipRects && box.Node.ClipsToBounds) dc.DrawRectangle(null, ClipPen, r);
+            if (options.HighlightEdited && box.Inputs.Any(i => i.Source == Core.Layout.ValueSource.Edited)) dc.DrawRectangle(null, EditedPen, r);
         }
         if (options.Selected is { } sel && layout.All().FirstOrDefault(b => ReferenceEquals(b.Node, sel)) is { } selBox)
             dc.DrawRectangle(null, SelectedPen, ScreenRect(selBox.Bounds, toScreen));

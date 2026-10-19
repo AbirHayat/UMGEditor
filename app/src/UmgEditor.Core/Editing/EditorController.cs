@@ -17,6 +17,8 @@ public sealed record FieldInspection(string Path, string StockValue, bool Stored
     public string State => IsEdited ? "edited" : Stored ? "stored" : "default";
     public string DisplayValue => EditedValue is { } v ? SlotEditor.Format(v) : StockValue;
     public string ShortPath => Path.Replace("LayoutData.", "");
+    /// <summary>Why it's greyed, or the stock value when edited.</summary>
+    public string? ToolTip => Reason ?? (IsEdited ? $"Stock value {StockValue}. Type it again (or undo) to go back." : null);
 }
 
 /// <summary>Everything the inspector shows for a selected widget (read-only data; 6b).</summary>
@@ -121,7 +123,7 @@ public sealed class EditorController
     {
         if (name.Equals(Project, StringComparison.OrdinalIgnoreCase)) return null;
         if (name != DefaultProject && ProjectNameRefusal(name) is { } bad) return bad;
-        if (AnyDirty) return $"Project {Project} has unsaved edits in {string.Join(", ", DirtySessions.Select(s => GamePaths.ShortName(s.PackagePath)))}. Save or undo them first.";
+        if (AnyDirty) return $"Project {Project} has unsaved edits in {UnsavedPackagesText}. Save or undo them first.";
         Project = name;
         _sessions.Clear();
         _undo.Clear();
@@ -130,6 +132,17 @@ public sealed class EditorController
         LoadProjectSessions();
         Changed?.Invoke(this, EventArgs.Empty);
         return null;
+    }
+
+    /// <summary>Creates an empty named edit set (work\edits\&lt;name&gt;) and switches to it. Refused while there are unsaved edits.</summary>
+    public string? CreateProject(string name)
+    {
+        name = name.Trim();
+        if (ProjectNameRefusal(name) is { } bad) return bad;
+        if (Projects(_source.Config).Contains(name, StringComparer.OrdinalIgnoreCase)) return $"Project {name} already exists; pick it from the list.";
+        if (AnyDirty) return $"Project {Project} has unsaved edits in {UnsavedPackagesText}. Save or discard them first.";
+        _guard.CreateDirectory(Path.Combine(_guard.Root, name));
+        return SwitchProject(name);
     }
 
     public string ProjectFolder => Project == DefaultProject ? _guard.Root : Path.Combine(_guard.Root, Project);
@@ -163,6 +176,9 @@ public sealed class EditorController
     public IReadOnlyCollection<PatchSession> Sessions => _sessions.Values;
     public IEnumerable<PatchSession> DirtySessions => _sessions.Values.Where(s => s.IsDirty);
     public bool AnyDirty => _sessions.Values.Any(s => s.IsDirty);
+    public bool IsDirty(string package) => _sessions.TryGetValue(package, out var s) && s.IsDirty;
+    /// <summary>"MatchTimeBase, MatchTime": the packages with unsaved edits, for prompts.</summary>
+    public string UnsavedPackagesText => string.Join(", ", DirtySessions.Select(s => GamePaths.ShortName(s.PackagePath)));
 
     /// <summary>All current edits of the project (every package), for layout: an edited child shows inside its users.</summary>
     public EditSet Edits => _sessions.Values.Aggregate(EditSet.Empty, (all, s) => all.With(s.Current.Values.Select(kv => new FieldChange(kv.Key, double.NaN, kv.Value)), _ => null));
@@ -223,7 +239,8 @@ public sealed class EditorController
         var session = Session(node.PackagePath);
         var result = edit(session.Current);
         if (!result.Allowed) return EditOutcome.Refused(result.Reason ?? "not allowed");
-        if (result.Changes.Count == 0) return new EditOutcome(false, null, null, []);
+        // nothing changes (e.g. the current value typed again): no first-edit prompt, no undo step
+        if (result.Changes.All(c => c.OldValue.Equals(c.NewValue))) return new EditOutcome(false, null, null, []);
 
         var firstEdit = _gate.NeedsConfirmation(node.PackagePath) && session.Current.Count == 0 && session.Saved.Count == 0;
         if (firstEdit && !confirmed)
@@ -243,8 +260,50 @@ public sealed class EditorController
         return new EditOutcome(true, null, null, pending);
     }
 
+    /// <summary>A value typed into the inspector: parsed (invariant, dot decimal) and set through SlotEditor.SetField.</summary>
+    public EditOutcome SetValue(WidgetPackageTree tree, WidgetNode node, string path, string text, bool confirmed = false)
+    {
+        var (value, why) = ParseNumber(text);
+        return why != null ? EditOutcome.Refused(why) : Apply(tree, node, e => SlotEditor.SetField(node, e, path, value), confirmed);
+    }
+
+    /// <summary>Parses a typed number; returns the reason when it isn't one.</summary>
+    public static (double Value, string? Refusal) ParseNumber(string text)
+    {
+        var t = text.Trim();
+        if (t.Length == 0) return (0, "Type a number.");
+        if (t.Contains(',')) return (0, $"\"{t}\": use a dot as the decimal separator (e.g. 146.5).");
+        return double.TryParse(t, System.Globalization.NumberStyles.Float, System.Globalization.CultureInfo.InvariantCulture, out var v) && double.IsFinite(v)
+            ? (v, null) : (0, $"\"{t}\" is not a number.");
+    }
+
+    /// <summary>
+    /// Puts a package (or every package when null) back to its last save. It is an ordinary edit step, so Undo brings
+    /// the discarded edits back. Returns false when there was nothing unsaved.
+    /// </summary>
+    public bool DiscardUnsaved(string? package = null)
+    {
+        var any = false;
+        foreach (var s in DirtySessions.Where(s => package == null || s.PackagePath.Equals(package, StringComparison.OrdinalIgnoreCase)).ToList())
+        {
+            var keys = s.Current.Values.Select(kv => kv.Key).Union(s.Saved.Values.Select(kv => kv.Key));
+            var changes = keys.Select(k => new FieldChange(k, s.Current.TryGet(k, out var c) ? c : s.StockValue(k)!.Value,
+                s.Saved.TryGet(k, out var v) ? v : s.StockValue(k)!.Value)).ToList();
+            if (s.Apply(EditResult.Of(changes)) is { } why) throw new InvalidOperationException(why); // keys come from the session itself
+            _undo.Push(s.PackagePath);
+            any = true;
+        }
+        if (!any) return false;
+        _redo.Clear();
+        Changed?.Invoke(this, EventArgs.Empty);
+        return true;
+    }
+
     public bool CanUndo => _undo.Count > 0;
     public bool CanRedo => _redo.Count > 0;
+    /// <summary>The package the next Undo / Redo changes (for the status line).</summary>
+    public string? NextUndo => _undo.Count > 0 ? _undo.Peek() : null;
+    public string? NextRedo => _redo.Count > 0 ? _redo.Peek() : null;
 
     /// <summary>Undoes the last edit in the project, whichever package it was in.</summary>
     public bool Undo()
@@ -269,6 +328,29 @@ public sealed class EditorController
         var results = DirtySessions.ToList().Select(s => (s.PackagePath, s.Save())).ToList();
         Changed?.Invoke(this, EventArgs.Empty);
         return results;
+    }
+
+    /// <summary>Saves one package (when it has unsaved edits), e.g. before leaving it.</summary>
+    public IReadOnlyList<(string Package, SaveResult Result)> SavePackage(string package)
+    {
+        if (!IsDirty(package)) return [];
+        var s = _sessions[package];
+        var result = s.Save();
+        Changed?.Invoke(this, EventArgs.Empty);
+        return [(s.PackagePath, result)];
+    }
+
+    /// <summary>What the save dialog shows: one line per package, with every refusal rule and message.</summary>
+    public static string SaveReport(IReadOnlyList<(string Package, SaveResult Result)> results)
+    {
+        if (results.Count == 0) return "Nothing to save.";
+        var refused = results.Count(r => !r.Result.Saved);
+        var head = refused == 0 ? $"Saved {results.Count} package{(results.Count == 1 ? "" : "s")}."
+            : $"{refused} of {results.Count} package{(results.Count == 1 ? " was" : "s were")} refused and not written; the previous save is untouched.";
+        var lines = results.Select(r => r.Result.Saved
+            ? $"{GamePaths.ShortName(r.Package)}: {r.Result.Summary}\n    {r.Result.OutputPath}"
+            : $"{GamePaths.ShortName(r.Package)}: REFUSED\n" + string.Join("\n", r.Result.Refusals.Select(x => $"    [{x.Rule}] {x.Message}")));
+        return head + "\n\n" + string.Join("\n\n", lines);
     }
 
     // ---- impact and mods ----
