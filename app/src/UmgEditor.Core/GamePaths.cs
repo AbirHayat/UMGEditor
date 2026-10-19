@@ -30,5 +30,10 @@ public static class GamePaths
         return dot < 0 ? objectPath : objectPath[..dot];
     }
 
+    /// <summary>Konami's shared library widgets (uiImage, uiText, uiEmblem…), embedded by thousands of packages.</summary>
+    public const string LibraryFolder = "/Game/Assets/ui/library/";
+
+    public static bool IsLibrary(string packagePath) => packagePath.StartsWith(LibraryFolder, StringComparison.OrdinalIgnoreCase);
+
     public static string ShortName(string path) => path[(path.LastIndexOf('/') + 1)..].Split('.')[0];
 }

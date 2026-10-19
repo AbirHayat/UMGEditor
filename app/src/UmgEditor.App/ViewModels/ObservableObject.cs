@@ -32,11 +32,20 @@ public sealed class RelayCommand(Action execute, Func<bool>? canExecute = null) 
     public void Execute(object? parameter) => execute();
 }
 
-/// <summary>Collapsed when the bound value is null.</summary>
+/// <summary>Collapsed when the bound value is null or an empty string.</summary>
 public sealed class NullToVisibilityConverter : System.Windows.Data.IValueConverter
 {
     public object Convert(object? value, Type targetType, object? parameter, System.Globalization.CultureInfo culture) =>
-        value == null ? System.Windows.Visibility.Collapsed : System.Windows.Visibility.Visible;
+        value == null || value is "" ? System.Windows.Visibility.Collapsed : System.Windows.Visibility.Visible;
+
+    public object ConvertBack(object? value, Type targetType, object? parameter, System.Globalization.CultureInfo culture) => throw new NotSupportedException();
+}
+
+/// <summary>Visible when the bound bool is false.</summary>
+public sealed class InverseBoolToVisibilityConverter : System.Windows.Data.IValueConverter
+{
+    public object Convert(object? value, Type targetType, object? parameter, System.Globalization.CultureInfo culture) =>
+        value is true ? System.Windows.Visibility.Collapsed : System.Windows.Visibility.Visible;
 
     public object ConvertBack(object? value, Type targetType, object? parameter, System.Globalization.CultureInfo culture) => throw new NotSupportedException();
 }

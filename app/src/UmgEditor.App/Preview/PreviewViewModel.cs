@@ -6,6 +6,7 @@ using System.Windows.Media;
 using System.Windows.Media.Imaging;
 using UmgEditor.App.ViewModels;
 using UmgEditor.Core;
+using UmgEditor.Core.Editing;
 using UmgEditor.Core.Layout;
 
 namespace UmgEditor.App.Preview;
@@ -65,6 +66,14 @@ public sealed class PreviewViewModel : ObservableObject
     {
         _tree = tree;
         Rearrange();
+    }
+
+    private EditSet? _edits;
+    /// <summary>The current project's edits, laid out on top of the stock values (an edited child shows in its users too).</summary>
+    public EditSet? Edits
+    {
+        get => _edits;
+        set { _edits = value; Rearrange(); }
     }
 
     private ResolutionPreset _preset;
@@ -164,16 +173,18 @@ public sealed class PreviewViewModel : ObservableObject
     {
         if (_engine == null || _tree == null) { Layout = null; return; }
         var version = ++_arrangeVersion;
-        var (engine, tree, w, h) = (_engine, _tree, _width, _height);
+        var (engine, tree, w, h, edits) = (_engine, _tree, _width, _height, _edits);
         Status = "Laying out…";
-        Task.Run(() => engine.Arrange(tree, w, h)).ContinueWith(t =>
+        Task.Run(() => engine.Arrange(tree, w, h, edits)).ContinueWith(t =>
         {
             if (version != _arrangeVersion) return;
             if (t.Exception != null) { Status = "Layout failed: " + t.Exception.InnerException?.Message; Layout = null; return; }
             Layout = t.Result;
             var approx = t.Result.All().Count(b => b.Approximation != null);
             var invisible = t.Result.All().Count(b => !b.Visible || b.Opacity == 0);
-            Status = $"{t.Result.All().Count()} widgets laid out at {w}×{h}" + (approx > 0 ? $" · {approx} approximated (orange)" : "")
+            var edited = t.Result.All().Count(b => b.Inputs.Any(i => i.Source == Core.Layout.ValueSource.Edited));
+            Status = $"{t.Result.All().Count()} widgets laid out at {w}×{h}" + (edited > 0 ? $" · {edited} use edited values from the project" : "")
+                     + (approx > 0 ? $" · {approx} approximated (orange)" : "")
                      + (invisible > 0 ? $" · {invisible} hidden or at opacity 0 in the stored pose (tick Hidden widgets to show them)" : "");
             OnPropertyChanged(nameof(SelectedBox));
         }, TaskScheduler.FromCurrentSynchronizationContext());

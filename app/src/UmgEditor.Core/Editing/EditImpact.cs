@@ -9,6 +9,10 @@ public sealed record AffectedPackage(string PackagePath, string Via, bool Edited
     public string Name => GamePaths.ShortName(PackagePath);
     public bool IsOnline => PackagePath.Contains("/MatchTimeConnection/", StringComparison.OrdinalIgnoreCase);
     public string Label => Board?.Label ?? Name;
+    /// <summary>Reached through another package (the chain has more than one step).</summary>
+    public bool IsIndirect => Via.Count(c => c == '→') > 1;
+    /// <summary>Short note for lists: the board it is, or the chain when indirect.</summary>
+    public string Note => Board?.Label ?? (IsIndirect ? "via " + Via : "");
 }
 
 /// <summary>One widget box that differs between the stock and the edited layout (game-viewport px).</summary>

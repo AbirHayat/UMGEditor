@@ -2,6 +2,7 @@ using System.IO;
 using System.Windows.Threading;
 using UmgEditor.App.Preview;
 using UmgEditor.Core;
+using UmgEditor.Core.Editing;
 using UmgEditor.Core.Layout;
 using UmgEditor.Core.Textures;
 
@@ -93,13 +94,78 @@ public sealed class MainViewModel : ObservableObject
         {
             if (!Set(ref _selectedNode, value)) return;
             Preview.Selected = value?.Node;
-            OnPropertyChanged(nameof(NodeBoards));
             OnPropertyChanged(nameof(NodeSource));
+            _ = InspectAsync();
         }
     }
 
-    /// <summary>Scoreboards affected by the selected row's package (an embedded row reports its own package).</summary>
-    public string NodeBoards => SelectedNode?.Node is { } n ? BoardsText(n.PackagePath) : "";
+    // ---- step 6: project (edit set) and inspector ----
+
+    private EditorController? _controller;
+    private WidgetPackageTree? _openTree;
+    private int _inspectVersion;
+
+    private IReadOnlyList<string> _projects = [EditorController.DefaultProject];
+    /// <summary>"default" (work\edits) plus every named edit set (work\edits\NAME).</summary>
+    public IReadOnlyList<string> Projects { get => _projects; private set => Set(ref _projects, value); }
+
+    private string _project = EditorController.DefaultProject;
+    public string SelectedProject
+    {
+        get => _project;
+        set
+        {
+            if (value == null || value == _project || _controller == null) return;
+            if (_controller.SwitchProject(value) is { } why)
+            {
+                Status = why;
+                OnPropertyChanged(); // the combo box goes back to the current project
+                return;
+            }
+            _project = value;
+            OnPropertyChanged();
+        }
+    }
+
+    public string ProjectInfo => _controller == null ? "" :
+        _controller.Edits.Count == 0 ? $"no edits ({_controller.ProjectFolder})"
+        : $"{_controller.Edits.Count} edit{(_controller.Edits.Count == 1 ? "" : "s")} in {string.Join(", ", _controller.Sessions.Where(s => s.Current.Count > 0).Select(s => GamePaths.ShortName(s.PackagePath)))}";
+
+    private NodeInspection? _inspection;
+    /// <summary>The inspector's data for the selected widget (fields, greyed reasons, boards, embedding packages, warnings).</summary>
+    public NodeInspection? Inspection { get => _inspection; private set => Set(ref _inspection, value); }
+
+    private string _inspectionStatus = "";
+    public string InspectionStatus { get => _inspectionStatus; private set => Set(ref _inspectionStatus, value); }
+
+    private async Task InspectAsync()
+    {
+        var version = ++_inspectVersion;
+        var (controller, tree, node) = (_controller, _openTree, SelectedNode?.Node);
+        if (controller == null || tree == null || node == null) { Inspection = null; InspectionStatus = ""; return; }
+        InspectionStatus = "Checking…";
+        try
+        {
+            var result = await Task.Run(() => controller.Inspect(tree, node));
+            if (version != _inspectVersion) return;
+            Inspection = result;
+            InspectionStatus = "";
+        }
+        catch (Exception e)
+        {
+            if (version != _inspectVersion) return;
+            Inspection = null;
+            InspectionStatus = "Inspection failed: " + e.Message;
+        }
+    }
+
+    private void OnProjectChanged()
+    {
+        if (_controller == null) return;
+        Preview.Edits = _controller.Edits;
+        OnPropertyChanged(nameof(ProjectInfo));
+        _ = InspectAsync();
+    }
 
     public string NodeSource => SelectedNode?.Node is not { } n ? "" :
         n.IsReadOnly ? $"Embedded from {GamePaths.ShortName(n.PackagePath)} — read-only here; open that package to edit it." : $"In {GamePaths.ShortName(n.PackagePath)} (export #{n.ExportIndex})";
@@ -134,9 +200,9 @@ public sealed class MainViewModel : ObservableObject
     {
         if (_usage == null) return "";
         var boards = _usage.ScoreboardsUsing(packagePath);
-        var direct = _usage.DirectUsers(packagePath).Count;
         var boardText = boards.Count == 0 ? "no scoreboard" : string.Join(", ", boards.Select(b => b.Label));
-        return $"{boardText}  ·  used directly by {direct} package{(direct == 1 ? "" : "s")}";
+        var embeddedBy = EditImpact.AffectedPackages(_usage, [packagePath]).Where(a => !a.Edited).ToList();
+        return $"{boardText}  ·  {EditWarnings.EmbeddedByText(GamePaths.ShortName(packagePath), embeddedBy)}";
     }
 
     private Task<WidgetPackageTree> LoadTree(string packagePath, bool readOnly)
@@ -155,6 +221,7 @@ public sealed class MainViewModel : ObservableObject
         SelectedNode = null;
         TreeRoots = [];
         PackageBoards = "";
+        _openTree = null;
         Preview.Show(null);
         if (entry == null || _source == null) { TreeStatus = "Select a widget package to see its hierarchy."; return; }
         var packagePath = GamePaths.ToPackagePath(entry.Path);
@@ -171,6 +238,7 @@ public sealed class MainViewModel : ObservableObject
             if (tree.Root != null) roots.Add(new WidgetNodeViewModel(tree.Root, loadEmbedded) { IsExpanded = true });
             roots.AddRange(tree.Unattached.Select(n => new WidgetNodeViewModel(n, loadEmbedded)));
             TreeRoots = roots;
+            _openTree = tree;
             Preview.Show(tree);
             var animated = tree.All().Count(n => n.IsAnimated);
             TreeStatus = tree.Root == null
@@ -200,6 +268,11 @@ public sealed class MainViewModel : ObservableObject
                 p => { try { return LoadTree(p, readOnly: true).GetAwaiter().GetResult(); } catch { return null; } },
                 t => textures.Get(t) is { IsPlaceholder: false } img ? (img.Width, img.Height) : null);
             Preview.Attach(engine, new PreviewRenderer(textures.Get));
+            var usage = _usage;
+            _controller = await Task.Run(() => new EditorController(source, usage, engine, p => LoadTree(p, readOnly: false).GetAwaiter().GetResult()));
+            _controller.Changed += (_, _) => OnProjectChanged();
+            Projects = EditorController.Projects(_config);
+            OnProjectChanged();
             RefreshGroups();
             ApplyFilter();
         }

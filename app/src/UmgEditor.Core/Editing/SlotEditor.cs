@@ -39,6 +39,7 @@ public static class SlotEditor
     /// <summary>Why the whole slot can't be edited, or null when it can (field-level checks come on top).</summary>
     public static string? SlotRefusal(WidgetNode node)
     {
+        if (GamePaths.IsLibrary(node.PackagePath)) return LibraryRefusal(node.PackagePath);
         if (node.IsReadOnly)
             return $"This widget belongs to {GamePaths.ShortName(node.PackagePath)} and is shown here read-only. Open {GamePaths.ShortName(node.PackagePath)} to edit it.";
         if (node.Slot == null)
@@ -47,6 +48,13 @@ public static class SlotEditor
             return $"{node.Slot.ClassName} values aren't editable in this version; only CanvasPanelSlot position, size, anchors, alignment and ZOrder are.";
         return null;
     }
+
+    /// <summary>Library widgets are blocked: an edit would change every package that embeds them, across the whole game.</summary>
+    /// <param name="embeddedBy">How many packages embed it (when known), for the message</param>
+    public static string LibraryRefusal(string packagePath, int? embeddedBy = null) =>
+        $"{GamePaths.ShortName(packagePath)} is a Konami library widget ({GamePaths.LibraryFolder}), embedded by " +
+        $"{(embeddedBy is { } n ? $"{n:N0} packages" : "a large part of the game's UI")}. An edit here would change all of them, so editing library widgets is blocked. " +
+        "Edit the slot that places it in the package that uses it instead.";
 
     /// <summary>Why one field can't be edited, or null when it can.</summary>
     public static string? FieldRefusal(WidgetNode node, string path)

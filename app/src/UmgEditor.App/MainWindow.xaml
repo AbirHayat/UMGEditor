@@ -8,6 +8,7 @@
     <Window.Resources>
         <BooleanToVisibilityConverter x:Key="BoolToVis" />
         <vm:NullToVisibilityConverter x:Key="NullToVis" />
+        <vm:InverseBoolToVisibilityConverter x:Key="InverseBoolToVis" />
         <Style x:Key="Label" TargetType="TextBlock">
             <Setter Property="Foreground" Value="#666" />
             <Setter Property="Margin" Value="0,10,0,2" />
@@ -40,6 +41,13 @@
         <Border DockPanel.Dock="Top" Background="#F3F3F3" BorderBrush="#DDD" BorderThickness="0,0,0,1" Padding="10,6">
             <DockPanel>
                 <Button DockPanel.Dock="Right" Content="Rebuild index" Padding="10,2" Command="{Binding RebuildCommand}" />
+                <StackPanel DockPanel.Dock="Right" Orientation="Horizontal" Margin="0,0,16,0">
+                    <TextBlock Text="Project " Foreground="#666" VerticalAlignment="Center" />
+                    <ComboBox x:Name="ProjectPicker" Width="140" ItemsSource="{Binding Projects}" SelectedItem="{Binding SelectedProject}"
+                              ToolTip="Edit set: default = work\edits, a named project = work\edits\NAME (e.g. the canaries C1, C6)" />
+                    <TextBlock Margin="8,0,0,0" VerticalAlignment="Center" Foreground="#666" Text="{Binding ProjectInfo}"
+                               MaxWidth="420" TextTrimming="CharacterEllipsis" ToolTip="{Binding ProjectInfo}" />
+                </StackPanel>
                 <TextBlock VerticalAlignment="Center">
                     <Run Foreground="#666" Text="Stock Paks (read-only): " /><Run Text="{Binding PaksDir, Mode=OneWay}" />
                 </TextBlock>
@@ -208,43 +216,127 @@
                     <TextBlock Text="{Binding SelectedNode.Name, FallbackValue='Select a widget'}" FontSize="18" FontWeight="SemiBold" TextWrapping="Wrap" />
                     <TextBlock Foreground="#666" Text="{Binding SelectedNode.Node.ClassPath}" TextWrapping="Wrap" />
                     <TextBlock Margin="0,6,0,0" TextWrapping="Wrap" Text="{Binding NodeSource}" />
-                    <TextBlock Margin="0,4,0,0" TextWrapping="Wrap">
-                        <Run Foreground="#666" Text="Package shown on: " /><Run Text="{Binding NodeBoards, Mode=OneWay}" />
-                    </TextBlock>
+                    <TextBlock Margin="0,4,0,0" Foreground="#666" Text="{Binding InspectionStatus}"
+                               Visibility="{Binding InspectionStatus, Converter={StaticResource NullToVis}}" />
 
-                    <!-- slot -->
-                    <StackPanel Visibility="{Binding SelectedNode.HasSlot, Converter={StaticResource BoolToVis}, FallbackValue=Collapsed}">
-                    <TextBlock Style="{StaticResource Section}">
-                        <Run Text="Slot " /><Run Text="{Binding SelectedNode.Node.Slot.Name, Mode=OneWay}" /><Run Foreground="#888" FontWeight="Normal" Text="{Binding SelectedNode.Node.Slot.ClassName, Mode=OneWay, StringFormat=' ({0})'}" />
-                    </TextBlock>
-                    <TextBlock Foreground="#666" FontSize="11" TextWrapping="Wrap"
-                               Text="Black = stored in the file (editable later). Grey = not stored; the engine default applies and can't be patched in place." />
-                    <ItemsControl ItemsSource="{Binding SelectedNode.Node.Slot.Fields}" Margin="0,4,0,0">
-                        <ItemsControl.ItemTemplate>
-                            <DataTemplate>
-                                <Grid Margin="0,1">
-                                    <Grid.ColumnDefinitions>
-                                        <ColumnDefinition Width="*" />
-                                        <ColumnDefinition Width="90" />
-                                        <ColumnDefinition Width="56" />
-                                    </Grid.ColumnDefinitions>
-                                    <TextBlock x:Name="P" Text="{Binding Path}" TextTrimming="CharacterEllipsis" ToolTip="{Binding Path}" />
-                                    <TextBlock x:Name="V" Grid.Column="1" Text="{Binding Value}" TextAlignment="Right" FontWeight="SemiBold" />
-                                    <TextBlock x:Name="S" Grid.Column="2" Text="stored" Foreground="#15803D" FontSize="11" TextAlignment="Right" VerticalAlignment="Center" />
-                                </Grid>
-                                <DataTemplate.Triggers>
-                                    <DataTrigger Binding="{Binding Stored}" Value="False">
-                                        <Setter TargetName="P" Property="Foreground" Value="#A0A0A0" />
-                                        <Setter TargetName="V" Property="Foreground" Value="#A0A0A0" />
-                                        <Setter TargetName="V" Property="FontWeight" Value="Normal" />
-                                        <Setter TargetName="V" Property="FontStyle" Value="Italic" />
-                                        <Setter TargetName="S" Property="Text" Value="default" />
-                                        <Setter TargetName="S" Property="Foreground" Value="#A0A0A0" />
-                                    </DataTrigger>
-                                </DataTemplate.Triggers>
-                            </DataTemplate>
-                        </ItemsControl.ItemTemplate>
-                    </ItemsControl>
+                    <!-- 6b: inspector (read-only) -->
+                    <StackPanel x:Name="Inspector" DataContext="{Binding Inspection}" Visibility="{Binding Converter={StaticResource NullToVis}}">
+                        <!-- whole slot blocked: library widget, embedded row, no slot, other slot class -->
+                        <Border x:Name="SlotBlocked" Margin="0,8,0,0" Padding="8,6" Background="#FEF2F2" BorderBrush="#FCA5A5" BorderThickness="1" CornerRadius="3"
+                                Visibility="{Binding SlotReason, Converter={StaticResource NullToVis}}">
+                            <TextBlock TextWrapping="Wrap" Foreground="#991B1B" Text="{Binding SlotReason}" />
+                        </Border>
+
+                        <TextBlock Style="{StaticResource Section}" Text="Where it shows" />
+                        <TextBlock TextWrapping="Wrap">
+                            <Run Foreground="#666" Text="Shown on: " /><Run Text="{Binding BoardsText, Mode=OneWay}" FontWeight="SemiBold" />
+                        </TextBlock>
+                        <TextBlock Margin="0,4,0,2" TextWrapping="Wrap" Foreground="#444" Text="{Binding EmbeddedByHeader}" />
+                        <ItemsControl x:Name="EmbeddedByList" ItemsSource="{Binding EmbeddedByOfflineShown}">
+                            <ItemsControl.ItemTemplate>
+                                <DataTemplate>
+                                    <TextBlock Margin="10,0,0,0" TextWrapping="Wrap">
+                                        <Run Text="{Binding Name, Mode=OneWay}" FontWeight="SemiBold" /><Run Foreground="#666" Text="{Binding Note, Mode=OneWay, StringFormat='  {0}'}" />
+                                    </TextBlock>
+                                </DataTemplate>
+                            </ItemsControl.ItemTemplate>
+                        </ItemsControl>
+                        <TextBlock Margin="10,0,0,0" Foreground="#666" Text="{Binding EmbeddedByOfflineMore}"
+                                   Visibility="{Binding EmbeddedByOfflineMore, Converter={StaticResource NullToVis}}" />
+                        <Expander x:Name="OnlineExpander" Margin="6,4,0,0" IsExpanded="False" Visibility="{Binding HasOnline, Converter={StaticResource BoolToVis}}"
+                                  ToolTip="Online versions (MatchTimeConnection…): they change with this package too">
+                            <Expander.Header>
+                                <StackPanel Orientation="Horizontal">
+                                    <TextBlock Text="{Binding OnlineHeader}" />
+                                    <Border Style="{StaticResource Badge}" Background="#7C3AED">
+                                        <TextBlock Style="{StaticResource BadgeText}" Text="online" />
+                                    </Border>
+                                </StackPanel>
+                            </Expander.Header>
+                            <ItemsControl ItemsSource="{Binding EmbeddedByOnlineShown}">
+                                <ItemsControl.ItemTemplate>
+                                    <DataTemplate>
+                                        <StackPanel Orientation="Horizontal" Margin="10,0,0,0">
+                                            <TextBlock Text="{Binding Name}" FontWeight="SemiBold" />
+                                            <Border Style="{StaticResource Badge}" Background="#7C3AED">
+                                                <TextBlock Style="{StaticResource BadgeText}" Text="online" />
+                                            </Border>
+                                            <TextBlock Foreground="#666" Margin="6,0,0,0" Text="{Binding Note}" />
+                                        </StackPanel>
+                                    </DataTemplate>
+                                </ItemsControl.ItemTemplate>
+                            </ItemsControl>
+                        </Expander>
+
+                        <!-- slot fields -->
+                        <TextBlock Style="{StaticResource Section}" Text="{Binding SlotTitle}" />
+                        <TextBlock Foreground="#666" FontSize="11" TextWrapping="Wrap"
+                                   Text="Black = stored (editable from 6c). Blue = edited in this project. Grey = can't be edited; the reason is below and in the tooltip." />
+                        <ItemsControl x:Name="FieldList" ItemsSource="{Binding Fields}" Margin="0,4,0,0">
+                            <ItemsControl.ItemTemplate>
+                                <DataTemplate>
+                                    <Grid Margin="0,1" ToolTip="{Binding Reason}" Background="Transparent">
+                                        <Grid.ColumnDefinitions>
+                                            <ColumnDefinition Width="*" />
+                                            <ColumnDefinition Width="90" />
+                                            <ColumnDefinition Width="56" />
+                                        </Grid.ColumnDefinitions>
+                                        <TextBlock x:Name="P" Text="{Binding ShortPath}" TextTrimming="CharacterEllipsis" />
+                                        <TextBlock x:Name="V" Grid.Column="1" Text="{Binding DisplayValue}" TextAlignment="Right" FontWeight="SemiBold" />
+                                        <TextBlock x:Name="S" Grid.Column="2" Text="{Binding State}" Foreground="#15803D" FontSize="11" TextAlignment="Right" VerticalAlignment="Center" />
+                                    </Grid>
+                                    <DataTemplate.Triggers>
+                                        <DataTrigger Binding="{Binding Editable}" Value="False">
+                                            <Setter TargetName="P" Property="Foreground" Value="#A0A0A0" />
+                                            <Setter TargetName="V" Property="Foreground" Value="#A0A0A0" />
+                                            <Setter TargetName="V" Property="FontWeight" Value="Normal" />
+                                            <Setter TargetName="V" Property="FontStyle" Value="Italic" />
+                                            <Setter TargetName="S" Property="Foreground" Value="#A0A0A0" />
+                                        </DataTrigger>
+                                        <DataTrigger Binding="{Binding IsEdited}" Value="True">
+                                            <Setter TargetName="V" Property="Foreground" Value="#1D4ED8" />
+                                            <Setter TargetName="S" Property="Foreground" Value="#1D4ED8" />
+                                        </DataTrigger>
+                                    </DataTemplate.Triggers>
+                                </DataTemplate>
+                            </ItemsControl.ItemTemplate>
+                        </ItemsControl>
+                        <ItemsControl ItemsSource="{Binding GreyGroups}" Margin="0,6,0,0">
+                            <ItemsControl.ItemTemplate>
+                                <DataTemplate>
+                                    <TextBlock Margin="0,2" FontSize="11" Foreground="#666" TextWrapping="Wrap">
+                                        <Run Text="{Binding FieldsText, Mode=OneWay}" FontWeight="SemiBold" /><Run Text=": " /><Run Text="{Binding Text, Mode=OneWay}" />
+                                    </TextBlock>
+                                </DataTemplate>
+                            </ItemsControl.ItemTemplate>
+                        </ItemsControl>
+
+                        <!-- selection warnings -->
+                        <TextBlock Style="{StaticResource Section}" Text="Warnings" />
+                        <TextBlock Foreground="#888" Text="No warnings." Visibility="{Binding HasWarnings, Converter={StaticResource InverseBoolToVis}}" />
+                        <ItemsControl x:Name="WarningList" ItemsSource="{Binding Warnings}">
+                            <ItemsControl.ItemTemplate>
+                                <DataTemplate>
+                                    <Border x:Name="W" Margin="0,2" Padding="6,4" BorderThickness="3,0,0,0" BorderBrush="#9CA3AF" Background="#F9FAFB">
+                                        <TextBlock TextWrapping="Wrap">
+                                            <Run x:Name="Sev" Text="{Binding Severity, Mode=OneWay}" FontWeight="SemiBold" Foreground="#4B5563" /><Run Text="  " /><Run Text="{Binding Message, Mode=OneWay}" />
+                                        </TextBlock>
+                                    </Border>
+                                    <DataTemplate.Triggers>
+                                        <DataTrigger Binding="{Binding Severity}" Value="Danger">
+                                            <Setter TargetName="W" Property="BorderBrush" Value="#DC2626" />
+                                            <Setter TargetName="W" Property="Background" Value="#FEF2F2" />
+                                            <Setter TargetName="Sev" Property="Foreground" Value="#B91C1C" />
+                                        </DataTrigger>
+                                        <DataTrigger Binding="{Binding Severity}" Value="Warning">
+                                            <Setter TargetName="W" Property="BorderBrush" Value="#D97706" />
+                                            <Setter TargetName="W" Property="Background" Value="#FFFBEB" />
+                                            <Setter TargetName="Sev" Property="Foreground" Value="#B45309" />
+                                        </DataTrigger>
+                                    </DataTemplate.Triggers>
+                                </DataTemplate>
+                            </ItemsControl.ItemTemplate>
+                        </ItemsControl>
                     </StackPanel>
 
                     <!-- layout (from the preview) -->

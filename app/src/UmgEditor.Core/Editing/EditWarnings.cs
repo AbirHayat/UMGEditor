@@ -83,7 +83,8 @@ public sealed class EditWarnings(LayoutEngine engine, UsageGraph usage, int view
         var margin = node.Animations.Where(a => a.OnSlot && a.Tracks.Any(t => t.StartsWith("Margin"))).ToList();
         if (margin.Count > 0)
             warnings.Add(new(WarningKind.SlotMarginAnimation, Severity.Danger,
-                $"Animation{(margin.Count > 1 ? "s" : "")} {Names(margin)} drive{(margin.Count > 1 ? "" : "s")} this slot's Offsets at runtime; your value may only show when they aren't overriding it."));
+                $"Animation{(margin.Count > 1 ? "s" : "")} {Names(margin)} drive{(margin.Count > 1 ? "" : "s")} this slot's Offsets at runtime. " +
+                "Your stored value may not show while they play, e.g. during the kick-off slide-in; in game (canaries C1/C2) the stored value showed once the slide-in had finished."));
         var transform = node.Animations.Where(a => a.Tracks.Any(t => t.StartsWith("2DTransform"))).ToList();
         if (transform.Count > 0)
             warnings.Add(new(WarningKind.TransformAnimation, Severity.Warning,
@@ -204,7 +205,10 @@ public sealed class EditWarnings(LayoutEngine engine, UsageGraph usage, int view
             if (a.Via.Count(c => c == '→') > 1) notes.Add("via " + a.Via);
             return notes.Count == 0 ? a.Name : $"{a.Name} ({string.Join(", ", notes)})";
         }
-        return $"Embedded by {embeddedBy.Count} package{(embeddedBy.Count == 1 ? "" : "s")}, which change with it: {string.Join(", ", embeddedBy.Select(Name))}.";
+        const int MaxNames = 12;
+        var names = embeddedBy.Take(MaxNames).Select(Name).ToList();
+        if (embeddedBy.Count > MaxNames) names.Add($"… and {embeddedBy.Count - MaxNames:N0} more");
+        return $"Embedded by {embeddedBy.Count:N0} package{(embeddedBy.Count == 1 ? "" : "s")}, which change with it: {string.Join(", ", names)}.";
     }
 
     private static string Capitalize(string s) => char.ToUpperInvariant(s[0]) + s[1..];
