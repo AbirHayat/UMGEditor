@@ -109,3 +109,24 @@ The red difference is a ramp by x within each 4×4 block, and only in **ETC2 pla
 ### Found and fixed during this run
 - Asset paths differ in letter case from file keys (`MiniGame/CommonHud` vs `CommonHUD`): package loads now resolve case-insensitively, as the engine does (exact match still preferred).
 - Three textures are referenced as `/Game/Platforms/_Windows/...` but ship as `Platforms/_Android/...`: the resolver maps them. All 4,369 uiImage texture references (2,236 distinct) now resolve.
+
+## Canaries C1–C3 (2026-10-19, LDPlayer, built by `umgmod`; screenshots `ss/c1_a..c3_c.png`)
+The user also had a scoreboard texture mod installed: the score/timer boxes are white instead of yellow and the navy
+plate is a slightly lighter navy. That changes colours only; every geometry check below passes.
+`validate_layout.py` against `work/out/canary_predictions/*.json` (crop 50/32), a = right after kick-off, b = in play, c = after a goal:
+
+| Canary | Edit | a / b / c | Result |
+|---|---|---|---|
+| C1 | `Img_MatchTimeBg_1` Left 126→146 | left 180/180/180 (pred 179.6), right 291 ×3 (pred 290.7) | **stored value shown** ×3; the stock-position edges are gone |
+| C2 | `Img_MatchTimeBg_1` Right 120→150 | right 300 ×3 (pred 300.0), left 161 (pred 161.1) | **stored value shown** ×3 |
+| C3 | MatchTimeBase `Img_Plate` Right 0→100 | plate right 296/295/296 (pred 296.3); score box unchanged | **stored value shown** ×3; MatchTimeBase (a second package) loads from the mod |
+
+- **Margin keys:** `KickOff_Show` keys this slot's Left = 126 and Right = 120, yet the stored 146/150 are on screen from
+  the first screenshot on. After the ~2.9 s intro the animation doesn't hold its keys. The screenshots don't show the
+  slot *during* the intro (a was taken at 0:00 with the board already in), so whether the keys apply while it plays
+  is still open.
+- **Not predicted:** in C3 the goal banner's navy "Today's Goals" plate (`MatchTimeGoal`, one of the 8 direct users of
+  MatchTimeBase) also ends ≈ 92 px earlier (x ≈ 605 → 513 in the screenshot; 100 units × 0.926 = 92.6 px). The
+  white name bar is a different plate and unchanged. MatchTimeCard / MatchTimeMemberChange and the online
+  equivalents embed MatchTimeBase too, so they are presumably affected the same way. The predictions only arranged
+  the MatchTime board. A shared-child edit needs a prediction for every direct user, and the warning should name them.
