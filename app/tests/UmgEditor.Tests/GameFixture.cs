@@ -1,6 +1,8 @@
 using CUE4Parse.UE4.Assets;
 using UmgEditor.Core;
+using UmgEditor.Core.Layout;
 using UmgEditor.Core.Patching;
+using UmgEditor.Core.Textures;
 
 namespace UmgEditor.Tests;
 
@@ -10,6 +12,7 @@ public static class GameFixture
 {
     public static GameSource Source { get; private set; } = null!;
     public static IReadOnlyList<UiAssetEntry> UiIndex { get; private set; } = [];
+    public static LayoutEngine Engine { get; private set; } = null!;
 
     public const string Tv = "/Game/Assets/ui/Data/Widget/TVGraphics/SwitchAssets_Original/";
 
@@ -20,6 +23,11 @@ public static class GameFixture
         if (!Directory.Exists(config.PaksDir)) Assert.Inconclusive($"stock Paks not found at {config.PaksDir}");
         Source = GameSource.Open(config);
         UiIndex = UiAssetIndex.LoadOrBuild(Source);
+        var textures = new TextureCache(Source, new AssetRipperTextureDecoder());
+        var embedded = new System.Collections.Concurrent.ConcurrentDictionary<string, WidgetPackageTree?>(StringComparer.OrdinalIgnoreCase);
+        Engine = new LayoutEngine(UiScaleSettings.Load(Source),
+            p => embedded.GetOrAdd(p, k => { try { return WidgetTreeReader.Build(Source, k, readOnly: true); } catch { return null; } }),
+            t => textures.Get(t) is { IsPlaceholder: false } img ? (img.Width, img.Height) : null);
     }
 
     [AssemblyCleanup]

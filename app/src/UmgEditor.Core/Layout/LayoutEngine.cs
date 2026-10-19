@@ -1,5 +1,6 @@
 using System.Globalization;
 using System.Numerics;
+using UmgEditor.Core.Editing;
 
 namespace UmgEditor.Core.Layout;
 
@@ -94,14 +95,21 @@ public sealed class LayoutResult
 /// </summary>
 public sealed class LayoutEngine(UiScaleSettings settings, Func<string, WidgetPackageTree?> loadEmbedded, Func<string, (int W, int H)?> textureSize)
 {
+    /// <summary>Edited values for the current Arrange (read through, never written into the stock tree).</summary>
+    private EditSet _edits = EditSet.Empty;
+
     private const int MaxDepth = 40;
     /// <summary>Konami library widgets drawn directly (texture / text) instead of expanding their own blueprint.</summary>
     public static readonly HashSet<string> LeafClasses = ["uiImage_C", "uiText_C", "uiTextSimple_C", "uiTextScroll_C"];
     private static readonly HashSet<string> PassThrough = ["InvalidationBox", "RetainerBox", "SafeZone", "NamedSlot", "SizeBox", "Border", "BackgroundBlur", "WindowTitleBarArea"];
     private static readonly HashSet<string> Stacking = ["VerticalBox", "HorizontalBox", "VerticalBoxCustom", "HorizontalBoxCustom", "ScrollBox", "WrapBox", "UniformGridPanel", "GridPanel", "Overlay"];
 
-    public LayoutResult Arrange(WidgetPackageTree tree, int viewportWidth, int viewportHeight)
+    /// <param name="edits">Edited slot values to lay out with (feature 4); stock data stays untouched.</param>
+    public LayoutResult Arrange(WidgetPackageTree tree, int viewportWidth, int viewportHeight, EditSet? edits = null)
     {
+        if (edits != null && edits.Count > 0)
+            return new LayoutEngine(settings, loadEmbedded, textureSize) { _edits = edits }.Arrange(tree, viewportWidth, viewportHeight);
+
         var dpi = settings.DpiScale(viewportWidth, viewportHeight);
         var result = new LayoutResult
         {
@@ -244,7 +252,7 @@ public sealed class LayoutEngine(UiScaleSettings settings, Func<string, WidgetPa
         }.Select(t => new LayoutInput("Slot." + t.Item1, t.Item2.Text, t.Item2.Source));
     }
 
-    private static CanvasSlotValues CanvasSlot(WidgetNode child)
+    private CanvasSlotValues CanvasSlot(WidgetNode child)
     {
         Num F(string path) => SlotNum(child, path);
         return new(F("LayoutData.Offsets.Left"), F("LayoutData.Offsets.Top"), F("LayoutData.Offsets.Right"), F("LayoutData.Offsets.Bottom"),
@@ -416,8 +424,10 @@ public sealed class LayoutEngine(UiScaleSettings settings, Func<string, WidgetPa
     private readonly record struct Num(double Value, string Text, ValueSource Source);
     private readonly record struct Txt(string Value, ValueSource Source);
 
-    private static Num SlotNum(WidgetNode node, string path)
+    private Num SlotNum(WidgetNode node, string path)
     {
+        if (node.Slot != null && _edits.TryGet(FieldKey.Of(node, path), out var edited))
+            return new Num(edited, edited.ToString(CultureInfo.InvariantCulture), ValueSource.Edited);
         var f = node.Slot?.Fields.FirstOrDefault(x => x.Path == path);
         if (f == null) return new Num(path.EndsWith("Right") ? 100 : path.EndsWith("Bottom") ? 30 : 0, "(no slot)", ValueSource.Assumed);
         var value = f.Value is "true" ? 1 : f.Value is "false" ? 0 : double.Parse(f.Value, CultureInfo.InvariantCulture);

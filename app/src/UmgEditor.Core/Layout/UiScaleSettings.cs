@@ -16,6 +16,8 @@ public enum ValueSource
     Assumed,
     /// <summary>Derived from other values by the layout rules.</summary>
     Computed,
+    /// <summary>Changed in the editor; will be written over the stored value when saved.</summary>
+    Edited,
 }
 
 /// <summary>[/Script/Engine.UserInterfaceSettings]: DPI scale rule and curve, read from the game's packaged config.</summary>
