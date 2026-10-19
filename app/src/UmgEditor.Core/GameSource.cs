@@ -101,6 +101,15 @@ public sealed class GameSource : IDisposable
         return Convert.ToHexString(b).ToLowerInvariant();
     }
 
+    /// <summary>Raw ContainerHeader chunk of the stock container that serves this file (what `retoc unpack-raw` writes as *0000000a).</summary>
+    public byte[] ReadContainerHeaderChunk(string fileKey)
+    {
+        if (!Provider.Files.TryGetValue(fileKey, out var file) || file is not FIoStoreEntry entry)
+            throw new FileNotFoundException($"not an IoStore package: {fileKey}");
+        var reader = entry.IoStoreReader;
+        return reader.Read(new FIoChunkId(reader.TocResource.Header.ContainerId.Id, 0, EIoChunkType.ContainerHeader));
+    }
+
     public string ContainerOf(string path) =>
         Provider.Files.TryGetValue(path, out var file) && file is VfsEntry entry ? entry.Vfs.Name : "?";
 

@@ -74,10 +74,12 @@ public sealed class PatchSession
     }
 
     /// <summary>Default working folder: work\edits\&lt;package path below /Game/&gt;.</summary>
-    public static string DefaultFolder(WriteGuard guard, string packagePath)
+    /// <param name="editSet">Optional named set (e.g. "C1"): work\edits\&lt;set&gt;\&lt;package path&gt;, so several independent edits of one package can coexist</param>
+    public static string DefaultFolder(WriteGuard guard, string packagePath, string? editSet = null)
     {
         var relative = packagePath.StartsWith("/Game/", StringComparison.OrdinalIgnoreCase) ? packagePath["/Game/".Length..] : packagePath.TrimStart('/');
-        return Path.Combine(guard.EditsRoot, Path.Combine(relative.Split('/', StringSplitOptions.RemoveEmptyEntries)));
+        var root = editSet == null ? guard.Root : Path.Combine(guard.Root, editSet);
+        return Path.Combine(root, Path.Combine(relative.Split('/', StringSplitOptions.RemoveEmptyEntries)));
     }
 
     /// <summary>
@@ -217,6 +219,27 @@ public sealed class PatchSession
     }
 
     private static SaveResult Refused(BytePlan plan, List<PatchRefusal> refusals) => new(false, plan, refusals, null, null, []);
+
+    /// <summary>
+    /// The saved chunk, for packing: only when there are saved edits, nothing unsaved, and the file on disk equals a
+    /// fresh rebuild of the stock copy + the saved EditSet (so a file changed after saving is never shipped).
+    /// </summary>
+    public (byte[]? Chunk, string? Refusal) ReadSavedChunk()
+    {
+        var name = GamePaths.ShortName(PackagePath);
+        if (OpenNote != null) return (null, $"{name}: {OpenNote}");
+        if (IsDirty) return (null, $"{name} has unsaved edits; save (or undo) them first.");
+        if (Saved.Count == 0 || !File.Exists(EditedPath)) return (null, $"{name} has no saved edits in {Folder}.");
+        var stock = File.ReadAllBytes(StockCopyPath);
+        if (Sha256(stock) != StockSha256) return (null, $"{StockCopyPath} no longer matches the game's file.");
+        var plan = BytePlanner.Plan(stock, _layout, PackagePath, Saved, StockValue, SlotName);
+        if (!plan.Ok) return (null, $"{name}: the saved edits no longer plan: {string.Join(" | ", plan.Refusals.Select(r => r.Message))}");
+        var rebuilt = BytePlanner.Apply(stock, plan);
+        if (BytePlanner.Verify(stock, rebuilt, plan) is { Count: > 0 } bad) return (null, $"{name}: {string.Join(" | ", bad.Select(r => r.Message))}");
+        var onDisk = File.ReadAllBytes(EditedPath);
+        if (!onDisk.AsSpan().SequenceEqual(rebuilt)) return (null, $"{EditedPath} differs from a rebuild of its saved edits; save again.");
+        return (onDisk, null);
+    }
 
     /// <summary>
     /// Re-parses the written bytes with CUE4Parse and walks them again: in every edited slot export each stored value is

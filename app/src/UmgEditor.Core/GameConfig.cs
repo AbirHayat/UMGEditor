@@ -1,4 +1,5 @@
 using System.Text.Json;
+using System.Text.Json.Serialization;
 
 namespace UmgEditor.Core;
 
@@ -9,7 +10,15 @@ public sealed record GameConfig
     public string AesKey { get; init; } = "0x4552D45005DFE94964893F4925EC747D3D591401E060ED8B3D58BE5721C81295";
     public string WorkDir { get; init; } = @"E:\n3tron\ai_tools\scoreboard\work";
 
-    public string CacheDir => Path.Combine(WorkDir, "cache");
+    /// <summary>retoc used to pack mods (pack-raw, verify); see app/README.md for the tested build.</summary>
+    public string RetocPath { get; init; } = @"E:\n3tron\patch\Tools\retoc-x86_64-pc-windows-msvc\retoc.exe";
+    /// <summary>Stock .pak mount stub copied next to each mod container (a file name in PaksDir, or a full path; only read).</summary>
+    public string ModStubPak { get; init; } = "pc0100_mobile_and.pak";
+
+    [JsonIgnore] public string CacheDir => Path.Combine(WorkDir, "cache");
+    [JsonIgnore] public string EditsDir => Path.Combine(WorkDir, "edits");
+    [JsonIgnore] public string ModsDir => Path.Combine(WorkDir, "out", "mods");
+    [JsonIgnore] public string ModStubPath => Path.IsPathRooted(ModStubPak) ? ModStubPak : Path.Combine(PaksDir, ModStubPak);
 
     private static readonly JsonSerializerOptions JsonOptions = new() { WriteIndented = true };
 

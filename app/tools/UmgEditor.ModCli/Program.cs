@@ -1,0 +1,186 @@
+// umgmod: make and pack edits from the command line (no UI), for device canaries before the editor UI exists.
+//   umgmod [--set NAME] edit  <package> <widget> set <field> <value> [--yes]
+//   umgmod [--set NAME] edit  <package> <widget> move <dx> <dy> [--yes]
+//   umgmod [--set NAME] edit  <package> <widget> resize <Left|Top|Right|Bottom> <d> [--yes]
+//   umgmod [--set NAME] show  <package>
+//   umgmod [--set NAME] reset <package>
+//   umgmod [--set NAME] build <modName> <package>... [--container pc9999_mobile_and_P]
+// <package> is a /Game/... path or a unique suffix such as MatchTime/MatchTimeBase. Edits are saved PatchSessions in
+// work\edits[\NAME]\<package path>; build packs their saved chunks into work\out\mods\<modName>\mod. Exit 0 = done,
+// 2 = refused, 3 = needs --yes (first edit of a package: read the warnings first).
+using System.Globalization;
+using UmgEditor.Core;
+using UmgEditor.Core.Editing;
+using UmgEditor.Core.Layout;
+using UmgEditor.Core.Modding;
+using UmgEditor.Core.Patching;
+using UmgEditor.Core.Textures;
+
+const int W = 1786, H = 1000; // the validated LDPlayer game view
+
+var argv = args.ToList();
+string? Option(string name)
+{
+    var i = argv.IndexOf(name);
+    if (i < 0) return null;
+    if (i + 1 >= argv.Count) { Console.Error.WriteLine($"{name} needs a value"); Environment.Exit(1); }
+    var v = argv[i + 1];
+    argv.RemoveRange(i, 2);
+    return v;
+}
+bool Flag(string name) => argv.Remove(name);
+
+var editSet = Option("--set");
+var container = Option("--container") ?? "pc9999_mobile_and_P";
+var yes = Flag("--yes");
+if (argv.Count < 2) return Usage();
+
+var config = GameConfig.LoadOrDefault(Path.Combine(AppContext.BaseDirectory, "umgeditor.json"));
+using var source = GameSource.Open(config);
+var index = UiAssetIndex.LoadOrBuild(source);
+var guard = new WriteGuard(config);
+
+string ResolvePackage(string arg)
+{
+    if (arg.StartsWith("/Game/", StringComparison.OrdinalIgnoreCase)) return arg;
+    var hits = index.Where(e => e.Kind == UiAssetKind.Widget)
+        .Select(e => GamePaths.ToPackagePath(e.Path))
+        .Where(p => p.EndsWith("/" + arg.Trim('/'), StringComparison.OrdinalIgnoreCase)).Distinct().ToList();
+    if (hits.Count == 1) return hits[0];
+    throw new ArgumentException(hits.Count == 0 ? $"no widget package ends with \"{arg}\"" : $"\"{arg}\" is ambiguous: {string.Join(", ", hits.Take(5))}");
+}
+
+PatchSession OpenSession(string package)
+{
+    var s = PatchSession.Open(source, package, PatchSession.DefaultFolder(guard, package, editSet));
+    if (s.OpenNote != null) Console.WriteLine($"note: {s.OpenNote}");
+    return s;
+}
+
+void PrintPlan(PatchSession s)
+{
+    Console.WriteLine($"{s.PackagePath}  ({s.FileKey}, chunk {s.ChunkIdHex}, {s.StockSize} bytes)");
+    Console.WriteLine($"  folder {s.Folder}");
+    Console.WriteLine($"  {s.Current.Count} edit{(s.Current.Count == 1 ? "" : "s")}, {(s.IsDirty ? "UNSAVED changes" : "saved")}");
+    var plan = s.Plan();
+    foreach (var e in plan.Entries)
+        Console.WriteLine($"  {e.SlotName}.{e.Key.Path}  @ {e.OffsetHex}  {Num(e.OldValue)} -> {Num(e.NewValue)}  [{e.OldHex}] -> [{e.NewHex}]\n      context x{e.ContextMatches}: {e.ContextHex}");
+    foreach (var r in plan.Refusals) Console.WriteLine($"  REFUSED [{r.Rule}] {r.Message}");
+}
+
+static string Num(double v) => v.ToString("0.######", CultureInfo.InvariantCulture);
+
+try
+{
+    switch (argv[0])
+    {
+        case "edit" when argv.Count >= 5:
+        {
+            var package = ResolvePackage(argv[1]);
+            var session = OpenSession(package);
+            var tree = WidgetTreeReader.Build(source, package);
+            var nodes = tree.All().Where(n => n.Name == argv[2]).ToList();
+            if (nodes.Count != 1) { Console.Error.WriteLine($"{nodes.Count} widgets named {argv[2]} in {package}"); return 2; }
+            var node = nodes[0];
+            var d = (int i) => double.Parse(argv[i], CultureInfo.InvariantCulture);
+            var edit = argv[3] switch
+            {
+                "set" when argv.Count >= 6 => SlotEditor.SetField(node, session.Current, FieldPath(argv[4]), d(5)),
+                "move" when argv.Count >= 6 => SlotEditor.Move(node, session.Current, d(4), d(5)),
+                "resize" when argv.Count >= 6 => SlotEditor.ResizeEdge(node, session.Current, Enum.Parse<Edge>(argv[4], ignoreCase: true), d(5)),
+                _ => null,
+            };
+            if (edit == null) return Usage();
+            if (!edit.Allowed) { Console.Error.WriteLine($"refused: {edit.Reason}"); return 2; }
+            foreach (var c in edit.Changes) Console.WriteLine($"{node.Name} {c.Key.Path}: {Num(c.OldValue)} -> {Num(c.NewValue)}");
+
+            var textures = new TextureCache(source, new AssetRipperTextureDecoder());
+            var embedded = new Dictionary<string, WidgetPackageTree?>(StringComparer.OrdinalIgnoreCase);
+            var engine = new LayoutEngine(UiScaleSettings.Load(source),
+                p => embedded.TryGetValue(p, out var t) ? t : embedded[p] = Try(() => WidgetTreeReader.Build(source, p, readOnly: true)),
+                t => textures.Get(t) is { IsPlaceholder: false } img ? (img.Width, img.Height) : null);
+            var warnings = new EditWarnings(engine, new UsageGraph(index), W, H);
+            var report = warnings.ForSelection(tree, node);
+            var pending = warnings.ForPendingEdit(tree, node, session.Current.With(edit.Changes, session.StockValue));
+            Console.WriteLine(report.ConfirmationText);
+            foreach (var w in pending) Console.WriteLine($"  [{w.Severity}] {w.Message}");
+            if (session.Saved.Count == 0 && !session.IsDirty && !yes)
+            {
+                Console.WriteLine($"First edit of {GamePaths.ShortName(package)}{(editSet != null ? $" in set {editSet}" : "")}: read the above, then re-run with --yes.");
+                return 3;
+            }
+
+            if (session.Apply(edit) is { } why) { Console.Error.WriteLine($"refused: {why}"); return 2; }
+            var saved = session.Save();
+            Console.WriteLine(saved.Summary);
+            PrintPlan(session);
+            return saved.Saved ? 0 : 2;
+        }
+        case "show":
+            PrintPlan(OpenSession(ResolvePackage(argv[1])));
+            return 0;
+        case "reset":
+        {
+            var session = OpenSession(ResolvePackage(argv[1]));
+            var back = session.Current.Values.Select(kv => new FieldChange(kv.Key, kv.Value, session.StockValue(kv.Key) ?? kv.Value)).ToList();
+            session.Apply(EditResult.Of(back));
+            var saved = session.Save();
+            Console.WriteLine(saved.Summary);
+            return saved.Saved ? 0 : 2;
+        }
+        case "build" when argv.Count >= 3:
+        {
+            var packages = new List<ModPackage>();
+            var problems = new List<string>();
+            foreach (var arg in argv.Skip(2))
+            {
+                var session = OpenSession(ResolvePackage(arg));
+                var (chunk, why) = session.ReadSavedChunk();
+                if (chunk == null) problems.Add(why!);
+                else packages.Add(new ModPackage(session.PackagePath, session.FileKey, session.ChunkIdHex, chunk));
+            }
+            if (problems.Count > 0) { foreach (var p in problems) Console.Error.WriteLine($"refused: {p}"); return 2; }
+
+            var retocSha = RetocProcess.Sha256Of(config.RetocPath);
+            if (retocSha != ModBuilder.TestedRetocSha256)
+                Console.WriteLine($"warning: retoc at {config.RetocPath} has sha256 {(retocSha.Length == 0 ? "(missing)" : retocSha)}, not the tested build {ModBuilder.TestedRetocSha256} (app/README.md)");
+            var result = new ModBuilder(source, new RetocProcess(config.RetocPath)).Build(argv[1], container, packages);
+            Console.Write(result.Log);
+            foreach (var r in result.Refusals) Console.Error.WriteLine($"refused: {r}");
+            if (!result.Built) return 2;
+            Console.WriteLine($"OK: copy these {result.Files.Count} files from {result.ModDir} next to the stock containers on the device:");
+            foreach (var f in result.Files) Console.WriteLine($"  {f.Name}  {f.Size} bytes  sha256 {f.Sha256}");
+            return 0;
+        }
+        default:
+            return Usage();
+    }
+}
+catch (Exception e) when (e is ArgumentException or InvalidDataException or UnauthorizedAccessException or FileNotFoundException or FormatException)
+{
+    Console.Error.WriteLine($"error: {e.Message}");
+    return 2;
+}
+
+static string FieldPath(string f) => f.StartsWith("LayoutData.") || f == "ZOrder" || f == "bAutoSize" ? f : "LayoutData." + f;
+
+static T? Try<T>(Func<T> f) where T : class
+{
+    try { return f(); }
+    catch { return null; }
+}
+
+static int Usage()
+{
+    Console.Error.WriteLine("""
+        usage:
+          umgmod [--set NAME] edit  <package> <widget> set <field> <value> [--yes]
+          umgmod [--set NAME] edit  <package> <widget> move <dx> <dy> [--yes]
+          umgmod [--set NAME] edit  <package> <widget> resize <Left|Top|Right|Bottom> <d> [--yes]
+          umgmod [--set NAME] show  <package>
+          umgmod [--set NAME] reset <package>
+          umgmod [--set NAME] build <modName> <package>... [--container pc9999_mobile_and_P]
+        <package>: /Game/... path or a unique suffix (MatchTime/MatchTimeBase); <field>: e.g. Offsets.Right
+        """);
+    return 1;
+}

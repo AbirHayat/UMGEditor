@@ -22,7 +22,7 @@ public class PatchSessionTests
     private string _folder = null!;
 
     [TestInitialize]
-    public void NewFolder() => _folder = Path.Combine(Guard.EditsRoot, "_tests", Guid.NewGuid().ToString("N")[..12]);
+    public void NewFolder() => _folder = Path.Combine(Guard.Root, "_tests", Guid.NewGuid().ToString("N")[..12]);
 
     [TestCleanup]
     public void DeleteFolder()
@@ -63,21 +63,21 @@ public class PatchSessionTests
             paks,
             Path.Combine(paks, "pc9999_mobile_and_P.utoc"),
             Path.Combine(paks, "sub", "..", "pc9999_mobile_and_P.pak"),
-            Path.Combine(guard.EditsRoot, Path.GetRelativePath(guard.EditsRoot, paks), "pc9999_mobile_and_P.ucas"), // ..\..\ traversal from edits
+            Path.Combine(guard.Root, Path.GetRelativePath(guard.Root, paks), "pc9999_mobile_and_P.ucas"), // ..\..\ traversal from edits
             paks.ToUpperInvariant() + @"\x.bin",
         ];
         foreach (var p in rejected)
             StringAssert.Contains(guard.Refusal(p), "under the game Paks folder", p);
 
         // the root itself, siblings of edits, and other work folders are refused too; inside edits is fine
-        Assert.IsNotNull(guard.Refusal(guard.EditsRoot));
+        Assert.IsNotNull(guard.Refusal(guard.Root));
         Assert.IsNotNull(guard.Refusal(Path.Combine(Source.Config.WorkDir, "out", "x.bin")));
-        Assert.IsNotNull(guard.Refusal(guard.EditsRoot + "2\\x.bin"));
-        Assert.IsNull(guard.Refusal(Path.Combine(guard.EditsRoot, "a", "b.uasset")));
+        Assert.IsNotNull(guard.Refusal(guard.Root + "2\\x.bin"));
+        Assert.IsNull(guard.Refusal(Path.Combine(guard.Root, "a", "b.uasset")));
 
         // a WorkDir configured inside Paks can't be used to write there either
         var inside = new WriteGuard(Source.Config with { WorkDir = Path.Combine(paks, "work") });
-        StringAssert.Contains(inside.Refusal(Path.Combine(inside.EditsRoot, "x.bin")), "under the game Paks folder");
+        StringAssert.Contains(inside.Refusal(Path.Combine(inside.Root, "x.bin")), "under the game Paks folder");
 
         Assert.ThrowsException<UnauthorizedAccessException>(() => guard.WriteAllBytes(Path.Combine(paks, "pc9999_mobile_and_P.utoc"), [1]));
         Assert.ThrowsException<UnauthorizedAccessException>(() => PatchSession.Open(Source, Base, Path.Combine(paks, "edits")));
@@ -90,7 +90,7 @@ public class PatchSessionTests
     public void Open_WritesAVerifiedStockCopy_UnderWorkEdits()
     {
         var s = Open();
-        Assert.IsTrue(s.StockCopyPath.StartsWith(Guard.EditsRoot + "\\", StringComparison.OrdinalIgnoreCase));
+        Assert.IsTrue(s.StockCopyPath.StartsWith(Guard.Root + "\\", StringComparison.OrdinalIgnoreCase));
         CollectionAssert.AreEqual(StockBytes(Base), File.ReadAllBytes(s.StockCopyPath));
         Assert.IsFalse(s.IsDirty);
         Assert.IsFalse(s.CanUndo || s.CanRedo);

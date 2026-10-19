@@ -17,7 +17,7 @@ public static class GameFixture
     public const string Tv = "/Game/Assets/ui/Data/Widget/TVGraphics/SwitchAssets_Original/";
 
     /// <summary>sha256 of every file in the stock Paks folder at the start of the run; compared again at the end.</summary>
-    public static IReadOnlyDictionary<string, string> StockHashesBefore { get; private set; } = new Dictionary<string, string>();
+    public static IReadOnlyDictionary<string, FileHash> StockHashesBefore { get; private set; } = new Dictionary<string, FileHash>();
 
     [AssemblyInitialize]
     public static void Open(TestContext _)
@@ -42,18 +42,31 @@ public static class GameFixture
         Source?.Dispose();
         if (paks == null) return;
         var after = HashFolder(paks);
-        var changed = StockHashesBefore.Keys.Union(after.Keys)
-            .Where(f => StockHashesBefore.GetValueOrDefault(f) != after.GetValueOrDefault(f)).Order().ToList();
-        Console.WriteLine($"stock Paks: {after.Count} files hashed after the suite, {changed.Count} changed");
-        if (changed.Count > 0) throw new InvalidOperationException($"stock Paks changed during the test run: {string.Join(", ", changed)}");
+        var lines = new List<string>();
+        foreach (var name in StockHashesBefore.Keys.Union(after.Keys, StringComparer.OrdinalIgnoreCase).Order(StringComparer.OrdinalIgnoreCase))
+        {
+            var (b, a) = (StockHashesBefore.GetValueOrDefault(name), after.GetValueOrDefault(name));
+            var path = Path.Combine(paks, name);
+            if (b == null) lines.Add($"  ADDED    {path}  ({a!.Size:N0} bytes, sha256 {a.Hash})");
+            else if (a == null) lines.Add($"  REMOVED  {path}  (was {b.Size:N0} bytes, sha256 {b.Hash})");
+            else if (a != b) lines.Add($"  MODIFIED {path}  size {b.Size:N0} -> {a.Size:N0} bytes, sha256 {b.Hash} -> {a.Hash}");
+        }
+        Console.WriteLine($"stock Paks: {after.Count} files hashed after the suite, {lines.Count} changed");
+        if (lines.Count > 0)
+            throw new InvalidOperationException(
+                $"STOCK PAKS CHANGED during this test run ({lines.Count} file{(lines.Count == 1 ? "" : "s")}):{Environment.NewLine}{string.Join(Environment.NewLine, lines)}{Environment.NewLine}" +
+                "This is the suite-wide check in GameFixture.Close (before/after sha256 of every file in PaksDir). MSTest reports it " +
+                "on the last test that ran; that test's own assertions passed. Restore the files above from the pristine copy");
     }
 
-    public static Dictionary<string, string> HashFolder(string dir) =>
+    public sealed record FileHash(string Hash, long Size);
+
+    public static Dictionary<string, FileHash> HashFolder(string dir) =>
         new DirectoryInfo(dir).GetFiles().AsParallel()
             .Select(f =>
             {
                 using var stream = new FileStream(f.FullName, FileMode.Open, FileAccess.Read, FileShare.Read, 1 << 20);
-                return (f.Name, Hash: Convert.ToHexString(System.Security.Cryptography.SHA256.HashData(stream)).ToLowerInvariant());
+                return (f.Name, Hash: new FileHash(Convert.ToHexString(System.Security.Cryptography.SHA256.HashData(stream)).ToLowerInvariant(), f.Length));
             })
             .ToDictionary(x => x.Name, x => x.Hash, StringComparer.OrdinalIgnoreCase);
 
