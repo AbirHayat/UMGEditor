@@ -31,6 +31,7 @@ umgmod [--set NAME] edit  <package> <widget> resize <Left|Top|Right|Bottom> <d> 
 umgmod [--set NAME] show  <package>
 umgmod [--set NAME] reset <package>
 umgmod [--set NAME] build <modName> <package>... [--container pc9999_mobile_and_P]
+umgmod [--set NAME] predict <package>...
 ```
 
 - `edit` applies one SlotEditor edit to the package's PatchSession and saves it (`work\edits[\NAME]\<package path>`).
@@ -40,6 +41,10 @@ umgmod [--set NAME] build <modName> <package>... [--container pc9999_mobile_and_
   The steps are the same as `work/scripts/make_mod.py` (kept as the reference), followed by `retoc verify` and a
   CUE4Parse read-back. A failed step removes `mod\` and writes `FAILED.txt`. Nothing under PaksDir is written or
   deleted.
+- `predict` arranges, stock vs edited at 1786×1000, every package the saved edits reach: the edited packages plus
+  every package that embeds them (e.g. MatchTimeBase → the goal/card/substitution pop-ups and the online board). It
+  prints every box that changes and writes `work\out\mods\_predictions\<set>\<Package>[.stock].json` for
+  `validate_layout.py`.
 - `--set NAME` keeps independent edits of the same package apart (e.g. one per canary).
 - `<package>` is a `/Game/...` path or a unique suffix (`MatchTime/MatchTimeBase`). `<field>` may omit
   `LayoutData.` (`Offsets.Right`).

@@ -5,6 +5,7 @@
 //   umgmod [--set NAME] show  <package>
 //   umgmod [--set NAME] reset <package>
 //   umgmod [--set NAME] build <modName> <package>... [--container pc9999_mobile_and_P]
+//   umgmod [--set NAME] predict <package>...
 // <package> is a /Game/... path or a unique suffix such as MatchTime/MatchTimeBase. Edits are saved PatchSessions in
 // work\edits[\NAME]\<package path>; build packs their saved chunks into work\out\mods\<modName>\mod. Exit 0 = done,
 // 2 = refused, 3 = needs --yes (first edit of a package: read the warnings first).
@@ -18,6 +19,7 @@ using UmgEditor.Core.Textures;
 
 const int W = 1786, H = 1000; // the validated LDPlayer game view
 
+Console.OutputEncoding = System.Text.Encoding.UTF8;
 var argv = args.ToList();
 string? Option(string name)
 {
@@ -68,6 +70,15 @@ void PrintPlan(PatchSession s)
     foreach (var r in plan.Refusals) Console.WriteLine($"  REFUSED [{r.Rule}] {r.Message}");
 }
 
+LayoutEngine NewEngine()
+{
+    var textures = new TextureCache(source, new AssetRipperTextureDecoder());
+    var embedded = new Dictionary<string, WidgetPackageTree?>(StringComparer.OrdinalIgnoreCase);
+    return new LayoutEngine(UiScaleSettings.Load(source),
+        p => embedded.TryGetValue(p, out var t) ? t : embedded[p] = Try(() => WidgetTreeReader.Build(source, p, readOnly: true)),
+        t => textures.Get(t) is { IsPlaceholder: false } img ? (img.Width, img.Height) : null);
+}
+
 static string Num(double v) => v.ToString("0.######", CultureInfo.InvariantCulture);
 
 try
@@ -94,12 +105,7 @@ try
             if (!edit.Allowed) { Console.Error.WriteLine($"refused: {edit.Reason}"); return 2; }
             foreach (var c in edit.Changes) Console.WriteLine($"{node.Name} {c.Key.Path}: {Num(c.OldValue)} -> {Num(c.NewValue)}");
 
-            var textures = new TextureCache(source, new AssetRipperTextureDecoder());
-            var embedded = new Dictionary<string, WidgetPackageTree?>(StringComparer.OrdinalIgnoreCase);
-            var engine = new LayoutEngine(UiScaleSettings.Load(source),
-                p => embedded.TryGetValue(p, out var t) ? t : embedded[p] = Try(() => WidgetTreeReader.Build(source, p, readOnly: true)),
-                t => textures.Get(t) is { IsPlaceholder: false } img ? (img.Width, img.Height) : null);
-            var warnings = new EditWarnings(engine, new UsageGraph(index), W, H);
+            var warnings = new EditWarnings(NewEngine(), new UsageGraph(index), W, H);
             var report = warnings.ForSelection(tree, node);
             var pending = warnings.ForPendingEdit(tree, node, session.Current.With(edit.Changes, session.StockValue));
             Console.WriteLine(report.ConfirmationText);
@@ -152,6 +158,41 @@ try
             foreach (var f in result.Files) Console.WriteLine($"  {f.Name}  {f.Size} bytes  sha256 {f.Sha256}");
             return 0;
         }
+        case "predict" when argv.Count >= 2:
+        {
+            // the saved edits of the given packages, together (what `build` would ship)
+            var changes = new List<FieldChange>();
+            foreach (var arg in argv.Skip(1))
+            {
+                var session = OpenSession(ResolvePackage(arg));
+                if (session.IsDirty) Console.WriteLine($"warning: {GamePaths.ShortName(session.PackagePath)} has unsaved edits; predicting the saved ones");
+                changes.AddRange(session.Saved.Values.Select(kv => new FieldChange(kv.Key, session.StockValue(kv.Key) ?? double.NaN, kv.Value)));
+                foreach (var kv in session.Saved.Values)
+                    Console.WriteLine($"edit: {GamePaths.ShortName(kv.Key.Package)} {session.SlotName(kv.Key.SlotExport)}.{kv.Key.Path} {Num(session.StockValue(kv.Key) ?? double.NaN)} -> {Num(kv.Value)}");
+            }
+            var edits = EditSet.Empty.With(changes, _ => null);
+            if (edits.Count == 0) { Console.Error.WriteLine("refused: no saved edits to predict"); return 2; }
+
+            var mods = WriteGuard.ForMods(config);
+            var outDir = Path.Combine(mods.Root, "_predictions", editSet ?? "default");
+            mods.DeleteDirectory(outDir);
+            var impacts = new EditImpact(NewEngine(), new UsageGraph(index), W, H).Predict(edits, p => WidgetTreeReader.Build(source, p));
+            Console.WriteLine($"viewport {W}x{H} game px; LDPlayer screenshot = game px + 50 (x) / + 32 (y). JSON for validate_layout.py: {outDir}");
+            foreach (var impact in impacts)
+            {
+                var a = impact.Package;
+                var title = $"{a.Name}{(a.Board != null ? $" [{a.Board.Label}]" : a.IsOnline ? " [online]" : "")}{(a.Edited ? " (edited)" : $" (embeds via {a.Via})")}";
+                if (impact.Error != null) { Console.WriteLine($"== {title}: can't arrange ({impact.Error})"); continue; }
+                mods.WriteAllText(Path.Combine(outDir, a.Name + ".stock.json"), LayoutExport.ToJson(impact.Stock, a.PackagePath));
+                mods.WriteAllText(Path.Combine(outDir, a.Name + ".json"), LayoutExport.ToJson(impact.Edited, a.PackagePath, new { Edits = edits.Values.Select(kv => $"{GamePaths.ShortName(kv.Key.Package)} slot#{kv.Key.SlotExport} {kv.Key.Path} -> {Num(kv.Value)}") }));
+                var scale = impact.Stock.ScaleBoxes.Zip(impact.Edited.ScaleBoxes).Where(p => Math.Abs(p.First.Applied - p.Second.Applied) > 1e-6).ToList();
+                Console.WriteLine($"== {title}: {impact.Changes.Count} box{(impact.Changes.Count == 1 ? "" : "es")} change{(scale.Count > 0 ? $"; RESCALES {string.Join(", ", scale.Select(p => $"{p.First.Widget} x{p.First.Applied:0.#####} -> x{p.Second.Applied:0.#####}"))}" : "")}");
+                foreach (var c in impact.Changes)
+                    Console.WriteLine($"   {(c.Visible ? "        " : "[hidden]")} {c.Path}  [{c.OwnerPackage}]" + Environment.NewLine +
+                                      $"            L {c.Before.X:0.0} -> {c.After.X:0.0}  R {c.Before.Right:0.0} -> {c.After.Right:0.0}  T {c.Before.Y:0.0} -> {c.After.Y:0.0}  B {c.Before.Bottom:0.0} -> {c.After.Bottom:0.0}");
+            }
+            return 0;
+        }
         default:
             return Usage();
     }
@@ -180,6 +221,7 @@ static int Usage()
           umgmod [--set NAME] show  <package>
           umgmod [--set NAME] reset <package>
           umgmod [--set NAME] build <modName> <package>... [--container pc9999_mobile_and_P]
+          umgmod [--set NAME] predict <package>...
         <package>: /Game/... path or a unique suffix (MatchTime/MatchTimeBase); <field>: e.g. Offsets.Right
         """);
     return 1;

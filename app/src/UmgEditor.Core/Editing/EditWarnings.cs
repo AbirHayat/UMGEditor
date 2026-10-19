@@ -34,7 +34,9 @@ public sealed class PreEditReport
 {
     public required WidgetNode Node { get; init; }
     public required IReadOnlyList<Scoreboard> Boards { get; init; }
-    public required int DirectUsers { get; init; }
+    /// <summary>Every other package that embeds this one (directly or through others) and changes with it.</summary>
+    public required IReadOnlyList<AffectedPackage> EmbeddedBy { get; init; }
+    public int DirectUsers => EmbeddedBy.Count(a => a.Via.Count(c => c == '→') == 1);
     public required IReadOnlyList<EditWarning> Warnings { get; init; }
 
     public string ConfirmationText
@@ -43,7 +45,7 @@ public sealed class PreEditReport
         {
             var pkg = GamePaths.ShortName(Node.PackagePath);
             var boards = Boards.Count == 0 ? "no scoreboard" : string.Join(", ", Boards.Select(b => b.Label));
-            var lines = new List<string> { $"You are about to edit {pkg}. It is shown on: {boards} (used directly by {DirectUsers} package{(DirectUsers == 1 ? "" : "s")})." };
+            var lines = new List<string> { $"You are about to edit {pkg}. It is shown on: {boards}.", EditWarnings.EmbeddedByText(pkg, EmbeddedBy) };
             var rest = Warnings.Where(w => w.Kind != WarningKind.Boards).ToList();
             lines.Add(rest.Count == 0 ? "No warnings." : "Warnings:");
             lines.AddRange(rest.Select(w => $"  [{w.Severity}] {w.Message}"));
@@ -72,9 +74,9 @@ public sealed class EditWarnings(LayoutEngine engine, UsageGraph usage, int view
     {
         var warnings = new List<EditWarning>();
         var boards = usage.ScoreboardsUsing(node.PackagePath);
-        var direct = usage.DirectUsers(node.PackagePath).Count;
-        warnings.Add(new(WarningKind.Boards, Severity.Info,
-            $"Shown on: {(boards.Count == 0 ? "no scoreboard" : string.Join(", ", boards.Select(b => b.Label)))}; used directly by {direct} package{(direct == 1 ? "" : "s")}."));
+        var embeddedBy = EditImpact.AffectedPackages(usage, [node.PackagePath]).Where(a => !a.Edited).ToList();
+        warnings.Add(new(WarningKind.Boards, embeddedBy.Count > 0 ? Severity.Warning : Severity.Info,
+            $"Shown on: {(boards.Count == 0 ? "no scoreboard" : string.Join(", ", boards.Select(b => b.Label)))}. {EmbeddedByText(GamePaths.ShortName(node.PackagePath), embeddedBy)}"));
 
         // one line per kind, naming the animations, so the confirmation stays readable
         string Names(IEnumerable<AnimationUse> uses) => string.Join(", ", uses.Select(a => $"\"{a.Animation}\"").Distinct());
@@ -124,7 +126,7 @@ public sealed class EditWarnings(LayoutEngine engine, UsageGraph usage, int view
             }
         }
 
-        return new PreEditReport { Node = node, Boards = boards, DirectUsers = direct, Warnings = warnings };
+        return new PreEditReport { Node = node, Boards = boards, EmbeddedBy = embeddedBy, Warnings = warnings };
     }
 
     // ---- for a pending edit ----
@@ -186,6 +188,24 @@ public sealed class EditWarnings(LayoutEngine engine, UsageGraph usage, int view
 
     private static bool Differs(RectangleF a, RectangleF b) =>
         Math.Abs(a.X - b.X) > MovedPx || Math.Abs(a.Y - b.Y) > MovedPx || Math.Abs(a.Width - b.Width) > MovedPx || Math.Abs(a.Height - b.Height) > MovedPx;
+
+    /// <summary>
+    /// "Embedded by 8 packages, which change with it: MatchTime (Offline scoreboard), MatchTimeGoal, …": names, not a count.
+    /// Packages reached through another one carry their chain; online packages are marked.
+    /// </summary>
+    public static string EmbeddedByText(string package, IReadOnlyList<AffectedPackage> embeddedBy)
+    {
+        if (embeddedBy.Count == 0) return $"No other package embeds {package}; only its own layout changes.";
+        static string Name(AffectedPackage a)
+        {
+            var notes = new List<string>();
+            if (a.Board != null) notes.Add(a.Board.Label);
+            else if (a.IsOnline) notes.Add("online");
+            if (a.Via.Count(c => c == '→') > 1) notes.Add("via " + a.Via);
+            return notes.Count == 0 ? a.Name : $"{a.Name} ({string.Join(", ", notes)})";
+        }
+        return $"Embedded by {embeddedBy.Count} package{(embeddedBy.Count == 1 ? "" : "s")}, which change with it: {string.Join(", ", embeddedBy.Select(Name))}.";
+    }
 
     private static string Capitalize(string s) => char.ToUpperInvariant(s[0]) + s[1..];
 }
