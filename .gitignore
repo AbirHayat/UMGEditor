@@ -1,0 +1,17 @@
+# third-party tool clones (each is its own git repo)
+/tools/
+
+# game data and anything derived from it (extracted, patched, cached)
+work/extract/
+work/out/
+work/cache/
+work/recon/dumps/
+work/recon/tex_test/
+ss/
+
+# build output
+bin/
+obj/
+.vs/
+*.user
+__pycache__/

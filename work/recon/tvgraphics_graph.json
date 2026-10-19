@@ -1,0 +1,2963 @@
+{
+  "/Game/Assets/ui/Data/Widget/TVGraphics/SwitchAssets_Original/CompeWinner/0164F/Tex720/CompeWinnerPlate": {
+    "container": "pc1000_mobile_and.utoc",
+    "dependsOn": [],
+    "scriptModules": [
+      "/Script/Engine"
+    ]
+  },
+  "/Game/Assets/ui/Data/Widget/TVGraphics/SwitchAssets_Original/CompeWinner/0164F/Tex720/CompeWinnerPlate_2": {
+    "container": "pc1000_mobile_and.utoc",
+    "dependsOn": [],
+    "scriptModules": [
+      "/Script/Engine"
+    ]
+  },
+  "/Game/Assets/ui/Data/Widget/TVGraphics/SwitchAssets_Original/CompeWinner/0164F/Tex720/CompeWinnerPlate_3": {
+    "container": "pc1000_mobile_and.utoc",
+    "dependsOn": [],
+    "scriptModules": [
+      "/Script/Engine"
+    ]
+  },
+  "/Game/Assets/ui/Data/Widget/TVGraphics/SwitchAssets_Original/CompeWinner/CompeWinner": {
+    "container": "pc1000_mobile_and.utoc",
+    "dependsOn": [
+      "/Game/Assets/ui/library/uiEmblem",
+      "/Game/Assets/ui/library/uiImage",
+      "/Game/Assets/ui/library/uiText"
+    ],
+    "scriptModules": [
+      "/Script/CoreUObject",
+      "/Script/MovieScene",
+      "/Script/MovieSceneTracks",
+      "/Script/PesShared",
+      "/Script/UMG"
+    ]
+  },
+  "/Game/Assets/ui/Data/Widget/TVGraphics/SwitchAssets_Original/CompeWinner/Tex720/CompeWinnerPlate": {
+    "container": "pc1000_mobile_and.utoc",
+    "dependsOn": [],
+    "scriptModules": [
+      "/Script/Engine"
+    ]
+  },
+  "/Game/Assets/ui/Data/Widget/TVGraphics/SwitchAssets_Original/CompeWinner/Tex720/CompeWinnerPlate_2": {
+    "container": "pc1000_mobile_and.utoc",
+    "dependsOn": [],
+    "scriptModules": [
+      "/Script/Engine"
+    ]
+  },
+  "/Game/Assets/ui/Data/Widget/TVGraphics/SwitchAssets_Original/CompeWinner/Tex720/CompeWinnerPlate_3": {
+    "container": "pc1000_mobile_and.utoc",
+    "dependsOn": [],
+    "scriptModules": [
+      "/Script/Engine"
+    ]
+  },
+  "/Game/Assets/ui/Data/Widget/TVGraphics/SwitchAssets_Original/DemoTitle/0164F/Tex720/DemoTitlePlate": {
+    "container": "pc1000_mobile_and.utoc",
+    "dependsOn": [],
+    "scriptModules": [
+      "/Script/Engine"
+    ]
+  },
+  "/Game/Assets/ui/Data/Widget/TVGraphics/SwitchAssets_Original/DemoTitle/DemoTitle": {
+    "container": "pc1000_mobile_and.utoc",
+    "dependsOn": [
+      "/Game/Assets/ui/Data/Widget/TVGraphics/SwitchAssets_Original/DemoTitle/DemoTitleBase",
+      "/Game/Assets/ui/library/uiText"
+    ],
+    "scriptModules": [
+      "/Script/CoreUObject",
+      "/Script/MovieScene",
+      "/Script/MovieSceneTracks",
+      "/Script/PesShared",
+      "/Script/UMG"
+    ]
+  },
+  "/Game/Assets/ui/Data/Widget/TVGraphics/SwitchAssets_Original/DemoTitle/DemoTitleBase": {
+    "container": "pc1000_mobile_and.utoc",
+    "dependsOn": [
+      "/Game/Assets/ui/library/uiImage"
+    ],
+    "scriptModules": [
+      "/Script/CoreUObject",
+      "/Script/UMG"
+    ]
+  },
+  "/Game/Assets/ui/Data/Widget/TVGraphics/SwitchAssets_Original/DemoTitle/DemoTitlePlayerCard": {
+    "container": "pc1000_mobile_and.utoc",
+    "dependsOn": [
+      "/Game/Assets/ui/Data/Widget/Parts/Components/Placeholders/UiPlayerCard/PlayerCardRT",
+      "/Game/Assets/ui/Data/Widget/TVGraphics/TVGraphicsCommon/PlayerCardEffect/PlayerCardEffectBigTimeBack",
+      "/Game/Assets/ui/Data/Widget/TVGraphics/TVGraphicsCommon/PlayerCardEffect/PlayerCardEffectBigTimeFront"
+    ],
+    "scriptModules": [
+      "/Script/CoreUObject",
+      "/Script/Engine",
+      "/Script/MovieScene",
+      "/Script/MovieSceneTracks",
+      "/Script/PesShared",
+      "/Script/UMG"
+    ]
+  },
+  "/Game/Assets/ui/Data/Widget/TVGraphics/SwitchAssets_Original/DemoTitle/Tex720/DemoTitlePlate": {
+    "container": "pc1000_mobile_and.utoc",
+    "dependsOn": [],
+    "scriptModules": [
+      "/Script/Engine"
+    ]
+  },
+  "/Game/Assets/ui/Data/Widget/TVGraphics/SwitchAssets_Original/MatchCard/0164F/Tex720/MatchCardBase": {
+    "container": "pc1000_mobile_and.utoc",
+    "dependsOn": [],
+    "scriptModules": [
+      "/Script/Engine"
+    ]
+  },
+  "/Game/Assets/ui/Data/Widget/TVGraphics/SwitchAssets_Original/MatchCard/0164F/Tex720/MatchCardIcon_Fine": {
+    "container": "pc1000_mobile_and.utoc",
+    "dependsOn": [],
+    "scriptModules": [
+      "/Script/Engine"
+    ]
+  },
+  "/Game/Assets/ui/Data/Widget/TVGraphics/SwitchAssets_Original/MatchCard/0164F/Tex720/MatchCardIcon_Rainy": {
+    "container": "pc1000_mobile_and.utoc",
+    "dependsOn": [],
+    "scriptModules": [
+      "/Script/Engine"
+    ]
+  },
+  "/Game/Assets/ui/Data/Widget/TVGraphics/SwitchAssets_Original/MatchCard/0164F/Tex720/MatchCardIcon_Snow": {
+    "container": "pc1000_mobile_and.utoc",
+    "dependsOn": [],
+    "scriptModules": [
+      "/Script/Engine"
+    ]
+  },
+  "/Game/Assets/ui/Data/Widget/TVGraphics/SwitchAssets_Original/MatchCard/0164F/Tex720/MatchCardLogo": {
+    "container": "pc1000_mobile_and.utoc",
+    "dependsOn": [],
+    "scriptModules": [
+      "/Script/Engine"
+    ]
+  },
+  "/Game/Assets/ui/Data/Widget/TVGraphics/SwitchAssets_Original/MatchCard/0164F/Tex720/MatchCardPlate": {
+    "container": "pc1000_mobile_and.utoc",
+    "dependsOn": [],
+    "scriptModules": [
+      "/Script/Engine"
+    ]
+  },
+  "/Game/Assets/ui/Data/Widget/TVGraphics/SwitchAssets_Original/MatchCard/0164F/Tex720/MatchCardPlate_2": {
+    "container": "pc1000_mobile_and.utoc",
+    "dependsOn": [],
+    "scriptModules": [
+      "/Script/Engine"
+    ]
+  },
+  "/Game/Assets/ui/Data/Widget/TVGraphics/SwitchAssets_Original/MatchCard/0164F/Tex720/MatchCardPlate_3": {
+    "container": "pc1000_mobile_and.utoc",
+    "dependsOn": [],
+    "scriptModules": [
+      "/Script/Engine"
+    ]
+  },
+  "/Game/Assets/ui/Data/Widget/TVGraphics/SwitchAssets_Original/MatchCard/0164F/Tex720/MatchCardVI_1": {
+    "container": "pc1000_mobile_and.utoc",
+    "dependsOn": [],
+    "scriptModules": [
+      "/Script/Engine"
+    ]
+  },
+  "/Game/Assets/ui/Data/Widget/TVGraphics/SwitchAssets_Original/MatchCard/0164F/Tex720/MatchCardVI_2": {
+    "container": "pc1000_mobile_and.utoc",
+    "dependsOn": [],
+    "scriptModules": [
+      "/Script/Engine"
+    ]
+  },
+  "/Game/Assets/ui/Data/Widget/TVGraphics/SwitchAssets_Original/MatchCard/0164F/Tex720/MatchCardVI_3": {
+    "container": "pc1000_mobile_and.utoc",
+    "dependsOn": [],
+    "scriptModules": [
+      "/Script/Engine"
+    ]
+  },
+  "/Game/Assets/ui/Data/Widget/TVGraphics/SwitchAssets_Original/MatchCard/0164F/Tex720/MatchCardVI_4": {
+    "container": "pc1000_mobile_and.utoc",
+    "dependsOn": [],
+    "scriptModules": [
+      "/Script/Engine"
+    ]
+  },
+  "/Game/Assets/ui/Data/Widget/TVGraphics/SwitchAssets_Original/MatchCard/MatchCard": {
+    "container": "pc1000_mobile_and.utoc",
+    "dependsOn": [
+      "/Game/Assets/ui/Data/Widget/TVGraphics/SwitchAssets_Original/MatchCard/MatchCardBase",
+      "/Game/Assets/ui/Data/Widget/TVGraphics/SwitchAssets_Original/MatchCard/MatchCardBase_2",
+      "/Game/Assets/ui/Data/Widget/TVGraphics/SwitchAssets_Original/MatchCard/MatchCardBase_3",
+      "/Game/Assets/ui/Data/Widget/TVGraphics/SwitchAssets_Original/MatchCard/MatchCardCompe",
+      "/Game/Assets/ui/Data/Widget/TVGraphics/SwitchAssets_Original/MatchCard/MatchCardIconWeather",
+      "/Game/Assets/ui/library/uiEmblem",
+      "/Game/Assets/ui/library/uiImage",
+      "/Game/Assets/ui/library/uiText"
+    ],
+    "scriptModules": [
+      "/Script/CoreUObject",
+      "/Script/MovieScene",
+      "/Script/MovieSceneTracks",
+      "/Script/PesShared",
+      "/Script/UMG"
+    ]
+  },
+  "/Game/Assets/ui/Data/Widget/TVGraphics/SwitchAssets_Original/MatchCard/MatchCard_2": {
+    "container": "pc1000_mobile_and.utoc",
+    "dependsOn": [
+      "/Game/Assets/ui/Data/Widget/TVGraphics/SwitchAssets_Original/MatchCard/MatchCardBase",
+      "/Game/Assets/ui/Data/Widget/TVGraphics/SwitchAssets_Original/MatchCard/MatchCardBase_2",
+      "/Game/Assets/ui/Data/Widget/TVGraphics/SwitchAssets_Original/MatchCard/MatchCardBase_3",
+      "/Game/Assets/ui/Data/Widget/TVGraphics/SwitchAssets_Original/MatchCard/MatchCardCompe",
+      "/Game/Assets/ui/Data/Widget/TVGraphics/SwitchAssets_Original/MatchCard/MatchCardIconWeather",
+      "/Game/Assets/ui/library/uiEmblem",
+      "/Game/Assets/ui/library/uiImage",
+      "/Game/Assets/ui/library/uiText"
+    ],
+    "scriptModules": [
+      "/Script/CoreUObject",
+      "/Script/MovieScene",
+      "/Script/MovieSceneTracks",
+      "/Script/PesShared",
+      "/Script/UMG"
+    ]
+  },
+  "/Game/Assets/ui/Data/Widget/TVGraphics/SwitchAssets_Original/MatchCard/MatchCardBase": {
+    "container": "pc1000_mobile_and.utoc",
+    "dependsOn": [
+      "/Game/Assets/ui/library/uiImage"
+    ],
+    "scriptModules": [
+      "/Script/CoreUObject",
+      "/Script/UMG"
+    ]
+  },
+  "/Game/Assets/ui/Data/Widget/TVGraphics/SwitchAssets_Original/MatchCard/MatchCardBase_2": {
+    "container": "pc1000_mobile_and.utoc",
+    "dependsOn": [
+      "/Game/Assets/ui/library/uiImage"
+    ],
+    "scriptModules": [
+      "/Script/CoreUObject",
+      "/Script/UMG"
+    ]
+  },
+  "/Game/Assets/ui/Data/Widget/TVGraphics/SwitchAssets_Original/MatchCard/MatchCardBase_3": {
+    "container": "pc1000_mobile_and.utoc",
+    "dependsOn": [
+      "/Game/Assets/ui/library/uiImage"
+    ],
+    "scriptModules": [
+      "/Script/CoreUObject",
+      "/Script/UMG"
+    ]
+  },
+  "/Game/Assets/ui/Data/Widget/TVGraphics/SwitchAssets_Original/MatchCard/MatchCardCompe": {
+    "container": "pc1000_mobile_and.utoc",
+    "dependsOn": [
+      "/Game/Assets/ui/Data/Widget/TVGraphics/SwitchAssets_Original/MatchCard/MatchCardBase_2",
+      "/Game/Assets/ui/library/uiCompe"
+    ],
+    "scriptModules": [
+      "/Script/CoreUObject",
+      "/Script/MovieScene",
+      "/Script/MovieSceneTracks",
+      "/Script/UMG"
+    ]
+  },
+  "/Game/Assets/ui/Data/Widget/TVGraphics/SwitchAssets_Original/MatchCard/MatchCardIconWeather": {
+    "container": "pc1000_mobile_and.utoc",
+    "dependsOn": [
+      "/Game/Assets/ui/library/uiImage"
+    ],
+    "scriptModules": [
+      "/Script/CoreUObject",
+      "/Script/MovieScene",
+      "/Script/MovieSceneTracks",
+      "/Script/UMG"
+    ]
+  },
+  "/Game/Assets/ui/Data/Widget/TVGraphics/SwitchAssets_Original/MatchCard/Tex720/MatchCardBase": {
+    "container": "pc1000_mobile_and.utoc",
+    "dependsOn": [],
+    "scriptModules": [
+      "/Script/Engine"
+    ]
+  },
+  "/Game/Assets/ui/Data/Widget/TVGraphics/SwitchAssets_Original/MatchCard/Tex720/MatchCardIcon_Fine": {
+    "container": "pc1000_mobile_and.utoc",
+    "dependsOn": [],
+    "scriptModules": [
+      "/Script/Engine"
+    ]
+  },
+  "/Game/Assets/ui/Data/Widget/TVGraphics/SwitchAssets_Original/MatchCard/Tex720/MatchCardIcon_Rainy": {
+    "container": "pc1000_mobile_and.utoc",
+    "dependsOn": [],
+    "scriptModules": [
+      "/Script/Engine"
+    ]
+  },
+  "/Game/Assets/ui/Data/Widget/TVGraphics/SwitchAssets_Original/MatchCard/Tex720/MatchCardIcon_Snow": {
+    "container": "pc1000_mobile_and.utoc",
+    "dependsOn": [],
+    "scriptModules": [
+      "/Script/Engine"
+    ]
+  },
+  "/Game/Assets/ui/Data/Widget/TVGraphics/SwitchAssets_Original/MatchCard/Tex720/MatchCardLogo": {
+    "container": "pc1000_mobile_and.utoc",
+    "dependsOn": [],
+    "scriptModules": [
+      "/Script/Engine"
+    ]
+  },
+  "/Game/Assets/ui/Data/Widget/TVGraphics/SwitchAssets_Original/MatchCard/Tex720/MatchCardPlate": {
+    "container": "pc1000_mobile_and.utoc",
+    "dependsOn": [],
+    "scriptModules": [
+      "/Script/Engine"
+    ]
+  },
+  "/Game/Assets/ui/Data/Widget/TVGraphics/SwitchAssets_Original/MatchCard/Tex720/MatchCardPlate_2": {
+    "container": "pc1000_mobile_and.utoc",
+    "dependsOn": [],
+    "scriptModules": [
+      "/Script/Engine"
+    ]
+  },
+  "/Game/Assets/ui/Data/Widget/TVGraphics/SwitchAssets_Original/MatchCard/Tex720/MatchCardPlate_3": {
+    "container": "pc1000_mobile_and.utoc",
+    "dependsOn": [],
+    "scriptModules": [
+      "/Script/Engine"
+    ]
+  },
+  "/Game/Assets/ui/Data/Widget/TVGraphics/SwitchAssets_Original/MatchCard/Tex720/MatchCardVI_1": {
+    "container": "pc1000_mobile_and.utoc",
+    "dependsOn": [],
+    "scriptModules": [
+      "/Script/Engine"
+    ]
+  },
+  "/Game/Assets/ui/Data/Widget/TVGraphics/SwitchAssets_Original/MatchCard/Tex720/MatchCardVI_2": {
+    "container": "pc1000_mobile_and.utoc",
+    "dependsOn": [],
+    "scriptModules": [
+      "/Script/Engine"
+    ]
+  },
+  "/Game/Assets/ui/Data/Widget/TVGraphics/SwitchAssets_Original/MatchCard/Tex720/MatchCardVI_3": {
+    "container": "pc1000_mobile_and.utoc",
+    "dependsOn": [],
+    "scriptModules": [
+      "/Script/Engine"
+    ]
+  },
+  "/Game/Assets/ui/Data/Widget/TVGraphics/SwitchAssets_Original/MatchCard/Tex720/MatchCardVI_4": {
+    "container": "pc1000_mobile_and.utoc",
+    "dependsOn": [],
+    "scriptModules": [
+      "/Script/Engine"
+    ]
+  },
+  "/Game/Assets/ui/Data/Widget/TVGraphics/SwitchAssets_Original/MatchMemberChangeSpecial/MatchMemberChangeSpecial": {
+    "container": "pc1000_mobile_and.utoc",
+    "dependsOn": [
+      "/Game/Assets/ui/Data/Widget/Parts/Components/Placeholders/UiPlayerCard/PlayerCardRT",
+      "/Game/Assets/ui/library/uiEmblem",
+      "/Game/Assets/ui/library/uiImage",
+      "/Game/Assets/ui/library/uiText"
+    ],
+    "scriptModules": [
+      "/Script/CoreUObject",
+      "/Script/MovieScene",
+      "/Script/MovieSceneTracks",
+      "/Script/PesShared",
+      "/Script/UMG"
+    ]
+  },
+  "/Game/Assets/ui/Data/Widget/TVGraphics/SwitchAssets_Original/MatchMemberChangeSpecial/Tex720/MatchMemberChangeSpecialIn": {
+    "container": "pc1000_mobile_and.utoc",
+    "dependsOn": [],
+    "scriptModules": [
+      "/Script/Engine"
+    ]
+  },
+  "/Game/Assets/ui/Data/Widget/TVGraphics/SwitchAssets_Original/MatchMemberChangeSpecial/Tex720/MatchMemberChangeSpecialOut": {
+    "container": "pc1000_mobile_and.utoc",
+    "dependsOn": [],
+    "scriptModules": [
+      "/Script/Engine"
+    ]
+  },
+  "/Game/Assets/ui/Data/Widget/TVGraphics/SwitchAssets_Original/MatchMemberChangeSpecial/Tex720/MatchMemberChangeSpecialPlate_1": {
+    "container": "pc1000_mobile_and.utoc",
+    "dependsOn": [],
+    "scriptModules": [
+      "/Script/Engine"
+    ]
+  },
+  "/Game/Assets/ui/Data/Widget/TVGraphics/SwitchAssets_Original/MatchMemberChangeSpecial/Tex720/MatchMemberChangeSpecialPlate_2": {
+    "container": "pc1000_mobile_and.utoc",
+    "dependsOn": [],
+    "scriptModules": [
+      "/Script/Engine"
+    ]
+  },
+  "/Game/Assets/ui/Data/Widget/TVGraphics/SwitchAssets_Original/MatchMemberChangeSpecial/Tex720/MatchMemberChangeSpecialPlate_3": {
+    "container": "pc1000_mobile_and.utoc",
+    "dependsOn": [],
+    "scriptModules": [
+      "/Script/Engine"
+    ]
+  },
+  "/Game/Assets/ui/Data/Widget/TVGraphics/SwitchAssets_Original/MatchPKScore/0164F/Tex720/MatchPKScoreLine_Yellow": {
+    "container": "pc1000_mobile_and.utoc",
+    "dependsOn": [],
+    "scriptModules": [
+      "/Script/Engine"
+    ]
+  },
+  "/Game/Assets/ui/Data/Widget/TVGraphics/SwitchAssets_Original/MatchPKScore/0164F/Tex720/MatchPKScorePlate_Blue": {
+    "container": "pc1000_mobile_and.utoc",
+    "dependsOn": [],
+    "scriptModules": [
+      "/Script/Engine"
+    ]
+  },
+  "/Game/Assets/ui/Data/Widget/TVGraphics/SwitchAssets_Original/MatchPKScore/0164F/Tex720/MatchPKScorePlate_Yellow": {
+    "container": "pc1000_mobile_and.utoc",
+    "dependsOn": [],
+    "scriptModules": [
+      "/Script/Engine"
+    ]
+  },
+  "/Game/Assets/ui/Data/Widget/TVGraphics/SwitchAssets_Original/MatchPKScore/MatchPKScore": {
+    "container": "pc1000_mobile_and.utoc",
+    "dependsOn": [
+      "/Game/Assets/ui/Data/Widget/TVGraphics/SwitchAssets_Original/MatchPKScore/MatchPKScoreLamp",
+      "/Game/Assets/ui/library/uiImage",
+      "/Game/Assets/ui/library/uiText"
+    ],
+    "scriptModules": [
+      "/Script/CoreUObject",
+      "/Script/MovieScene",
+      "/Script/MovieSceneTracks",
+      "/Script/PesShared",
+      "/Script/UMG"
+    ]
+  },
+  "/Game/Assets/ui/Data/Widget/TVGraphics/SwitchAssets_Original/MatchPKScore/MatchPKScoreLamp": {
+    "container": "pc1000_mobile_and.utoc",
+    "dependsOn": [
+      "/Game/Assets/ui/library/uiImage"
+    ],
+    "scriptModules": [
+      "/Script/CoreUObject",
+      "/Script/MovieScene",
+      "/Script/MovieSceneTracks",
+      "/Script/UMG"
+    ]
+  },
+  "/Game/Assets/ui/Data/Widget/TVGraphics/SwitchAssets_Original/MatchPKScore/Tex720/MatchPKScoreLine_Yellow": {
+    "container": "pc1000_mobile_and.utoc",
+    "dependsOn": [],
+    "scriptModules": [
+      "/Script/Engine"
+    ]
+  },
+  "/Game/Assets/ui/Data/Widget/TVGraphics/SwitchAssets_Original/MatchPKScore/Tex720/MatchPKScorePlate_Blue": {
+    "container": "pc1000_mobile_and.utoc",
+    "dependsOn": [],
+    "scriptModules": [
+      "/Script/Engine"
+    ]
+  },
+  "/Game/Assets/ui/Data/Widget/TVGraphics/SwitchAssets_Original/MatchPKScore/Tex720/MatchPKScorePlate_Green": {
+    "container": "pc1000_mobile_and.utoc",
+    "dependsOn": [],
+    "scriptModules": [
+      "/Script/Engine"
+    ]
+  },
+  "/Game/Assets/ui/Data/Widget/TVGraphics/SwitchAssets_Original/MatchPKScore/Tex720/MatchPKScorePlate_Grey": {
+    "container": "pc1000_mobile_and.utoc",
+    "dependsOn": [],
+    "scriptModules": [
+      "/Script/Engine"
+    ]
+  },
+  "/Game/Assets/ui/Data/Widget/TVGraphics/SwitchAssets_Original/MatchPKScore/Tex720/MatchPKScorePlate_Red": {
+    "container": "pc1000_mobile_and.utoc",
+    "dependsOn": [],
+    "scriptModules": [
+      "/Script/Engine"
+    ]
+  },
+  "/Game/Assets/ui/Data/Widget/TVGraphics/SwitchAssets_Original/MatchPKScore/Tex720/MatchPKScorePlate_Yellow": {
+    "container": "pc1000_mobile_and.utoc",
+    "dependsOn": [],
+    "scriptModules": [
+      "/Script/Engine"
+    ]
+  },
+  "/Game/Assets/ui/Data/Widget/TVGraphics/SwitchAssets_Original/MatchPlayer/0164F/Tex720/MatchPlayerPlate": {
+    "container": "pc1000_mobile_and.utoc",
+    "dependsOn": [],
+    "scriptModules": [
+      "/Script/Engine"
+    ]
+  },
+  "/Game/Assets/ui/Data/Widget/TVGraphics/SwitchAssets_Original/MatchPlayer/0164F/Tex720/MatchPlayerPlate_2": {
+    "container": "pc1000_mobile_and.utoc",
+    "dependsOn": [],
+    "scriptModules": [
+      "/Script/Engine"
+    ]
+  },
+  "/Game/Assets/ui/Data/Widget/TVGraphics/SwitchAssets_Original/MatchPlayer/0164F/Tex720/MatchPlayerPlate_3": {
+    "container": "pc1000_mobile_and.utoc",
+    "dependsOn": [],
+    "scriptModules": [
+      "/Script/Engine"
+    ]
+  },
+  "/Game/Assets/ui/Data/Widget/TVGraphics/SwitchAssets_Original/MatchPlayer/MatchPlayer_1": {
+    "container": "pc1000_mobile_and.utoc",
+    "dependsOn": [
+      "/Game/Assets/ui/Data/Widget/TVGraphics/SwitchAssets_Original/MatchPlayer/MatchPlayerBase",
+      "/Game/Assets/ui/Data/Widget/TVGraphics/SwitchAssets_Original/MatchPlayer/MatchPlayerBase_2",
+      "/Game/Assets/ui/Data/Widget/TVGraphics/SwitchAssets_Original/MatchPlayer/MatchPlayerBase_3",
+      "/Game/Assets/ui/library/uiEmblem",
+      "/Game/Assets/ui/library/uiText"
+    ],
+    "scriptModules": [
+      "/Script/CoreUObject",
+      "/Script/MovieScene",
+      "/Script/MovieSceneTracks",
+      "/Script/PesShared",
+      "/Script/UMG"
+    ]
+  },
+  "/Game/Assets/ui/Data/Widget/TVGraphics/SwitchAssets_Original/MatchPlayer/MatchPlayer_2": {
+    "container": "pc1000_mobile_and.utoc",
+    "dependsOn": [
+      "/Game/Assets/ui/Data/Widget/TVGraphics/SwitchAssets_Original/MatchPlayer/MatchPlayerBase",
+      "/Game/Assets/ui/Data/Widget/TVGraphics/SwitchAssets_Original/MatchPlayer/MatchPlayerBase_2",
+      "/Game/Assets/ui/Data/Widget/TVGraphics/SwitchAssets_Original/MatchPlayer/MatchPlayerBase_3",
+      "/Game/Assets/ui/library/uiEmblem",
+      "/Game/Assets/ui/library/uiText"
+    ],
+    "scriptModules": [
+      "/Script/CoreUObject",
+      "/Script/MovieScene",
+      "/Script/MovieSceneTracks",
+      "/Script/PesShared",
+      "/Script/UMG"
+    ]
+  },
+  "/Game/Assets/ui/Data/Widget/TVGraphics/SwitchAssets_Original/MatchPlayer/MatchPlayerBase": {
+    "container": "pc1000_mobile_and.utoc",
+    "dependsOn": [
+      "/Game/Assets/ui/library/uiImage"
+    ],
+    "scriptModules": [
+      "/Script/CoreUObject",
+      "/Script/UMG"
+    ]
+  },
+  "/Game/Assets/ui/Data/Widget/TVGraphics/SwitchAssets_Original/MatchPlayer/MatchPlayerBase_2": {
+    "container": "pc1000_mobile_and.utoc",
+    "dependsOn": [
+      "/Game/Assets/ui/library/uiImage"
+    ],
+    "scriptModules": [
+      "/Script/CoreUObject",
+      "/Script/UMG"
+    ]
+  },
+  "/Game/Assets/ui/Data/Widget/TVGraphics/SwitchAssets_Original/MatchPlayer/MatchPlayerBase_3": {
+    "container": "pc1000_mobile_and.utoc",
+    "dependsOn": [
+      "/Game/Assets/ui/library/uiImage"
+    ],
+    "scriptModules": [
+      "/Script/CoreUObject",
+      "/Script/UMG"
+    ]
+  },
+  "/Game/Assets/ui/Data/Widget/TVGraphics/SwitchAssets_Original/MatchPlayer/Tex720/MatchPlayerPlate": {
+    "container": "pc1000_mobile_and.utoc",
+    "dependsOn": [],
+    "scriptModules": [
+      "/Script/Engine"
+    ]
+  },
+  "/Game/Assets/ui/Data/Widget/TVGraphics/SwitchAssets_Original/MatchPlayer/Tex720/MatchPlayerPlate_2": {
+    "container": "pc1000_mobile_and.utoc",
+    "dependsOn": [],
+    "scriptModules": [
+      "/Script/Engine"
+    ]
+  },
+  "/Game/Assets/ui/Data/Widget/TVGraphics/SwitchAssets_Original/MatchPlayer/Tex720/MatchPlayerPlate_3": {
+    "container": "pc1000_mobile_and.utoc",
+    "dependsOn": [],
+    "scriptModules": [
+      "/Script/Engine"
+    ]
+  },
+  "/Game/Assets/ui/Data/Widget/TVGraphics/SwitchAssets_Original/MatchScore/0164F/Tex720/MatchScoreLogo": {
+    "container": "pc1000_mobile_and.utoc",
+    "dependsOn": [],
+    "scriptModules": [
+      "/Script/Engine"
+    ]
+  },
+  "/Game/Assets/ui/Data/Widget/TVGraphics/SwitchAssets_Original/MatchScore/0164F/Tex720/MatchScorePlate_0": {
+    "container": "pc1000_mobile_and.utoc",
+    "dependsOn": [],
+    "scriptModules": [
+      "/Script/Engine"
+    ]
+  },
+  "/Game/Assets/ui/Data/Widget/TVGraphics/SwitchAssets_Original/MatchScore/0164F/Tex720/MatchScorePlate_1": {
+    "container": "pc1000_mobile_and.utoc",
+    "dependsOn": [],
+    "scriptModules": [
+      "/Script/Engine"
+    ]
+  },
+  "/Game/Assets/ui/Data/Widget/TVGraphics/SwitchAssets_Original/MatchScore/0164F/Tex720/MatchScorePlate_2": {
+    "container": "pc1000_mobile_and.utoc",
+    "dependsOn": [],
+    "scriptModules": [
+      "/Script/Engine"
+    ]
+  },
+  "/Game/Assets/ui/Data/Widget/TVGraphics/SwitchAssets_Original/MatchScore/MatchScore": {
+    "container": "pc1000_mobile_and.utoc",
+    "dependsOn": [
+      "/Game/Assets/ui/Data/Widget/TVGraphics/SwitchAssets_Original/MatchScore/MatchScoreBase",
+      "/Game/Assets/ui/Data/Widget/TVGraphics/SwitchAssets_Original/MatchScore/MatchScoreBase_2",
+      "/Game/Assets/ui/Data/Widget/TVGraphics/SwitchAssets_Original/MatchScore/MatchScoreBase_3",
+      "/Game/Assets/ui/Data/Widget/TVGraphics/SwitchAssets_Original/MatchScore/MatchScoreCell",
+      "/Game/Assets/ui/Data/Widget/TVGraphics/SwitchAssets_Original/MatchScore/MatchScoreCompe",
+      "/Game/Assets/ui/library/uiEmblem",
+      "/Game/Assets/ui/library/uiImage",
+      "/Game/Assets/ui/library/uiText"
+    ],
+    "scriptModules": [
+      "/Script/CoreUObject",
+      "/Script/MovieScene",
+      "/Script/MovieSceneTracks",
+      "/Script/PesShared",
+      "/Script/UMG"
+    ]
+  },
+  "/Game/Assets/ui/Data/Widget/TVGraphics/SwitchAssets_Original/MatchScore/MatchScoreBase": {
+    "container": "pc1000_mobile_and.utoc",
+    "dependsOn": [
+      "/Game/Assets/ui/library/uiImage"
+    ],
+    "scriptModules": [
+      "/Script/CoreUObject",
+      "/Script/UMG"
+    ]
+  },
+  "/Game/Assets/ui/Data/Widget/TVGraphics/SwitchAssets_Original/MatchScore/MatchScoreBase_2": {
+    "container": "pc1000_mobile_and.utoc",
+    "dependsOn": [
+      "/Game/Assets/ui/library/uiImage"
+    ],
+    "scriptModules": [
+      "/Script/CoreUObject",
+      "/Script/UMG"
+    ]
+  },
+  "/Game/Assets/ui/Data/Widget/TVGraphics/SwitchAssets_Original/MatchScore/MatchScoreBase_3": {
+    "container": "pc1000_mobile_and.utoc",
+    "dependsOn": [
+      "/Game/Assets/ui/library/uiImage"
+    ],
+    "scriptModules": [
+      "/Script/CoreUObject",
+      "/Script/UMG"
+    ]
+  },
+  "/Game/Assets/ui/Data/Widget/TVGraphics/SwitchAssets_Original/MatchScore/MatchScoreCell": {
+    "container": "pc1000_mobile_and.utoc",
+    "dependsOn": [
+      "/Game/Assets/ui/Data/Widget/TVGraphics/SwitchAssets_Original/MatchScore/MatchScoreBase",
+      "/Game/Assets/ui/Data/Widget/TVGraphics/SwitchAssets_Original/MatchScore/MatchScoreBase_2",
+      "/Game/Assets/ui/library/uiText"
+    ],
+    "scriptModules": [
+      "/Script/CoreUObject",
+      "/Script/MovieScene",
+      "/Script/MovieSceneTracks",
+      "/Script/UMG"
+    ]
+  },
+  "/Game/Assets/ui/Data/Widget/TVGraphics/SwitchAssets_Original/MatchScore/MatchScoreCompe": {
+    "container": "pc1000_mobile_and.utoc",
+    "dependsOn": [
+      "/Game/Assets/ui/Data/Widget/TVGraphics/SwitchAssets_Original/MatchScore/MatchScoreBase_2",
+      "/Game/Assets/ui/library/uiCompe"
+    ],
+    "scriptModules": [
+      "/Script/CoreUObject",
+      "/Script/MovieScene",
+      "/Script/MovieSceneTracks",
+      "/Script/UMG"
+    ]
+  },
+  "/Game/Assets/ui/Data/Widget/TVGraphics/SwitchAssets_Original/MatchScore/MatchScoreList": {
+    "container": "pc1000_mobile_and.utoc",
+    "dependsOn": [
+      "/Game/Assets/ui/Data/Widget/TVGraphics/SwitchAssets_Original/MatchScore/MatchScoreCell"
+    ],
+    "scriptModules": [
+      "/Script/CoreUObject",
+      "/Script/MovieScene",
+      "/Script/MovieSceneTracks",
+      "/Script/UMG"
+    ]
+  },
+  "/Game/Assets/ui/Data/Widget/TVGraphics/SwitchAssets_Original/MatchScore/Tex720/MatchScoreLogo": {
+    "container": "pc1000_mobile_and.utoc",
+    "dependsOn": [],
+    "scriptModules": [
+      "/Script/Engine"
+    ]
+  },
+  "/Game/Assets/ui/Data/Widget/TVGraphics/SwitchAssets_Original/MatchScore/Tex720/MatchScorePlate_0": {
+    "container": "pc1000_mobile_and.utoc",
+    "dependsOn": [],
+    "scriptModules": [
+      "/Script/Engine"
+    ]
+  },
+  "/Game/Assets/ui/Data/Widget/TVGraphics/SwitchAssets_Original/MatchScore/Tex720/MatchScorePlate_1": {
+    "container": "pc1000_mobile_and.utoc",
+    "dependsOn": [],
+    "scriptModules": [
+      "/Script/Engine"
+    ]
+  },
+  "/Game/Assets/ui/Data/Widget/TVGraphics/SwitchAssets_Original/MatchScore/Tex720/MatchScorePlate_2": {
+    "container": "pc1000_mobile_and.utoc",
+    "dependsOn": [],
+    "scriptModules": [
+      "/Script/Engine"
+    ]
+  },
+  "/Game/Assets/ui/Data/Widget/TVGraphics/SwitchAssets_Original/MatchStarPlayer/MatchStarPlayer": {
+    "container": "pc1000_mobile_and.utoc",
+    "dependsOn": [
+      "/Game/Assets/ui/Data/Widget/Parts/Components/Placeholders/UiPlayerCard/PlayerCardRT",
+      "/Game/Assets/ui/library/uiEmblem",
+      "/Game/Assets/ui/library/uiImage",
+      "/Game/Assets/ui/library/uiText"
+    ],
+    "scriptModules": [
+      "/Script/CoreUObject",
+      "/Script/MovieScene",
+      "/Script/MovieSceneTracks",
+      "/Script/PesShared",
+      "/Script/UMG"
+    ]
+  },
+  "/Game/Assets/ui/Data/Widget/TVGraphics/SwitchAssets_Original/MatchStarPlayer/Tex720/MatchStarPlayerEffect": {
+    "container": "pc1000_mobile_and.utoc",
+    "dependsOn": [],
+    "scriptModules": [
+      "/Script/Engine"
+    ]
+  },
+  "/Game/Assets/ui/Data/Widget/TVGraphics/SwitchAssets_Original/MatchStarPlayer/Tex720/MatchStarPlayerLogo": {
+    "container": "pc1000_mobile_and.utoc",
+    "dependsOn": [],
+    "scriptModules": [
+      "/Script/Engine"
+    ]
+  },
+  "/Game/Assets/ui/Data/Widget/TVGraphics/SwitchAssets_Original/MatchStarPlayer/Tex720/MatchStarPlayerPlate_1": {
+    "container": "pc1000_mobile_and.utoc",
+    "dependsOn": [],
+    "scriptModules": [
+      "/Script/Engine"
+    ]
+  },
+  "/Game/Assets/ui/Data/Widget/TVGraphics/SwitchAssets_Original/MatchStarPlayer/Tex720/MatchStarPlayerPlate_2": {
+    "container": "pc1000_mobile_and.utoc",
+    "dependsOn": [],
+    "scriptModules": [
+      "/Script/Engine"
+    ]
+  },
+  "/Game/Assets/ui/Data/Widget/TVGraphics/SwitchAssets_Original/MatchStarPlayer/Tex720/MatchStarPlayerPlate_3": {
+    "container": "pc1000_mobile_and.utoc",
+    "dependsOn": [],
+    "scriptModules": [
+      "/Script/Engine"
+    ]
+  },
+  "/Game/Assets/ui/Data/Widget/TVGraphics/SwitchAssets_Original/MatchStats/0164F/Tex720/MatchStatsLogo": {
+    "container": "pc1000_mobile_and.utoc",
+    "dependsOn": [],
+    "scriptModules": [
+      "/Script/Engine"
+    ]
+  },
+  "/Game/Assets/ui/Data/Widget/TVGraphics/SwitchAssets_Original/MatchStats/0164F/Tex720/MatchStatsPlate": {
+    "container": "pc1000_mobile_and.utoc",
+    "dependsOn": [],
+    "scriptModules": [
+      "/Script/Engine"
+    ]
+  },
+  "/Game/Assets/ui/Data/Widget/TVGraphics/SwitchAssets_Original/MatchStats/0164F/Tex720/MatchStatsPlate_2": {
+    "container": "pc1000_mobile_and.utoc",
+    "dependsOn": [],
+    "scriptModules": [
+      "/Script/Engine"
+    ]
+  },
+  "/Game/Assets/ui/Data/Widget/TVGraphics/SwitchAssets_Original/MatchStats/0164F/Tex720/MatchStatsPlate_3": {
+    "container": "pc1000_mobile_and.utoc",
+    "dependsOn": [],
+    "scriptModules": [
+      "/Script/Engine"
+    ]
+  },
+  "/Game/Assets/ui/Data/Widget/TVGraphics/SwitchAssets_Original/MatchStats/0164F/Tex720/MatchStatsPlate_4": {
+    "container": "pc1000_mobile_and.utoc",
+    "dependsOn": [],
+    "scriptModules": [
+      "/Script/Engine"
+    ]
+  },
+  "/Game/Assets/ui/Data/Widget/TVGraphics/SwitchAssets_Original/MatchStats/0164F/Tex720/MatchStatsPlateVI_1": {
+    "container": "pc1000_mobile_and.utoc",
+    "dependsOn": [],
+    "scriptModules": [
+      "/Script/Engine"
+    ]
+  },
+  "/Game/Assets/ui/Data/Widget/TVGraphics/SwitchAssets_Original/MatchStats/0164F/Tex720/MatchStatsPlateVI_2": {
+    "container": "pc1000_mobile_and.utoc",
+    "dependsOn": [],
+    "scriptModules": [
+      "/Script/Engine"
+    ]
+  },
+  "/Game/Assets/ui/Data/Widget/TVGraphics/SwitchAssets_Original/MatchStats/0164F/Tex720/MatchStatsPlateVI_3": {
+    "container": "pc1000_mobile_and.utoc",
+    "dependsOn": [],
+    "scriptModules": [
+      "/Script/Engine"
+    ]
+  },
+  "/Game/Assets/ui/Data/Widget/TVGraphics/SwitchAssets_Original/MatchStats/0164F/Tex720/MatchStatsPlateVI_4": {
+    "container": "pc1000_mobile_and.utoc",
+    "dependsOn": [],
+    "scriptModules": [
+      "/Script/Engine"
+    ]
+  },
+  "/Game/Assets/ui/Data/Widget/TVGraphics/SwitchAssets_Original/MatchStats/0164F/Tex720/MatchStatsPlateVI_5": {
+    "container": "pc1000_mobile_and.utoc",
+    "dependsOn": [],
+    "scriptModules": [
+      "/Script/Engine"
+    ]
+  },
+  "/Game/Assets/ui/Data/Widget/TVGraphics/SwitchAssets_Original/MatchStats/MatchStats": {
+    "container": "pc1000_mobile_and.utoc",
+    "dependsOn": [
+      "/Game/Assets/ui/Data/Widget/TVGraphics/SwitchAssets_Original/MatchStats/MatchStatsBase",
+      "/Game/Assets/ui/Data/Widget/TVGraphics/SwitchAssets_Original/MatchStats/MatchStatsBase_2",
+      "/Game/Assets/ui/Data/Widget/TVGraphics/SwitchAssets_Original/MatchStats/MatchStatsBase_3",
+      "/Game/Assets/ui/Data/Widget/TVGraphics/SwitchAssets_Original/MatchStats/MatchStatsCompe",
+      "/Game/Assets/ui/Data/Widget/TVGraphics/SwitchAssets_Original/MatchStats/MatchStatsListPlate",
+      "/Game/Assets/ui/Data/Widget/TVGraphics/SwitchAssets_Original/MatchStats/MatchStatsManager",
+      "/Game/Assets/ui/library/uiEmblem",
+      "/Game/Assets/ui/library/uiImage",
+      "/Game/Assets/ui/library/uiText"
+    ],
+    "scriptModules": [
+      "/Script/CoreUObject",
+      "/Script/MovieScene",
+      "/Script/MovieSceneTracks",
+      "/Script/PesShared",
+      "/Script/UMG"
+    ]
+  },
+  "/Game/Assets/ui/Data/Widget/TVGraphics/SwitchAssets_Original/MatchStats/MatchStats_2": {
+    "container": "pc1000_mobile_and.utoc",
+    "dependsOn": [
+      "/Game/Assets/ui/Data/Widget/TVGraphics/SwitchAssets_Original/MatchScore/MatchScoreCompe",
+      "/Game/Assets/ui/Data/Widget/TVGraphics/SwitchAssets_Original/MatchStats/MatchStatsBase",
+      "/Game/Assets/ui/Data/Widget/TVGraphics/SwitchAssets_Original/MatchStats/MatchStatsBase_2",
+      "/Game/Assets/ui/Data/Widget/TVGraphics/SwitchAssets_Original/MatchStats/MatchStatsBase_3",
+      "/Game/Assets/ui/Data/Widget/TVGraphics/SwitchAssets_Original/MatchStats/MatchStatsListPlate",
+      "/Game/Assets/ui/Data/Widget/TVGraphics/SwitchAssets_Original/MatchStats/MatchStatsManager",
+      "/Game/Assets/ui/library/uiEmblem",
+      "/Game/Assets/ui/library/uiImage",
+      "/Game/Assets/ui/library/uiText"
+    ],
+    "scriptModules": [
+      "/Script/CoreUObject",
+      "/Script/MovieScene",
+      "/Script/MovieSceneTracks",
+      "/Script/PesShared",
+      "/Script/UMG"
+    ]
+  },
+  "/Game/Assets/ui/Data/Widget/TVGraphics/SwitchAssets_Original/MatchStats/MatchStatsBase": {
+    "container": "pc1000_mobile_and.utoc",
+    "dependsOn": [
+      "/Game/Assets/ui/library/uiImage"
+    ],
+    "scriptModules": [
+      "/Script/CoreUObject",
+      "/Script/UMG"
+    ]
+  },
+  "/Game/Assets/ui/Data/Widget/TVGraphics/SwitchAssets_Original/MatchStats/MatchStatsBase_2": {
+    "container": "pc1000_mobile_and.utoc",
+    "dependsOn": [
+      "/Game/Assets/ui/library/uiImage"
+    ],
+    "scriptModules": [
+      "/Script/CoreUObject",
+      "/Script/UMG"
+    ]
+  },
+  "/Game/Assets/ui/Data/Widget/TVGraphics/SwitchAssets_Original/MatchStats/MatchStatsBase_3": {
+    "container": "pc1000_mobile_and.utoc",
+    "dependsOn": [
+      "/Game/Assets/ui/library/uiImage"
+    ],
+    "scriptModules": [
+      "/Script/CoreUObject",
+      "/Script/UMG"
+    ]
+  },
+  "/Game/Assets/ui/Data/Widget/TVGraphics/SwitchAssets_Original/MatchStats/MatchStatsCompe": {
+    "container": "pc1000_mobile_and.utoc",
+    "dependsOn": [
+      "/Game/Assets/ui/Data/Widget/TVGraphics/SwitchAssets_Original/MatchStats/MatchStatsBase_2",
+      "/Game/Assets/ui/library/uiCompe"
+    ],
+    "scriptModules": [
+      "/Script/CoreUObject",
+      "/Script/MovieScene",
+      "/Script/MovieSceneTracks",
+      "/Script/UMG"
+    ]
+  },
+  "/Game/Assets/ui/Data/Widget/TVGraphics/SwitchAssets_Original/MatchStats/MatchStatsListPlate": {
+    "container": "pc1000_mobile_and.utoc",
+    "dependsOn": [
+      "/Game/Assets/ui/Data/Widget/TVGraphics/SwitchAssets_Original/MatchStats/MatchStatsBase",
+      "/Game/Assets/ui/Data/Widget/TVGraphics/SwitchAssets_Original/MatchStats/MatchStatsBase_2"
+    ],
+    "scriptModules": [
+      "/Script/CoreUObject",
+      "/Script/UMG"
+    ]
+  },
+  "/Game/Assets/ui/Data/Widget/TVGraphics/SwitchAssets_Original/MatchStats/MatchStatsManager": {
+    "container": "pc1000_mobile_and.utoc",
+    "dependsOn": [
+      "/Game/Assets/ui/Data/Widget/TVGraphics/SwitchAssets_Original/MatchStats/MatchStatsBase",
+      "/Game/Assets/ui/Data/Widget/TVGraphics/SwitchAssets_Original/MatchStats/MatchStatsBase_2",
+      "/Game/Assets/ui/library/uiText"
+    ],
+    "scriptModules": [
+      "/Script/CoreUObject",
+      "/Script/MovieScene",
+      "/Script/MovieSceneTracks",
+      "/Script/UMG"
+    ]
+  },
+  "/Game/Assets/ui/Data/Widget/TVGraphics/SwitchAssets_Original/MatchStats/MatchStatsWindow": {
+    "container": "pc1000_mobile_and.utoc",
+    "dependsOn": [
+      "/Game/Assets/ui/Data/Widget/Parts/Screen/CmnAnime/CmnAnimeModal",
+      "/Game/Assets/ui/Data/Widget/TVGraphics/SwitchAssets_Original/MatchStats/MatchStats"
+    ],
+    "scriptModules": [
+      "/Script/CoreUObject",
+      "/Script/UMG"
+    ]
+  },
+  "/Game/Assets/ui/Data/Widget/TVGraphics/SwitchAssets_Original/MatchStats/Tex720/MatchStatsLogo": {
+    "container": "pc1000_mobile_and.utoc",
+    "dependsOn": [],
+    "scriptModules": [
+      "/Script/Engine"
+    ]
+  },
+  "/Game/Assets/ui/Data/Widget/TVGraphics/SwitchAssets_Original/MatchStats/Tex720/MatchStatsPlate": {
+    "container": "pc1000_mobile_and.utoc",
+    "dependsOn": [],
+    "scriptModules": [
+      "/Script/Engine"
+    ]
+  },
+  "/Game/Assets/ui/Data/Widget/TVGraphics/SwitchAssets_Original/MatchStats/Tex720/MatchStatsPlate_2": {
+    "container": "pc1000_mobile_and.utoc",
+    "dependsOn": [],
+    "scriptModules": [
+      "/Script/Engine"
+    ]
+  },
+  "/Game/Assets/ui/Data/Widget/TVGraphics/SwitchAssets_Original/MatchStats/Tex720/MatchStatsPlate_3": {
+    "container": "pc1000_mobile_and.utoc",
+    "dependsOn": [],
+    "scriptModules": [
+      "/Script/Engine"
+    ]
+  },
+  "/Game/Assets/ui/Data/Widget/TVGraphics/SwitchAssets_Original/MatchStats/Tex720/MatchStatsPlate_4": {
+    "container": "pc1000_mobile_and.utoc",
+    "dependsOn": [],
+    "scriptModules": [
+      "/Script/Engine"
+    ]
+  },
+  "/Game/Assets/ui/Data/Widget/TVGraphics/SwitchAssets_Original/MatchStats/Tex720/MatchStatsPlateVI_1": {
+    "container": "pc1000_mobile_and.utoc",
+    "dependsOn": [],
+    "scriptModules": [
+      "/Script/Engine"
+    ]
+  },
+  "/Game/Assets/ui/Data/Widget/TVGraphics/SwitchAssets_Original/MatchStats/Tex720/MatchStatsPlateVI_2": {
+    "container": "pc1000_mobile_and.utoc",
+    "dependsOn": [],
+    "scriptModules": [
+      "/Script/Engine"
+    ]
+  },
+  "/Game/Assets/ui/Data/Widget/TVGraphics/SwitchAssets_Original/MatchStats/Tex720/MatchStatsPlateVI_3": {
+    "container": "pc1000_mobile_and.utoc",
+    "dependsOn": [],
+    "scriptModules": [
+      "/Script/Engine"
+    ]
+  },
+  "/Game/Assets/ui/Data/Widget/TVGraphics/SwitchAssets_Original/MatchStats/Tex720/MatchStatsPlateVI_4": {
+    "container": "pc1000_mobile_and.utoc",
+    "dependsOn": [],
+    "scriptModules": [
+      "/Script/Engine"
+    ]
+  },
+  "/Game/Assets/ui/Data/Widget/TVGraphics/SwitchAssets_Original/MatchStats/Tex720/MatchStatsPlateVI_5": {
+    "container": "pc1000_mobile_and.utoc",
+    "dependsOn": [],
+    "scriptModules": [
+      "/Script/Engine"
+    ]
+  },
+  "/Game/Assets/ui/Data/Widget/TVGraphics/SwitchAssets_Original/MatchTime/0164F/Tex720/MatchTimeLogo": {
+    "container": "pc1000_mobile_and.utoc",
+    "dependsOn": [],
+    "scriptModules": [
+      "/Script/Engine"
+    ]
+  },
+  "/Game/Assets/ui/Data/Widget/TVGraphics/SwitchAssets_Original/MatchTime/0164F/Tex720/MatchTimePlate_0": {
+    "container": "pc1000_mobile_and.utoc",
+    "dependsOn": [],
+    "scriptModules": [
+      "/Script/Engine"
+    ]
+  },
+  "/Game/Assets/ui/Data/Widget/TVGraphics/SwitchAssets_Original/MatchTime/0164F/Tex720/MatchTimePlate_1": {
+    "container": "pc1000_mobile_and.utoc",
+    "dependsOn": [],
+    "scriptModules": [
+      "/Script/Engine"
+    ]
+  },
+  "/Game/Assets/ui/Data/Widget/TVGraphics/SwitchAssets_Original/MatchTime/0164F/Tex720/MatchTimePlate_2": {
+    "container": "pc1000_mobile_and.utoc",
+    "dependsOn": [],
+    "scriptModules": [
+      "/Script/Engine"
+    ]
+  },
+  "/Game/Assets/ui/Data/Widget/TVGraphics/SwitchAssets_Original/MatchTime/MatchTime": {
+    "container": "pc1000_mobile_and.utoc",
+    "dependsOn": [
+      "/Game/Assets/ui/Data/Widget/TVGraphics/SwitchAssets_Original/MatchTime/MatchTimeAdditional",
+      "/Game/Assets/ui/Data/Widget/TVGraphics/SwitchAssets_Original/MatchTime/MatchTimeAggregate",
+      "/Game/Assets/ui/Data/Widget/TVGraphics/SwitchAssets_Original/MatchTime/MatchTimeBase",
+      "/Game/Assets/ui/Data/Widget/TVGraphics/SwitchAssets_Original/MatchTime/MatchTimeBase_1",
+      "/Game/Assets/ui/Data/Widget/TVGraphics/SwitchAssets_Original/MatchTime/MatchTimeCardAway",
+      "/Game/Assets/ui/Data/Widget/TVGraphics/SwitchAssets_Original/MatchTime/MatchTimeCardHome",
+      "/Game/Assets/ui/Data/Widget/TVGraphics/SwitchAssets_Original/MatchTime/MatchTimeCompe",
+      "/Game/Assets/ui/Data/Widget/TVGraphics/SwitchAssets_Original/MatchTime/MatchTimeTimer",
+      "/Game/Assets/ui/library/uiImage",
+      "/Game/Assets/ui/library/uiText"
+    ],
+    "scriptModules": [
+      "/Script/CoreUObject",
+      "/Script/MovieScene",
+      "/Script/MovieSceneTracks",
+      "/Script/PesShared",
+      "/Script/UMG"
+    ]
+  },
+  "/Game/Assets/ui/Data/Widget/TVGraphics/SwitchAssets_Original/MatchTime/MatchTimeAdditional": {
+    "container": "pc1000_mobile_and.utoc",
+    "dependsOn": [
+      "/Game/Assets/ui/Data/Widget/TVGraphics/SwitchAssets_Original/MatchTime/MatchTimeBase_2",
+      "/Game/Assets/ui/library/uiText"
+    ],
+    "scriptModules": [
+      "/Script/CoreUObject",
+      "/Script/MovieScene",
+      "/Script/MovieSceneTracks",
+      "/Script/UMG"
+    ]
+  },
+  "/Game/Assets/ui/Data/Widget/TVGraphics/SwitchAssets_Original/MatchTime/MatchTimeAggregate": {
+    "container": "pc1000_mobile_and.utoc",
+    "dependsOn": [
+      "/Game/Assets/ui/Data/Widget/TVGraphics/SwitchAssets_Original/MatchTime/MatchTimeBase_2",
+      "/Game/Assets/ui/library/uiImage",
+      "/Game/Assets/ui/library/uiText"
+    ],
+    "scriptModules": [
+      "/Script/CoreUObject",
+      "/Script/MovieScene",
+      "/Script/MovieSceneTracks",
+      "/Script/UMG"
+    ]
+  },
+  "/Game/Assets/ui/Data/Widget/TVGraphics/SwitchAssets_Original/MatchTime/MatchTimeBase": {
+    "container": "pc1000_mobile_and.utoc",
+    "dependsOn": [
+      "/Game/Assets/ui/library/uiImage"
+    ],
+    "scriptModules": [
+      "/Script/CoreUObject",
+      "/Script/UMG"
+    ]
+  },
+  "/Game/Assets/ui/Data/Widget/TVGraphics/SwitchAssets_Original/MatchTime/MatchTimeBase_1": {
+    "container": "pc1000_mobile_and.utoc",
+    "dependsOn": [
+      "/Game/Assets/ui/library/uiImage"
+    ],
+    "scriptModules": [
+      "/Script/CoreUObject",
+      "/Script/UMG"
+    ]
+  },
+  "/Game/Assets/ui/Data/Widget/TVGraphics/SwitchAssets_Original/MatchTime/MatchTimeBase_2": {
+    "container": "pc1000_mobile_and.utoc",
+    "dependsOn": [
+      "/Game/Assets/ui/library/uiImage"
+    ],
+    "scriptModules": [
+      "/Script/CoreUObject",
+      "/Script/UMG"
+    ]
+  },
+  "/Game/Assets/ui/Data/Widget/TVGraphics/SwitchAssets_Original/MatchTime/MatchTimeCard": {
+    "container": "pc1000_mobile_and.utoc",
+    "dependsOn": [
+      "/Game/Assets/ui/Data/Widget/TVGraphics/SwitchAssets_Original/MatchTime/MatchTimeBase",
+      "/Game/Assets/ui/Data/Widget/TVGraphics/SwitchAssets_Original/MatchTime/MatchTimeBase_1",
+      "/Game/Assets/ui/Data/Widget/TVGraphics/SwitchAssets_Original/MatchTime/MatchTimeBase_2",
+      "/Game/Assets/ui/Data/Widget/TVGraphics/SwitchAssets_Original/MatchTime/MatchTimeCardAnime",
+      "/Game/Assets/ui/library/uiEmblem",
+      "/Game/Assets/ui/library/uiText"
+    ],
+    "scriptModules": [
+      "/Script/CoreUObject",
+      "/Script/MovieScene",
+      "/Script/MovieSceneTracks",
+      "/Script/PesShared",
+      "/Script/UMG"
+    ]
+  },
+  "/Game/Assets/ui/Data/Widget/TVGraphics/SwitchAssets_Original/MatchTime/MatchTimeCardAnime": {
+    "container": "pc1000_mobile_and.utoc",
+    "dependsOn": [
+      "/Game/Assets/ui/library/uiImage"
+    ],
+    "scriptModules": [
+      "/Script/CoreUObject",
+      "/Script/MovieScene",
+      "/Script/MovieSceneTracks",
+      "/Script/UMG"
+    ]
+  },
+  "/Game/Assets/ui/Data/Widget/TVGraphics/SwitchAssets_Original/MatchTime/MatchTimeCardAway": {
+    "container": "pc1000_mobile_and.utoc",
+    "dependsOn": [
+      "/Game/Assets/ui/library/uiImage"
+    ],
+    "scriptModules": [
+      "/Script/CoreUObject",
+      "/Script/MovieScene",
+      "/Script/MovieSceneTracks",
+      "/Script/UMG"
+    ]
+  },
+  "/Game/Assets/ui/Data/Widget/TVGraphics/SwitchAssets_Original/MatchTime/MatchTimeCardHome": {
+    "container": "pc1000_mobile_and.utoc",
+    "dependsOn": [
+      "/Game/Assets/ui/library/uiImage"
+    ],
+    "scriptModules": [
+      "/Script/CoreUObject",
+      "/Script/MovieScene",
+      "/Script/MovieSceneTracks",
+      "/Script/UMG"
+    ]
+  },
+  "/Game/Assets/ui/Data/Widget/TVGraphics/SwitchAssets_Original/MatchTime/MatchTimeCompe": {
+    "container": "pc1000_mobile_and.utoc",
+    "dependsOn": [
+      "/Game/Assets/ui/Data/Widget/TVGraphics/SwitchAssets_Original/MatchTime/MatchTimeBase_1",
+      "/Game/Assets/ui/library/uiCompe"
+    ],
+    "scriptModules": [
+      "/Script/CoreUObject",
+      "/Script/MovieScene",
+      "/Script/MovieSceneTracks",
+      "/Script/UMG"
+    ]
+  },
+  "/Game/Assets/ui/Data/Widget/TVGraphics/SwitchAssets_Original/MatchTime/MatchTimeGoal": {
+    "container": "pc1000_mobile_and.utoc",
+    "dependsOn": [
+      "/Game/Assets/ui/Data/Widget/TVGraphics/SwitchAssets_Original/MatchTime/MatchTimeBase",
+      "/Game/Assets/ui/Data/Widget/TVGraphics/SwitchAssets_Original/MatchTime/MatchTimeBase_1",
+      "/Game/Assets/ui/Data/Widget/TVGraphics/SwitchAssets_Original/MatchTime/MatchTimeBase_2",
+      "/Game/Assets/ui/library/uiEmblem",
+      "/Game/Assets/ui/library/uiText"
+    ],
+    "scriptModules": [
+      "/Script/CoreUObject",
+      "/Script/MovieScene",
+      "/Script/MovieSceneTracks",
+      "/Script/PesShared",
+      "/Script/UMG"
+    ]
+  },
+  "/Game/Assets/ui/Data/Widget/TVGraphics/SwitchAssets_Original/MatchTime/MatchTimeMemberChange": {
+    "container": "pc1000_mobile_and.utoc",
+    "dependsOn": [
+      "/Game/Assets/ui/Data/Widget/TVGraphics/SwitchAssets_Original/MatchTime/MatchTimeBase",
+      "/Game/Assets/ui/Data/Widget/TVGraphics/SwitchAssets_Original/MatchTime/MatchTimeBase_1",
+      "/Game/Assets/ui/Data/Widget/TVGraphics/SwitchAssets_Original/MatchTime/MatchTimeBase_2",
+      "/Game/Assets/ui/library/uiEmblem",
+      "/Game/Assets/ui/library/uiImage",
+      "/Game/Assets/ui/library/uiText"
+    ],
+    "scriptModules": [
+      "/Script/CoreUObject",
+      "/Script/MovieScene",
+      "/Script/MovieSceneTracks",
+      "/Script/PesShared",
+      "/Script/UMG"
+    ]
+  },
+  "/Game/Assets/ui/Data/Widget/TVGraphics/SwitchAssets_Original/MatchTime/MatchTimePlayerCard": {
+    "container": "pc1000_mobile_and.utoc",
+    "dependsOn": [
+      "/Game/Assets/ui/Data/Widget/Parts/Components/Placeholders/UiPlayerCard/PlayerCardRT",
+      "/Game/Assets/ui/Data/Widget/TVGraphics/TVGraphicsCommon/PlayerCardEffect/PlayerCardEffectBigTimeBack",
+      "/Game/Assets/ui/Data/Widget/TVGraphics/TVGraphicsCommon/PlayerCardEffect/PlayerCardEffectBigTimeFront"
+    ],
+    "scriptModules": [
+      "/Script/CoreUObject",
+      "/Script/Engine",
+      "/Script/MovieScene",
+      "/Script/MovieSceneTracks",
+      "/Script/PesShared",
+      "/Script/UMG"
+    ]
+  },
+  "/Game/Assets/ui/Data/Widget/TVGraphics/SwitchAssets_Original/MatchTime/MatchTimeTimer": {
+    "container": "pc1000_mobile_and.utoc",
+    "dependsOn": [
+      "/Game/Assets/ui/Data/Widget/TVGraphics/SwitchAssets_Original/MatchTime/MatchTimeBase_1",
+      "/Game/Assets/ui/library/uiText",
+      "/Game/Assets/ui/library/uiTextSimple"
+    ],
+    "scriptModules": [
+      "/Script/CoreUObject",
+      "/Script/MovieScene",
+      "/Script/MovieSceneTracks",
+      "/Script/UMG"
+    ]
+  },
+  "/Game/Assets/ui/Data/Widget/TVGraphics/SwitchAssets_Original/MatchTime/Tex720/MatchTimeAwayColor_1": {
+    "container": "pc1000_mobile_and.utoc",
+    "dependsOn": [],
+    "scriptModules": [
+      "/Script/Engine"
+    ]
+  },
+  "/Game/Assets/ui/Data/Widget/TVGraphics/SwitchAssets_Original/MatchTime/Tex720/MatchTimeAwayColor_2": {
+    "container": "pc1000_mobile_and.utoc",
+    "dependsOn": [],
+    "scriptModules": [
+      "/Script/Engine"
+    ]
+  },
+  "/Game/Assets/ui/Data/Widget/TVGraphics/SwitchAssets_Original/MatchTime/Tex720/MatchTimeHomeColor_1": {
+    "container": "pc1000_mobile_and.utoc",
+    "dependsOn": [],
+    "scriptModules": [
+      "/Script/Engine"
+    ]
+  },
+  "/Game/Assets/ui/Data/Widget/TVGraphics/SwitchAssets_Original/MatchTime/Tex720/MatchTimeHomeColor_2": {
+    "container": "pc1000_mobile_and.utoc",
+    "dependsOn": [],
+    "scriptModules": [
+      "/Script/Engine"
+    ]
+  },
+  "/Game/Assets/ui/Data/Widget/TVGraphics/SwitchAssets_Original/MatchTime/Tex720/MatchTimeLogo": {
+    "container": "pc1000_mobile_and.utoc",
+    "dependsOn": [],
+    "scriptModules": [
+      "/Script/Engine"
+    ]
+  },
+  "/Game/Assets/ui/Data/Widget/TVGraphics/SwitchAssets_Original/MatchTime/Tex720/MatchTimeMemberChangeIn": {
+    "container": "pc1000_mobile_and.utoc",
+    "dependsOn": [],
+    "scriptModules": [
+      "/Script/Engine"
+    ]
+  },
+  "/Game/Assets/ui/Data/Widget/TVGraphics/SwitchAssets_Original/MatchTime/Tex720/MatchTimeMemberChangeOut": {
+    "container": "pc1000_mobile_and.utoc",
+    "dependsOn": [],
+    "scriptModules": [
+      "/Script/Engine"
+    ]
+  },
+  "/Game/Assets/ui/Data/Widget/TVGraphics/SwitchAssets_Original/MatchTime/Tex720/MatchTimePlate_0": {
+    "container": "pc1000_mobile_and.utoc",
+    "dependsOn": [],
+    "scriptModules": [
+      "/Script/Engine"
+    ]
+  },
+  "/Game/Assets/ui/Data/Widget/TVGraphics/SwitchAssets_Original/MatchTime/Tex720/MatchTimePlate_1": {
+    "container": "pc1000_mobile_and.utoc",
+    "dependsOn": [],
+    "scriptModules": [
+      "/Script/Engine"
+    ]
+  },
+  "/Game/Assets/ui/Data/Widget/TVGraphics/SwitchAssets_Original/MatchTime/Tex720/MatchTimePlate_2": {
+    "container": "pc1000_mobile_and.utoc",
+    "dependsOn": [],
+    "scriptModules": [
+      "/Script/Engine"
+    ]
+  },
+  "/Game/Assets/ui/Data/Widget/TVGraphics/SwitchAssets_Original/MatchTime/Tex720/MatchTimeRedCardColor": {
+    "container": "pc1000_mobile_and.utoc",
+    "dependsOn": [],
+    "scriptModules": [
+      "/Script/Engine"
+    ]
+  },
+  "/Game/Assets/ui/Data/Widget/TVGraphics/SwitchAssets_Original/MatchTime/Tex720/MatchTimeYellowCardColor": {
+    "container": "pc1000_mobile_and.utoc",
+    "dependsOn": [],
+    "scriptModules": [
+      "/Script/Engine"
+    ]
+  },
+  "/Game/Assets/ui/Data/Widget/TVGraphics/SwitchAssets_Original/MatchTimeConnection/MatchTimeConnection": {
+    "container": "pc1000_mobile_and.utoc",
+    "dependsOn": [
+      "/Game/Assets/ui/Data/Widget/TVGraphics/SwitchAssets_Original/MatchTime/MatchTimeAdditional",
+      "/Game/Assets/ui/Data/Widget/TVGraphics/SwitchAssets_Original/MatchTime/MatchTimeAggregate",
+      "/Game/Assets/ui/Data/Widget/TVGraphics/SwitchAssets_Original/MatchTime/MatchTimeBase",
+      "/Game/Assets/ui/Data/Widget/TVGraphics/SwitchAssets_Original/MatchTime/MatchTimeBase_1",
+      "/Game/Assets/ui/Data/Widget/TVGraphics/SwitchAssets_Original/MatchTime/MatchTimeCardAway",
+      "/Game/Assets/ui/Data/Widget/TVGraphics/SwitchAssets_Original/MatchTime/MatchTimeCardHome",
+      "/Game/Assets/ui/Data/Widget/TVGraphics/SwitchAssets_Original/MatchTime/MatchTimeCompe",
+      "/Game/Assets/ui/Data/Widget/TVGraphics/SwitchAssets_Original/MatchTime/MatchTimeTimer",
+      "/Game/Assets/ui/Data/Widget/TVGraphics/SwitchAssets_Original/MatchTimeConnection/MatchTimeConnectionAdditional",
+      "/Game/Assets/ui/Data/Widget/TVGraphics/SwitchAssets_Original/MatchTimeConnection/MatchTimeConnectionAggregate",
+      "/Game/Assets/ui/Data/Widget/TVGraphics/SwitchAssets_Original/MatchTimeConnection/MatchTimeConnectionCardAway",
+      "/Game/Assets/ui/Data/Widget/TVGraphics/SwitchAssets_Original/MatchTimeConnection/MatchTimeConnectionCardHome",
+      "/Game/Assets/ui/Data/Widget/TVGraphics/SwitchAssets_Original/MatchTimeConnection/MatchTimeConnectionCompe",
+      "/Game/Assets/ui/Data/Widget/TVGraphics/SwitchAssets_Original/MatchTimeConnection/MatchTimeConnectionPartsAntenna",
+      "/Game/Assets/ui/Data/Widget/TVGraphics/SwitchAssets_Original/MatchTimeConnection/MatchTimeConnectionTimer",
+      "/Game/Assets/ui/library/uiImage",
+      "/Game/Assets/ui/library/uiText"
+    ],
+    "scriptModules": [
+      "/Script/CoreUObject",
+      "/Script/MovieScene",
+      "/Script/MovieSceneTracks",
+      "/Script/PesShared",
+      "/Script/UMG"
+    ]
+  },
+  "/Game/Assets/ui/Data/Widget/TVGraphics/SwitchAssets_Original/MatchTimeConnection/MatchTimeConnectionAdditional": {
+    "container": "pc1000_mobile_and.utoc",
+    "dependsOn": [
+      "/Game/Assets/ui/Data/Widget/TVGraphics/SwitchAssets_Original/MatchTime/MatchTimeBase_2",
+      "/Game/Assets/ui/library/uiText"
+    ],
+    "scriptModules": [
+      "/Script/CoreUObject",
+      "/Script/MovieScene",
+      "/Script/MovieSceneTracks",
+      "/Script/UMG"
+    ]
+  },
+  "/Game/Assets/ui/Data/Widget/TVGraphics/SwitchAssets_Original/MatchTimeConnection/MatchTimeConnectionAggregate": {
+    "container": "pc1000_mobile_and.utoc",
+    "dependsOn": [
+      "/Game/Assets/ui/Data/Widget/TVGraphics/SwitchAssets_Original/MatchTime/MatchTimeBase_2",
+      "/Game/Assets/ui/library/uiImage",
+      "/Game/Assets/ui/library/uiText"
+    ],
+    "scriptModules": [
+      "/Script/CoreUObject",
+      "/Script/MovieScene",
+      "/Script/MovieSceneTracks",
+      "/Script/UMG"
+    ]
+  },
+  "/Game/Assets/ui/Data/Widget/TVGraphics/SwitchAssets_Original/MatchTimeConnection/MatchTimeConnectionCard": {
+    "container": "pc1000_mobile_and.utoc",
+    "dependsOn": [
+      "/Game/Assets/ui/Data/Widget/TVGraphics/SwitchAssets_Original/MatchTime/MatchTimeBase",
+      "/Game/Assets/ui/Data/Widget/TVGraphics/SwitchAssets_Original/MatchTime/MatchTimeBase_1",
+      "/Game/Assets/ui/Data/Widget/TVGraphics/SwitchAssets_Original/MatchTime/MatchTimeBase_2",
+      "/Game/Assets/ui/Data/Widget/TVGraphics/SwitchAssets_Original/MatchTime/MatchTimeCardAnime",
+      "/Game/Assets/ui/Data/Widget/TVGraphics/SwitchAssets_Original/MatchTimeConnection/MatchTimeConnectionCardAnime",
+      "/Game/Assets/ui/library/uiEmblem",
+      "/Game/Assets/ui/library/uiText"
+    ],
+    "scriptModules": [
+      "/Script/CoreUObject",
+      "/Script/MovieScene",
+      "/Script/MovieSceneTracks",
+      "/Script/PesShared",
+      "/Script/UMG"
+    ]
+  },
+  "/Game/Assets/ui/Data/Widget/TVGraphics/SwitchAssets_Original/MatchTimeConnection/MatchTimeConnectionCardAnime": {
+    "container": "pc1000_mobile_and.utoc",
+    "dependsOn": [
+      "/Game/Assets/ui/library/uiImage"
+    ],
+    "scriptModules": [
+      "/Script/CoreUObject",
+      "/Script/MovieScene",
+      "/Script/MovieSceneTracks",
+      "/Script/UMG"
+    ]
+  },
+  "/Game/Assets/ui/Data/Widget/TVGraphics/SwitchAssets_Original/MatchTimeConnection/MatchTimeConnectionCardAway": {
+    "container": "pc1000_mobile_and.utoc",
+    "dependsOn": [
+      "/Game/Assets/ui/library/uiImage"
+    ],
+    "scriptModules": [
+      "/Script/CoreUObject",
+      "/Script/MovieScene",
+      "/Script/MovieSceneTracks",
+      "/Script/UMG"
+    ]
+  },
+  "/Game/Assets/ui/Data/Widget/TVGraphics/SwitchAssets_Original/MatchTimeConnection/MatchTimeConnectionCardHome": {
+    "container": "pc1000_mobile_and.utoc",
+    "dependsOn": [
+      "/Game/Assets/ui/library/uiImage"
+    ],
+    "scriptModules": [
+      "/Script/CoreUObject",
+      "/Script/MovieScene",
+      "/Script/MovieSceneTracks",
+      "/Script/UMG"
+    ]
+  },
+  "/Game/Assets/ui/Data/Widget/TVGraphics/SwitchAssets_Original/MatchTimeConnection/MatchTimeConnectionCompe": {
+    "container": "pc1000_mobile_and.utoc",
+    "dependsOn": [
+      "/Game/Assets/ui/Data/Widget/TVGraphics/SwitchAssets_Original/MatchTime/MatchTimeBase_1",
+      "/Game/Assets/ui/library/uiCompe"
+    ],
+    "scriptModules": [
+      "/Script/CoreUObject",
+      "/Script/MovieScene",
+      "/Script/MovieSceneTracks",
+      "/Script/UMG"
+    ]
+  },
+  "/Game/Assets/ui/Data/Widget/TVGraphics/SwitchAssets_Original/MatchTimeConnection/MatchTimeConnectionGoal": {
+    "container": "pc1000_mobile_and.utoc",
+    "dependsOn": [
+      "/Game/Assets/ui/Data/Widget/TVGraphics/SwitchAssets_Original/MatchTime/MatchTimeBase",
+      "/Game/Assets/ui/Data/Widget/TVGraphics/SwitchAssets_Original/MatchTime/MatchTimeBase_1",
+      "/Game/Assets/ui/Data/Widget/TVGraphics/SwitchAssets_Original/MatchTime/MatchTimeBase_2",
+      "/Game/Assets/ui/library/uiEmblem",
+      "/Game/Assets/ui/library/uiText"
+    ],
+    "scriptModules": [
+      "/Script/CoreUObject",
+      "/Script/MovieScene",
+      "/Script/MovieSceneTracks",
+      "/Script/PesShared",
+      "/Script/UMG"
+    ]
+  },
+  "/Game/Assets/ui/Data/Widget/TVGraphics/SwitchAssets_Original/MatchTimeConnection/MatchTimeConnectionMemberChange": {
+    "container": "pc1000_mobile_and.utoc",
+    "dependsOn": [
+      "/Game/Assets/ui/Data/Widget/TVGraphics/SwitchAssets_Original/MatchTime/MatchTimeBase",
+      "/Game/Assets/ui/Data/Widget/TVGraphics/SwitchAssets_Original/MatchTime/MatchTimeBase_1",
+      "/Game/Assets/ui/Data/Widget/TVGraphics/SwitchAssets_Original/MatchTime/MatchTimeBase_2",
+      "/Game/Assets/ui/library/uiEmblem",
+      "/Game/Assets/ui/library/uiImage",
+      "/Game/Assets/ui/library/uiText"
+    ],
+    "scriptModules": [
+      "/Script/CoreUObject",
+      "/Script/MovieScene",
+      "/Script/MovieSceneTracks",
+      "/Script/PesShared",
+      "/Script/UMG"
+    ]
+  },
+  "/Game/Assets/ui/Data/Widget/TVGraphics/SwitchAssets_Original/MatchTimeConnection/MatchTimeConnectionPartsAntenna": {
+    "container": "pc1000_mobile_and.utoc",
+    "dependsOn": [
+      "/Game/Assets/ui/library/uiImage"
+    ],
+    "scriptModules": [
+      "/Script/CoreUObject",
+      "/Script/MovieScene",
+      "/Script/MovieSceneTracks",
+      "/Script/UMG"
+    ]
+  },
+  "/Game/Assets/ui/Data/Widget/TVGraphics/SwitchAssets_Original/MatchTimeConnection/MatchTimeConnectionPlayerCard": {
+    "container": "pc1000_mobile_and.utoc",
+    "dependsOn": [
+      "/Game/Assets/ui/Data/Widget/Parts/Components/Placeholders/UiPlayerCard/PlayerCardRT",
+      "/Game/Assets/ui/Data/Widget/TVGraphics/TVGraphicsCommon/PlayerCardEffect/PlayerCardEffectBigTimeBack",
+      "/Game/Assets/ui/Data/Widget/TVGraphics/TVGraphicsCommon/PlayerCardEffect/PlayerCardEffectBigTimeFront"
+    ],
+    "scriptModules": [
+      "/Script/CoreUObject",
+      "/Script/MovieScene",
+      "/Script/MovieSceneTracks",
+      "/Script/PesShared",
+      "/Script/UMG"
+    ]
+  },
+  "/Game/Assets/ui/Data/Widget/TVGraphics/SwitchAssets_Original/MatchTimeConnection/MatchTimeConnectionTimer": {
+    "container": "pc1000_mobile_and.utoc",
+    "dependsOn": [
+      "/Game/Assets/ui/Data/Widget/TVGraphics/SwitchAssets_Original/MatchTime/MatchTimeBase_1",
+      "/Game/Assets/ui/library/uiText",
+      "/Game/Assets/ui/library/uiTextSimple"
+    ],
+    "scriptModules": [
+      "/Script/CoreUObject",
+      "/Script/MovieScene",
+      "/Script/MovieSceneTracks",
+      "/Script/UMG"
+    ]
+  },
+  "/Game/Assets/ui/Data/Widget/TVGraphics/SwitchAssets_Original/MatchTimeConnection/Tex720/MatchTimeConnectionPartsAntenna_Texture_LeveL_1": {
+    "container": "pc1000_mobile_and.utoc",
+    "dependsOn": [],
+    "scriptModules": [
+      "/Script/Engine"
+    ]
+  },
+  "/Game/Assets/ui/Data/Widget/TVGraphics/SwitchAssets_Original/MatchTimeConnection/Tex720/MatchTimeConnectionPartsAntenna_Texture_LeveL_2": {
+    "container": "pc1000_mobile_and.utoc",
+    "dependsOn": [],
+    "scriptModules": [
+      "/Script/Engine"
+    ]
+  },
+  "/Game/Assets/ui/Data/Widget/TVGraphics/SwitchAssets_Original/MatchTimeConnection/Tex720/MatchTimeConnectionPartsAntenna_Texture_LeveL_3": {
+    "container": "pc1000_mobile_and.utoc",
+    "dependsOn": [],
+    "scriptModules": [
+      "/Script/Engine"
+    ]
+  },
+  "/Game/Assets/ui/Data/Widget/TVGraphics/SwitchAssets_Original/MatchTimeConnection/Tex720/MatchTimeConnectionPartsAntenna_Texture_LeveL_4": {
+    "container": "pc1000_mobile_and.utoc",
+    "dependsOn": [],
+    "scriptModules": [
+      "/Script/Engine"
+    ]
+  },
+  "/Game/Assets/ui/Data/Widget/TVGraphics/SwitchAssets_Original/MatchTimeConnection/Tex720/MatchTimeConnectionPartsAntenna_Texture_LeveL_5": {
+    "container": "pc1000_mobile_and.utoc",
+    "dependsOn": [],
+    "scriptModules": [
+      "/Script/Engine"
+    ]
+  },
+  "/Game/Assets/ui/Data/Widget/TVGraphics/TVGraphicsCommon/Advantage/Advantage": {
+    "container": "pc1000_mobile_and.utoc",
+    "dependsOn": [
+      "/Game/Assets/ui/library/uiImage"
+    ],
+    "scriptModules": [
+      "/Script/CoreUObject",
+      "/Script/MovieScene",
+      "/Script/MovieSceneTracks",
+      "/Script/PesShared",
+      "/Script/UMG"
+    ]
+  },
+  "/Game/Assets/ui/Data/Widget/TVGraphics/TVGraphicsCommon/Advantage/Tex720/AdvantageIcon": {
+    "container": "pc1000_mobile_and.utoc",
+    "dependsOn": [],
+    "scriptModules": [
+      "/Script/Engine"
+    ]
+  },
+  "/Game/Assets/ui/Data/Widget/TVGraphics/TVGraphicsCommon/CameraSelect_Tex_0403/Tex720/CameraSelect_Bg1on1": {
+    "container": "pc1000_mobile_and.utoc",
+    "dependsOn": [],
+    "scriptModules": [
+      "/Script/Engine"
+    ]
+  },
+  "/Game/Assets/ui/Data/Widget/TVGraphics/TVGraphicsCommon/CameraSelect_Tex_0403/Tex720/CameraSelect_BgBroadcast": {
+    "container": "pc1000_mobile_and.utoc",
+    "dependsOn": [],
+    "scriptModules": [
+      "/Script/Engine"
+    ]
+  },
+  "/Game/Assets/ui/Data/Widget/TVGraphics/TVGraphicsCommon/CameraSelect_Tex_0403/Tex720/CameraSelect_BgDynamicWide": {
+    "container": "pc1000_mobile_and.utoc",
+    "dependsOn": [],
+    "scriptModules": [
+      "/Script/Engine"
+    ]
+  },
+  "/Game/Assets/ui/Data/Widget/TVGraphics/TVGraphicsCommon/CameraSelect_Tex_0403/Tex720/CameraSelect_BgFar": {
+    "container": "pc1000_mobile_and.utoc",
+    "dependsOn": [],
+    "scriptModules": [
+      "/Script/Engine"
+    ]
+  },
+  "/Game/Assets/ui/Data/Widget/TVGraphics/TVGraphicsCommon/CameraSelect_Tex_0403/Tex720/CameraSelect_BgMiddle": {
+    "container": "pc1000_mobile_and.utoc",
+    "dependsOn": [],
+    "scriptModules": [
+      "/Script/Engine"
+    ]
+  },
+  "/Game/Assets/ui/Data/Widget/TVGraphics/TVGraphicsCommon/CameraSelect_Tex_0403/Tex720/CameraSelect_BgStadium": {
+    "container": "pc1000_mobile_and.utoc",
+    "dependsOn": [],
+    "scriptModules": [
+      "/Script/Engine"
+    ]
+  },
+  "/Game/Assets/ui/Data/Widget/TVGraphics/TVGraphicsCommon/CameraSelect_Tex_0403/Tex720/CameraSelect_BgWide": {
+    "container": "pc1000_mobile_and.utoc",
+    "dependsOn": [],
+    "scriptModules": [
+      "/Script/Engine"
+    ]
+  },
+  "/Game/Assets/ui/Data/Widget/TVGraphics/TVGraphicsCommon/CameraSelect_Tex_Wide/Tex720/CameraSelect_Bg1on1": {
+    "container": "pc1000_mobile_and.utoc",
+    "dependsOn": [],
+    "scriptModules": [
+      "/Script/Engine"
+    ]
+  },
+  "/Game/Assets/ui/Data/Widget/TVGraphics/TVGraphicsCommon/CameraSelect_Tex_Wide/Tex720/CameraSelect_BgBroadcast": {
+    "container": "pc1000_mobile_and.utoc",
+    "dependsOn": [],
+    "scriptModules": [
+      "/Script/Engine"
+    ]
+  },
+  "/Game/Assets/ui/Data/Widget/TVGraphics/TVGraphicsCommon/CameraSelect_Tex_Wide/Tex720/CameraSelect_BgDynamicWide": {
+    "container": "pc1000_mobile_and.utoc",
+    "dependsOn": [],
+    "scriptModules": [
+      "/Script/Engine"
+    ]
+  },
+  "/Game/Assets/ui/Data/Widget/TVGraphics/TVGraphicsCommon/CameraSelect_Tex_Wide/Tex720/CameraSelect_BgFar": {
+    "container": "pc1000_mobile_and.utoc",
+    "dependsOn": [],
+    "scriptModules": [
+      "/Script/Engine"
+    ]
+  },
+  "/Game/Assets/ui/Data/Widget/TVGraphics/TVGraphicsCommon/CameraSelect_Tex_Wide/Tex720/CameraSelect_BgMiddle": {
+    "container": "pc1000_mobile_and.utoc",
+    "dependsOn": [],
+    "scriptModules": [
+      "/Script/Engine"
+    ]
+  },
+  "/Game/Assets/ui/Data/Widget/TVGraphics/TVGraphicsCommon/CameraSelect_Tex_Wide/Tex720/CameraSelect_BgStadium": {
+    "container": "pc1000_mobile_and.utoc",
+    "dependsOn": [],
+    "scriptModules": [
+      "/Script/Engine"
+    ]
+  },
+  "/Game/Assets/ui/Data/Widget/TVGraphics/TVGraphicsCommon/CameraSelect_Tex_Wide/Tex720/CameraSelect_BgWide": {
+    "container": "pc1000_mobile_and.utoc",
+    "dependsOn": [],
+    "scriptModules": [
+      "/Script/Engine"
+    ]
+  },
+  "/Game/Assets/ui/Data/Widget/TVGraphics/TVGraphicsCommon/CameraSelect/CameraSelect": {
+    "container": "pc1000_mobile_and.utoc",
+    "dependsOn": [
+      "/Game/Assets/menu/match/Pause/BP_MenuMatchPauseCamera",
+      "/Game/Assets/menuSystem/InterfaceClass/ChoiceEventInterface",
+      "/Game/Assets/ui/Data/Widget/Parts/Components/Controls/UiPageControl/UiPageControl"
+    ],
+    "scriptModules": [
+      "/Script/CoreUObject",
+      "/Script/Engine",
+      "/Script/MovieScene",
+      "/Script/MovieSceneTracks",
+      "/Script/PesShared",
+      "/Script/UMG"
+    ]
+  },
+  "/Game/Assets/ui/Data/Widget/TVGraphics/TVGraphicsCommon/CameraSelect/CameraSelectChoice": {
+    "container": "pc1000_mobile_and.utoc",
+    "dependsOn": [
+      "/Game/Assets/menu/match/Pause/BP_MenuMatchPauseCameraItem",
+      "/Game/Assets/menuSystem/InterfaceClass/ChoiceEventInterface",
+      "/Game/Assets/ui/library/uiImage",
+      "/Game/Assets/ui/library/uiText"
+    ],
+    "scriptModules": [
+      "/Script/CoreUObject",
+      "/Script/Engine",
+      "/Script/MovieScene",
+      "/Script/MovieSceneTracks",
+      "/Script/PesShared",
+      "/Script/UMG"
+    ]
+  },
+  "/Game/Assets/ui/Data/Widget/TVGraphics/TVGraphicsCommon/CameraSelect/Tex720/CameraSelect_HeaderBG": {
+    "container": "pc1000_mobile_and.utoc",
+    "dependsOn": [],
+    "scriptModules": [
+      "/Script/Engine"
+    ]
+  },
+  "/Game/Assets/ui/Data/Widget/TVGraphics/TVGraphicsCommon/EventMatchFailed/EventMatchFailed": {
+    "container": "pc1000_mobile_and.utoc",
+    "dependsOn": [
+      "/Game/Assets/ui/Data/Widget/Parts/Components/Plates/UiPlateBaseInfo/UiPlateBaseInfoR24",
+      "/Game/Assets/ui/library/uiText"
+    ],
+    "scriptModules": [
+      "/Script/CoreUObject",
+      "/Script/MovieScene",
+      "/Script/PesShared",
+      "/Script/UMG"
+    ]
+  },
+  "/Game/Assets/ui/Data/Widget/TVGraphics/TVGraphicsCommon/EventMatchGoal/EventMatchGoal": {
+    "container": "pc1000_mobile_and.utoc",
+    "dependsOn": [
+      "/Game/Assets/ui/Data/Widget/Parts/Icon/CmnIconMedal/CmnIconMedalLarge",
+      "/Game/Assets/ui/Data/Widget/TVGraphics/TVGraphicsCommon/EventMatchGoal/EventMatchMask",
+      "/Game/Assets/ui/library/uiImage",
+      "/Game/Assets/ui/library/uiText"
+    ],
+    "scriptModules": [
+      "/Script/CoreUObject",
+      "/Script/MovieScene",
+      "/Script/MovieSceneTracks",
+      "/Script/PesShared",
+      "/Script/UMG"
+    ]
+  },
+  "/Game/Assets/ui/Data/Widget/TVGraphics/TVGraphicsCommon/EventMatchGoal/EventMatchMask": {
+    "container": "pc1000_mobile_and.utoc",
+    "dependsOn": [
+      "/Engine/EngineResources/DefaultTexture",
+      "/Game/Assets/ui/Data/Widget/TVGraphics/TVGraphicsCommon/EventMatchGoal/Tex720/EventMatchMask"
+    ],
+    "scriptModules": [
+      "/Script/Engine"
+    ]
+  },
+  "/Game/Assets/ui/Data/Widget/TVGraphics/TVGraphicsCommon/EventMatchGoal/Tex720/EventMatchGoalPlate_Bronze": {
+    "container": "pc1000_mobile_and.utoc",
+    "dependsOn": [],
+    "scriptModules": [
+      "/Script/Engine"
+    ]
+  },
+  "/Game/Assets/ui/Data/Widget/TVGraphics/TVGraphicsCommon/EventMatchGoal/Tex720/EventMatchGoalPlate_Effect": {
+    "container": "pc1000_mobile_and.utoc",
+    "dependsOn": [],
+    "scriptModules": [
+      "/Script/Engine"
+    ]
+  },
+  "/Game/Assets/ui/Data/Widget/TVGraphics/TVGraphicsCommon/EventMatchGoal/Tex720/EventMatchGoalPlate_Gold": {
+    "container": "pc1000_mobile_and.utoc",
+    "dependsOn": [],
+    "scriptModules": [
+      "/Script/Engine"
+    ]
+  },
+  "/Game/Assets/ui/Data/Widget/TVGraphics/TVGraphicsCommon/EventMatchGoal/Tex720/EventMatchGoalPlate_Silver": {
+    "container": "pc1000_mobile_and.utoc",
+    "dependsOn": [],
+    "scriptModules": [
+      "/Script/Engine"
+    ]
+  },
+  "/Game/Assets/ui/Data/Widget/TVGraphics/TVGraphicsCommon/EventMatchGoal/Tex720/EventMatchMask": {
+    "container": "pc1000_mobile_and.utoc",
+    "dependsOn": [],
+    "scriptModules": [
+      "/Script/Engine"
+    ]
+  },
+  "/Game/Assets/ui/Data/Widget/TVGraphics/TVGraphicsCommon/EventMatchStart/EventMatchReady": {
+    "container": "pc1000_mobile_and.utoc",
+    "dependsOn": [
+      "/Game/Assets/ui/library/uiText"
+    ],
+    "scriptModules": [
+      "/Script/CoreUObject",
+      "/Script/MovieScene",
+      "/Script/MovieSceneTracks",
+      "/Script/PesShared",
+      "/Script/UMG"
+    ]
+  },
+  "/Game/Assets/ui/Data/Widget/TVGraphics/TVGraphicsCommon/EventMatchStart/EventMatchStart": {
+    "container": "pc1000_mobile_and.utoc",
+    "dependsOn": [
+      "/Game/Assets/ui/library/uiText"
+    ],
+    "scriptModules": [
+      "/Script/CoreUObject",
+      "/Script/MovieScene",
+      "/Script/MovieSceneTracks",
+      "/Script/PesShared",
+      "/Script/UMG"
+    ]
+  },
+  "/Game/Assets/ui/Data/Widget/TVGraphics/TVGraphicsCommon/EventMatchTime/EventMatchTime": {
+    "container": "pc1000_mobile_and.utoc",
+    "dependsOn": [
+      "/Game/Assets/ui/Data/Widget/TVGraphics/TVGraphicsCommon/EventMatchTime/EventMatchTimeBest",
+      "/Game/Assets/ui/Data/Widget/TVGraphics/TVGraphicsCommon/EventMatchTime/EventMatchTimeTimer"
+    ],
+    "scriptModules": [
+      "/Script/CoreUObject",
+      "/Script/MovieScene",
+      "/Script/MovieSceneTracks",
+      "/Script/PesShared",
+      "/Script/UMG"
+    ]
+  },
+  "/Game/Assets/ui/Data/Widget/TVGraphics/TVGraphicsCommon/EventMatchTime/EventMatchTimeBest": {
+    "container": "pc1000_mobile_and.utoc",
+    "dependsOn": [
+      "/Game/Assets/ui/library/uiImage",
+      "/Game/Assets/ui/library/uiText"
+    ],
+    "scriptModules": [
+      "/Script/CoreUObject",
+      "/Script/MovieScene",
+      "/Script/MovieSceneTracks",
+      "/Script/UMG"
+    ]
+  },
+  "/Game/Assets/ui/Data/Widget/TVGraphics/TVGraphicsCommon/EventMatchTime/EventMatchTimeTimer": {
+    "container": "pc1000_mobile_and.utoc",
+    "dependsOn": [
+      "/Game/Assets/ui/library/uiImage",
+      "/Game/Assets/ui/library/uiText"
+    ],
+    "scriptModules": [
+      "/Script/CoreUObject",
+      "/Script/MovieScene",
+      "/Script/MovieSceneTracks",
+      "/Script/UMG"
+    ]
+  },
+  "/Game/Assets/ui/Data/Widget/TVGraphics/TVGraphicsCommon/EventMatchTime/Tex720/EventMatchTimePlate_Best": {
+    "container": "pc1000_mobile_and.utoc",
+    "dependsOn": [],
+    "scriptModules": [
+      "/Script/Engine"
+    ]
+  },
+  "/Game/Assets/ui/Data/Widget/TVGraphics/TVGraphicsCommon/EventMatchTime/Tex720/EventMatchTimePlate_Bronze": {
+    "container": "pc1000_mobile_and.utoc",
+    "dependsOn": [],
+    "scriptModules": [
+      "/Script/Engine"
+    ]
+  },
+  "/Game/Assets/ui/Data/Widget/TVGraphics/TVGraphicsCommon/EventMatchTime/Tex720/EventMatchTimePlate_Gold": {
+    "container": "pc1000_mobile_and.utoc",
+    "dependsOn": [],
+    "scriptModules": [
+      "/Script/Engine"
+    ]
+  },
+  "/Game/Assets/ui/Data/Widget/TVGraphics/TVGraphicsCommon/EventMatchTime/Tex720/EventMatchTimePlate_Silver": {
+    "container": "pc1000_mobile_and.utoc",
+    "dependsOn": [],
+    "scriptModules": [
+      "/Script/Engine"
+    ]
+  },
+  "/Game/Assets/ui/Data/Widget/TVGraphics/TVGraphicsCommon/GoalPerformance/GoalPerformance": {
+    "container": "pc1000_mobile_and.utoc",
+    "dependsOn": [
+      "/Game/Assets/ui/library/uiImage",
+      "/Game/Assets/ui/library/uiText"
+    ],
+    "scriptModules": [
+      "/Script/CoreUObject",
+      "/Script/MovieScene",
+      "/Script/MovieSceneTracks",
+      "/Script/PesShared",
+      "/Script/UMG"
+    ]
+  },
+  "/Game/Assets/ui/Data/Widget/TVGraphics/TVGraphicsCommon/InteractiveGoal/InteractiveGoal": {
+    "container": "pc0010_mobile_and.utoc",
+    "dependsOn": [
+      "/Game/Assets/match2d/WBP_Match2dText",
+      "/Game/Assets/ui/Data/Widget/Parts/Components/Controls/UiControllerBtn/UiControllerBtn"
+    ],
+    "scriptModules": [
+      "/Script/CoreUObject",
+      "/Script/Engine",
+      "/Script/PesShared",
+      "/Script/UMG"
+    ]
+  },
+  "/Game/Assets/ui/Data/Widget/TVGraphics/TVGraphicsCommon/InteractiveGoal/InteractiveGoalNumLeft": {
+    "container": "pc1000_mobile_and.utoc",
+    "dependsOn": [
+      "/Game/Assets/ui/library/uiImage",
+      "/Game/Assets/ui/library/uiText"
+    ],
+    "scriptModules": [
+      "/Script/CoreUObject",
+      "/Script/MovieScene",
+      "/Script/MovieSceneTracks",
+      "/Script/PesShared",
+      "/Script/UMG"
+    ]
+  },
+  "/Game/Assets/ui/Data/Widget/TVGraphics/TVGraphicsCommon/MenuCall/ActionButtonAttackDefenceLevel": {
+    "container": "pc0010_mobile_and.utoc",
+    "dependsOn": [
+      "/Game/Assets/ui/library/uiImage"
+    ],
+    "scriptModules": [
+      "/Script/CoreUObject",
+      "/Script/MovieScene",
+      "/Script/PesShared",
+      "/Script/UMG"
+    ]
+  },
+  "/Game/Assets/ui/Data/Widget/TVGraphics/TVGraphicsCommon/MenuCall/ActionButtonCoachMode": {
+    "container": "pc0010_mobile_and.utoc",
+    "dependsOn": [
+      "/Game/Assets/ui/library/uiImage"
+    ],
+    "scriptModules": [
+      "/Script/CoreUObject",
+      "/Script/MovieScene",
+      "/Script/MovieSceneTracks",
+      "/Script/PesShared",
+      "/Script/UMG"
+    ]
+  },
+  "/Game/Assets/ui/Data/Widget/TVGraphics/TVGraphicsCommon/MenuCall/ActionButtonOrdealHint": {
+    "container": "pc0010_mobile_and.utoc",
+    "dependsOn": [
+      "/Game/Assets/ui/library/uiImage"
+    ],
+    "scriptModules": [
+      "/Script/CoreUObject",
+      "/Script/PesShared",
+      "/Script/UMG"
+    ]
+  },
+  "/Game/Assets/ui/Data/Widget/TVGraphics/TVGraphicsCommon/MenuCall/ActionButtonPauseChoice": {
+    "container": "pc0010_mobile_and.utoc",
+    "dependsOn": [
+      "/Game/Assets/ui/library/uiImage"
+    ],
+    "scriptModules": [
+      "/Script/CoreUObject",
+      "/Script/MovieScene",
+      "/Script/MovieSceneTracks",
+      "/Script/PesShared",
+      "/Script/UMG"
+    ]
+  },
+  "/Game/Assets/ui/Data/Widget/TVGraphics/TVGraphicsCommon/MenuCall/ActionButtonSpectateCamera": {
+    "container": "pc0010_mobile_and.utoc",
+    "dependsOn": [
+      "/Game/Assets/ui/library/uiImage"
+    ],
+    "scriptModules": [
+      "/Script/CoreUObject",
+      "/Script/MovieScene",
+      "/Script/MovieSceneTracks",
+      "/Script/PesShared",
+      "/Script/UMG"
+    ]
+  },
+  "/Game/Assets/ui/Data/Widget/TVGraphics/TVGraphicsCommon/MenuCall/ActionButtonSpectatePause": {
+    "container": "pc0010_mobile_and.utoc",
+    "dependsOn": [
+      "/Game/Assets/ui/library/uiImage"
+    ],
+    "scriptModules": [
+      "/Script/CoreUObject",
+      "/Script/MovieScene",
+      "/Script/MovieSceneTracks",
+      "/Script/PesShared",
+      "/Script/UMG"
+    ]
+  },
+  "/Game/Assets/ui/Data/Widget/TVGraphics/TVGraphicsCommon/MenuCall/AttackDefenceLevel": {
+    "container": "pc1000_mobile_and.utoc",
+    "dependsOn": [
+      "/Game/Assets/ui/library/uiImage"
+    ],
+    "scriptModules": [
+      "/Script/CoreUObject",
+      "/Script/MovieScene",
+      "/Script/MovieSceneTracks",
+      "/Script/UMG"
+    ]
+  },
+  "/Game/Assets/ui/Data/Widget/TVGraphics/TVGraphicsCommon/MenuCall/AttackDefenceLevelChange": {
+    "container": "pc0010_mobile_and.utoc",
+    "dependsOn": [
+      "/Game/Assets/ui/Data/Widget/TVGraphics/TVGraphicsCommon/MenuCall/ActionButtonAttackDefenceLevel",
+      "/Game/Assets/ui/Data/Widget/TVGraphics/TVGraphicsCommon/MenuCall/AttackDefenceLevelSlider",
+      "/Game/Assets/ui/library/uiImage",
+      "/Game/Assets/ui/library/uiText"
+    ],
+    "scriptModules": [
+      "/Script/CoreUObject",
+      "/Script/MovieScene",
+      "/Script/MovieSceneTracks",
+      "/Script/UMG"
+    ]
+  },
+  "/Game/Assets/ui/Data/Widget/TVGraphics/TVGraphicsCommon/MenuCall/AttackDefenceLevelLayoutLeft": {
+    "container": "pc1000_mobile_and.utoc",
+    "dependsOn": [
+      "/Game/Assets/ui/Data/Widget/TVGraphics/TVGraphicsCommon/MenuCall/AttackDefenceLevel"
+    ],
+    "scriptModules": [
+      "/Script/CoreUObject",
+      "/Script/MovieScene",
+      "/Script/MovieSceneTracks",
+      "/Script/PesShared",
+      "/Script/UMG"
+    ]
+  },
+  "/Game/Assets/ui/Data/Widget/TVGraphics/TVGraphicsCommon/MenuCall/AttackDefenceLevelLayoutRight": {
+    "container": "pc1000_mobile_and.utoc",
+    "dependsOn": [
+      "/Game/Assets/ui/Data/Widget/TVGraphics/TVGraphicsCommon/MenuCall/AttackDefenceLevel"
+    ],
+    "scriptModules": [
+      "/Script/CoreUObject",
+      "/Script/MovieScene",
+      "/Script/MovieSceneTracks",
+      "/Script/PesShared",
+      "/Script/UMG"
+    ]
+  },
+  "/Game/Assets/ui/Data/Widget/TVGraphics/TVGraphicsCommon/MenuCall/AttackDefenceLevelSlider": {
+    "container": "pc0010_mobile_and.utoc",
+    "dependsOn": [
+      "/Game/Assets/ui/Data/Widget/Parts/Components/Controls/UiSlider/Tex720/UiSliderHandleNone",
+      "/Game/Assets/ui/Data/Widget/TVGraphics/TVGraphicsCommon/MenuCall/AttackDefenceLevelSliderTouchArea",
+      "/Game/Assets/ui/Data/Widget/TVGraphics/TVGraphicsCommon/MenuCall/Tex720/AttackDefenceLevel_Handle",
+      "/Game/Assets/ui/library/uiImage"
+    ],
+    "scriptModules": [
+      "/Script/CoreUObject",
+      "/Script/Engine",
+      "/Script/MovieScene",
+      "/Script/MovieSceneTracks",
+      "/Script/PesShared",
+      "/Script/UMG"
+    ]
+  },
+  "/Game/Assets/ui/Data/Widget/TVGraphics/TVGraphicsCommon/MenuCall/AttackDefenceLevelSliderTouchArea": {
+    "container": "pc0010_mobile_and.utoc",
+    "dependsOn": [],
+    "scriptModules": [
+      "/Script/CoreUObject",
+      "/Script/PesShared",
+      "/Script/UMG"
+    ]
+  },
+  "/Game/Assets/ui/Data/Widget/TVGraphics/TVGraphicsCommon/MenuCall/MenuCall": {
+    "container": "pc0010_mobile_and.utoc",
+    "dependsOn": [
+      "/Game/Assets/ui/Data/Widget/TVGraphics/TVGraphicsCommon/MenuCall/ActionButtonCoachMode",
+      "/Game/Assets/ui/Data/Widget/TVGraphics/TVGraphicsCommon/MenuCall/ActionButtonOrdealHint",
+      "/Game/Assets/ui/Data/Widget/TVGraphics/TVGraphicsCommon/MenuCall/ActionButtonPauseChoice",
+      "/Game/Assets/ui/Data/Widget/TVGraphics/TVGraphicsCommon/MenuCall/ActionButtonSpectateCamera",
+      "/Game/Assets/ui/Data/Widget/TVGraphics/TVGraphicsCommon/MenuCall/ActionButtonSpectatePause",
+      "/Game/Assets/ui/Data/Widget/TVGraphics/TVGraphicsCommon/MenuCall/AttackDefenceLevelChange",
+      "/Game/Assets/ui/Data/Widget/TVGraphics/TVGraphicsCommon/MenuCall/MenuCallActionChoice",
+      "/Game/Assets/ui/Data/Widget/TVGraphics/TVGraphicsCommon/MenuCall/MenuCallChoice",
+      "/Game/Assets/ui/Data/Widget/TVGraphics/TVGraphicsCommon/MenuCall/MenuCallEmojiChoice",
+      "/Game/Assets/ui/library/uiImage"
+    ],
+    "scriptModules": [
+      "/Script/CoreUObject",
+      "/Script/Engine",
+      "/Script/MovieScene",
+      "/Script/MovieSceneTracks",
+      "/Script/PesShared",
+      "/Script/UMG"
+    ]
+  },
+  "/Game/Assets/ui/Data/Widget/TVGraphics/TVGraphicsCommon/MenuCall/MenuCallActionChoice": {
+    "container": "pc0010_mobile_and.utoc",
+    "dependsOn": [
+      "/Game/Assets/ui/Data/Widget/Parts/Components/Controls/UiCheckMark/UiCheckMark",
+      "/Game/Assets/ui/Data/Widget/Parts/Components/Plates/UiPlateChoiceR24/UiPlateChoiceR24Light",
+      "/Game/Assets/ui/Data/Widget/Parts/Components/Plates/UiPlateTouchEffect/UiPlateTouchEffectR24Dark",
+      "/Game/Assets/ui/Data/Widget/Parts/Components/Plates/UiPlateTouchEffect/UiPlateTouchEffectR48Dark",
+      "/Game/Assets/ui/library/uiText"
+    ],
+    "scriptModules": [
+      "/Script/CoreUObject",
+      "/Script/Engine",
+      "/Script/MovieScene",
+      "/Script/MovieSceneTracks",
+      "/Script/PesShared",
+      "/Script/UMG"
+    ]
+  },
+  "/Game/Assets/ui/Data/Widget/TVGraphics/TVGraphicsCommon/MenuCall/MenuCallChoice": {
+    "container": "pc0010_mobile_and.utoc",
+    "dependsOn": [
+      "/Game/Assets/ui/Data/Widget/Parts/Components/Plates/UiPlateChoiceR24/UiPlateChoiceR24Light",
+      "/Game/Assets/ui/Data/Widget/Parts/Components/Plates/UiPlateTouchEffect/UiPlateTouchEffectR24Dark",
+      "/Game/Assets/ui/Data/Widget/Parts/Components/Plates/UiPlateTouchEffect/UiPlateTouchEffectR48Dark",
+      "/Game/Assets/ui/library/uiText"
+    ],
+    "scriptModules": [
+      "/Script/CoreUObject",
+      "/Script/Engine",
+      "/Script/MovieScene",
+      "/Script/MovieSceneTracks",
+      "/Script/PesShared",
+      "/Script/UMG"
+    ]
+  },
+  "/Game/Assets/ui/Data/Widget/TVGraphics/TVGraphicsCommon/MenuCall/MenuCallEmojiChoice": {
+    "container": "pc0010_mobile_and.utoc",
+    "dependsOn": [
+      "/Game/Assets/ui/Data/Widget/Parts/Components/Plates/UiPlateChoiceR24/UiPlateChoiceR24Light",
+      "/Game/Assets/ui/Data/Widget/Parts/Components/Plates/UiPlateTouchEffect/UiPlateTouchEffectR24Dark",
+      "/Game/Assets/ui/Data/Widget/TVGraphics/TVGraphicsCommon/NamePlateEmoji/NamePlateEmojiPartsIcon"
+    ],
+    "scriptModules": [
+      "/Script/CoreUObject",
+      "/Script/Engine",
+      "/Script/MovieScene",
+      "/Script/MovieSceneTracks",
+      "/Script/PesShared",
+      "/Script/UMG"
+    ]
+  },
+  "/Game/Assets/ui/Data/Widget/TVGraphics/TVGraphicsCommon/MenuCall/Tex720/ActionButton_SpectateCamera": {
+    "container": "pc1000_mobile_and.utoc",
+    "dependsOn": [],
+    "scriptModules": [
+      "/Script/Engine"
+    ]
+  },
+  "/Game/Assets/ui/Data/Widget/TVGraphics/TVGraphicsCommon/MenuCall/Tex720/ActionButton_SpectatePause": {
+    "container": "pc1000_mobile_and.utoc",
+    "dependsOn": [],
+    "scriptModules": [
+      "/Script/Engine"
+    ]
+  },
+  "/Game/Assets/ui/Data/Widget/TVGraphics/TVGraphicsCommon/MenuCall/Tex720/ActionButtonCoachMode_Base_Off": {
+    "container": "pc1000_mobile_and.utoc",
+    "dependsOn": [],
+    "scriptModules": [
+      "/Script/Engine"
+    ]
+  },
+  "/Game/Assets/ui/Data/Widget/TVGraphics/TVGraphicsCommon/MenuCall/Tex720/ActionButtonCoachMode_Base_On": {
+    "container": "pc1000_mobile_and.utoc",
+    "dependsOn": [],
+    "scriptModules": [
+      "/Script/Engine"
+    ]
+  },
+  "/Game/Assets/ui/Data/Widget/TVGraphics/TVGraphicsCommon/MenuCall/Tex720/ActionButtonCoachMode_Icon_Off": {
+    "container": "pc1000_mobile_and.utoc",
+    "dependsOn": [],
+    "scriptModules": [
+      "/Script/Engine"
+    ]
+  },
+  "/Game/Assets/ui/Data/Widget/TVGraphics/TVGraphicsCommon/MenuCall/Tex720/ActionButtonCoachMode_Icon_On": {
+    "container": "pc1000_mobile_and.utoc",
+    "dependsOn": [],
+    "scriptModules": [
+      "/Script/Engine"
+    ]
+  },
+  "/Game/Assets/ui/Data/Widget/TVGraphics/TVGraphicsCommon/MenuCall/Tex720/ActionButtonIcon_AttackDefenceLevel": {
+    "container": "pc1000_mobile_and.utoc",
+    "dependsOn": [],
+    "scriptModules": [
+      "/Script/Engine"
+    ]
+  },
+  "/Game/Assets/ui/Data/Widget/TVGraphics/TVGraphicsCommon/MenuCall/Tex720/ActionButtonIcon_Cansel": {
+    "container": "pc1000_mobile_and.utoc",
+    "dependsOn": [],
+    "scriptModules": [
+      "/Script/Engine"
+    ]
+  },
+  "/Game/Assets/ui/Data/Widget/TVGraphics/TVGraphicsCommon/MenuCall/Tex720/ActionButtonIcon_OrdealHint": {
+    "container": "pc1000_mobile_and.utoc",
+    "dependsOn": [],
+    "scriptModules": [
+      "/Script/Engine"
+    ]
+  },
+  "/Game/Assets/ui/Data/Widget/TVGraphics/TVGraphicsCommon/MenuCall/Tex720/ActionButtonIcon_Pause_1": {
+    "container": "pc1000_mobile_and.utoc",
+    "dependsOn": [],
+    "scriptModules": [
+      "/Script/Engine"
+    ]
+  },
+  "/Game/Assets/ui/Data/Widget/TVGraphics/TVGraphicsCommon/MenuCall/Tex720/ActionButtonIcon_Pause_2": {
+    "container": "pc1000_mobile_and.utoc",
+    "dependsOn": [],
+    "scriptModules": [
+      "/Script/Engine"
+    ]
+  },
+  "/Game/Assets/ui/Data/Widget/TVGraphics/TVGraphicsCommon/MenuCall/Tex720/AttackDefenceLevel_ArrowAttack": {
+    "container": "pc1000_mobile_and.utoc",
+    "dependsOn": [],
+    "scriptModules": [
+      "/Script/Engine"
+    ]
+  },
+  "/Game/Assets/ui/Data/Widget/TVGraphics/TVGraphicsCommon/MenuCall/Tex720/AttackDefenceLevel_ArrowDefence": {
+    "container": "pc1000_mobile_and.utoc",
+    "dependsOn": [],
+    "scriptModules": [
+      "/Script/Engine"
+    ]
+  },
+  "/Game/Assets/ui/Data/Widget/TVGraphics/TVGraphicsCommon/MenuCall/Tex720/AttackDefenceLevel_Dot": {
+    "container": "pc1000_mobile_and.utoc",
+    "dependsOn": [],
+    "scriptModules": [
+      "/Script/Engine"
+    ]
+  },
+  "/Game/Assets/ui/Data/Widget/TVGraphics/TVGraphicsCommon/MenuCall/Tex720/AttackDefenceLevel_Handle": {
+    "container": "pc0010_mobile_and.utoc",
+    "dependsOn": [],
+    "scriptModules": [
+      "/Script/Engine"
+    ]
+  },
+  "/Game/Assets/ui/Data/Widget/TVGraphics/TVGraphicsCommon/MenuCall/Tex720/AttackDefenceLevel_Plate": {
+    "container": "pc1000_mobile_and.utoc",
+    "dependsOn": [],
+    "scriptModules": [
+      "/Script/Engine"
+    ]
+  },
+  "/Game/Assets/ui/Data/Widget/TVGraphics/TVGraphicsCommon/MenuCall/Tex720/AttackDefenceLevel_PlateAttack": {
+    "container": "pc1000_mobile_and.utoc",
+    "dependsOn": [],
+    "scriptModules": [
+      "/Script/Engine"
+    ]
+  },
+  "/Game/Assets/ui/Data/Widget/TVGraphics/TVGraphicsCommon/MenuCall/Tex720/AttackDefenceLevel_PlateBlack25": {
+    "container": "pc1000_mobile_and.utoc",
+    "dependsOn": [],
+    "scriptModules": [
+      "/Script/Engine"
+    ]
+  },
+  "/Game/Assets/ui/Data/Widget/TVGraphics/TVGraphicsCommon/MenuCall/Tex720/AttackDefenceLevel_PlateDefence": {
+    "container": "pc1000_mobile_and.utoc",
+    "dependsOn": [],
+    "scriptModules": [
+      "/Script/Engine"
+    ]
+  },
+  "/Game/Assets/ui/Data/Widget/TVGraphics/TVGraphicsCommon/MenuCall/Tex720/AttackDefenceLevel_PlateFeedback": {
+    "container": "pc1000_mobile_and.utoc",
+    "dependsOn": [],
+    "scriptModules": [
+      "/Script/Engine"
+    ]
+  },
+  "/Game/Assets/ui/Data/Widget/TVGraphics/TVGraphicsCommon/MenuCall/Tex720/AttackDefenceLevel_PlateGray": {
+    "container": "pc1000_mobile_and.utoc",
+    "dependsOn": [],
+    "scriptModules": [
+      "/Script/Engine"
+    ]
+  },
+  "/Game/Assets/ui/Data/Widget/TVGraphics/TVGraphicsCommon/MenuCall/Tex720/MenuCallIcon_Spectator": {
+    "container": "pc1000_mobile_and.utoc",
+    "dependsOn": [],
+    "scriptModules": [
+      "/Script/Engine"
+    ]
+  },
+  "/Game/Assets/ui/Data/Widget/TVGraphics/TVGraphicsCommon/NamePlateCoop/NamePlateCoopComment": {
+    "container": "pc1000_mobile_and.utoc",
+    "dependsOn": [
+      "/Game/Assets/ui/library/uiImage",
+      "/Game/Assets/ui/library/uiText"
+    ],
+    "scriptModules": [
+      "/Script/CoreUObject",
+      "/Script/MovieScene",
+      "/Script/MovieSceneTracks",
+      "/Script/UMG"
+    ]
+  },
+  "/Game/Assets/ui/Data/Widget/TVGraphics/TVGraphicsCommon/NamePlateCoop/NamePlateCoopLayout": {
+    "container": "pc1000_mobile_and.utoc",
+    "dependsOn": [
+      "/Game/Assets/ui/Data/Widget/TVGraphics/TVGraphicsCommon/NamePlateCoop/NamePlateCoopComment"
+    ],
+    "scriptModules": [
+      "/Script/CoreUObject",
+      "/Script/MovieScene",
+      "/Script/MovieSceneTracks",
+      "/Script/PesShared",
+      "/Script/UMG"
+    ]
+  },
+  "/Game/Assets/ui/Data/Widget/TVGraphics/TVGraphicsCommon/NamePlateEmoji/NamePlateEmoji": {
+    "container": "pc1000_mobile_and.utoc",
+    "dependsOn": [
+      "/Game/Assets/ui/Data/Widget/TVGraphics/TVGraphicsCommon/NamePlateEmoji/NamePlateEmojiParts"
+    ],
+    "scriptModules": [
+      "/Script/CoreUObject",
+      "/Script/MovieScene",
+      "/Script/PesShared",
+      "/Script/UMG"
+    ]
+  },
+  "/Game/Assets/ui/Data/Widget/TVGraphics/TVGraphicsCommon/NamePlateEmoji/NamePlateEmojiParts": {
+    "container": "pc1000_mobile_and.utoc",
+    "dependsOn": [
+      "/Game/Assets/ui/Data/Widget/TVGraphics/TVGraphicsCommon/NamePlateEmoji/NamePlateEmojiPartsFukidashi",
+      "/Game/Assets/ui/library/uiImage",
+      "/Game/Assets/ui/library/uiText"
+    ],
+    "scriptModules": [
+      "/Script/CoreUObject",
+      "/Script/MovieScene",
+      "/Script/MovieSceneTracks",
+      "/Script/UMG"
+    ]
+  },
+  "/Game/Assets/ui/Data/Widget/TVGraphics/TVGraphicsCommon/NamePlateEmoji/NamePlateEmojiPartsFukidashi": {
+    "container": "pc1000_mobile_and.utoc",
+    "dependsOn": [
+      "/Game/Assets/ui/Data/Widget/TVGraphics/TVGraphicsCommon/NamePlateEmoji/NamePlateEmojiPartsIcon",
+      "/Game/Assets/ui/library/uiImage"
+    ],
+    "scriptModules": [
+      "/Script/CoreUObject",
+      "/Script/MovieScene",
+      "/Script/MovieSceneTracks",
+      "/Script/UMG"
+    ]
+  },
+  "/Game/Assets/ui/Data/Widget/TVGraphics/TVGraphicsCommon/NamePlateEmoji/NamePlateEmojiPartsIcon": {
+    "container": "pc0010_mobile_and.utoc",
+    "dependsOn": [
+      "/Game/Assets/ui/Data/Widget/Parts/Components/Placeholders/UiEmoji/UiEmoji"
+    ],
+    "scriptModules": [
+      "/Script/CoreUObject",
+      "/Script/UMG"
+    ]
+  },
+  "/Game/Assets/ui/Data/Widget/TVGraphics/TVGraphicsCommon/NamePlateEmoji/Tex720/NamePlateEmojiFukidashi": {
+    "container": "pc1000_mobile_and.utoc",
+    "dependsOn": [],
+    "scriptModules": [
+      "/Script/Engine"
+    ]
+  },
+  "/Game/Assets/ui/Data/Widget/TVGraphics/TVGraphicsCommon/OpeningDemoEnd/OpeningDemoEnd": {
+    "container": "pc1000_mobile_and.utoc",
+    "dependsOn": [
+      "/Game/Assets/ui/library/uiImage"
+    ],
+    "scriptModules": [
+      "/Script/CoreUObject",
+      "/Script/MovieScene",
+      "/Script/MovieSceneTracks",
+      "/Script/PesShared",
+      "/Script/UMG"
+    ]
+  },
+  "/Game/Assets/ui/Data/Widget/TVGraphics/TVGraphicsCommon/OpeningDemoEnd/Tex720/OpeningDemoEndImg": {
+    "container": "pc1000_mobile_and.utoc",
+    "dependsOn": [],
+    "scriptModules": [
+      "/Script/Engine"
+    ]
+  },
+  "/Game/Assets/ui/Data/Widget/TVGraphics/TVGraphicsCommon/OpeningPK/OpeningPK": {
+    "container": "pc1000_mobile_and.utoc",
+    "dependsOn": [
+      "/Game/Assets/ui/Data/Widget/General/MatchFlow/Command_Parts/Command_MaskLinear_1",
+      "/Game/Assets/ui/library/core/uiTextMaterial",
+      "/Game/Assets/ui/library/uiImage",
+      "/Game/Assets/ui/library/uiText"
+    ],
+    "scriptModules": [
+      "/Script/CoreUObject",
+      "/Script/MovieScene",
+      "/Script/MovieSceneTracks",
+      "/Script/PesShared",
+      "/Script/UMG"
+    ]
+  },
+  "/Game/Assets/ui/Data/Widget/TVGraphics/TVGraphicsCommon/Ordeal/Ordeal": {
+    "container": "pc1000_mobile_and.utoc",
+    "dependsOn": [
+      "/Game/Assets/ui/Data/Widget/TVGraphics/TVGraphicsCommon/MenuCall/ActionButtonOrdealHint",
+      "/Game/Assets/ui/Data/Widget/TVGraphics/TVGraphicsCommon/Ordeal/OrdealCell",
+      "/Game/Assets/ui/Data/Widget/TVGraphics/TVGraphicsCommon/Ordeal/OrdealTimer"
+    ],
+    "scriptModules": [
+      "/Script/CoreUObject",
+      "/Script/MovieScene",
+      "/Script/MovieSceneTracks",
+      "/Script/PesShared",
+      "/Script/UMG"
+    ]
+  },
+  "/Game/Assets/ui/Data/Widget/TVGraphics/TVGraphicsCommon/Ordeal/OrdealCell": {
+    "container": "pc1000_mobile_and.utoc",
+    "dependsOn": [
+      "/Game/Assets/ui/Data/Widget/Parts/Components/Plates/UiPlateSeparateLine/UiPlateSeparateLineDark",
+      "/Game/Assets/ui/library/core/uiTextMaterial",
+      "/Game/Assets/ui/library/uiImage",
+      "/Game/Assets/ui/library/uiText"
+    ],
+    "scriptModules": [
+      "/Script/CoreUObject",
+      "/Script/MovieScene",
+      "/Script/MovieSceneTracks",
+      "/Script/PesShared",
+      "/Script/UMG"
+    ]
+  },
+  "/Game/Assets/ui/Data/Widget/TVGraphics/TVGraphicsCommon/Ordeal/OrdealTimer": {
+    "container": "pc1000_mobile_and.utoc",
+    "dependsOn": [
+      "/Game/Assets/ui/library/uiImage",
+      "/Game/Assets/ui/library/uiText"
+    ],
+    "scriptModules": [
+      "/Script/CoreUObject",
+      "/Script/MovieScene",
+      "/Script/MovieSceneTracks",
+      "/Script/UMG"
+    ]
+  },
+  "/Game/Assets/ui/Data/Widget/TVGraphics/TVGraphicsCommon/Ordeal/Tex720/OrdealIconCheck": {
+    "container": "pc1000_mobile_and.utoc",
+    "dependsOn": [],
+    "scriptModules": [
+      "/Script/Engine"
+    ]
+  },
+  "/Game/Assets/ui/Data/Widget/TVGraphics/TVGraphicsCommon/Pause/Pause": {
+    "container": "pc1000_mobile_and.utoc",
+    "dependsOn": [
+      "/Game/Assets/ui/library/uiImage",
+      "/Game/Assets/ui/library/uiText"
+    ],
+    "scriptModules": [
+      "/Script/CoreUObject",
+      "/Script/MovieScene",
+      "/Script/MovieSceneTracks",
+      "/Script/PesShared",
+      "/Script/UMG"
+    ]
+  },
+  "/Game/Assets/ui/Data/Widget/TVGraphics/TVGraphicsCommon/Pause/Tex720/PauseIcon_Prohibition": {
+    "container": "pc1000_mobile_and.utoc",
+    "dependsOn": [],
+    "scriptModules": [
+      "/Script/Engine"
+    ]
+  },
+  "/Game/Assets/ui/Data/Widget/TVGraphics/TVGraphicsCommon/Pause/Tex720/PausePlate": {
+    "container": "pc1000_mobile_and.utoc",
+    "dependsOn": [],
+    "scriptModules": [
+      "/Script/Engine"
+    ]
+  },
+  "/Game/Assets/ui/Data/Widget/TVGraphics/TVGraphicsCommon/PlayerCardEffect/PlayerCardEffectBigTimeBack": {
+    "container": "pc1000_mobile_and.utoc",
+    "dependsOn": [
+      "/Game/Assets/ui/library/uiImage"
+    ],
+    "scriptModules": [
+      "/Script/CoreUObject",
+      "/Script/Engine",
+      "/Script/MovieScene",
+      "/Script/MovieSceneTracks",
+      "/Script/UMG"
+    ]
+  },
+  "/Game/Assets/ui/Data/Widget/TVGraphics/TVGraphicsCommon/PlayerCardEffect/PlayerCardEffectBigTimeFront": {
+    "container": "pc1000_mobile_and.utoc",
+    "dependsOn": [
+      "/Game/Assets/ui/library/uiImage"
+    ],
+    "scriptModules": [
+      "/Script/CoreUObject",
+      "/Script/Engine",
+      "/Script/MovieScene",
+      "/Script/MovieSceneTracks",
+      "/Script/UMG"
+    ]
+  },
+  "/Game/Assets/ui/Data/Widget/TVGraphics/TVGraphicsCommon/PlayerCardEffect/Tex720/PlayerCardEffect_BigTime_0": {
+    "container": "pc1000_mobile_and.utoc",
+    "dependsOn": [],
+    "scriptModules": [
+      "/Script/Engine"
+    ]
+  },
+  "/Game/Assets/ui/Data/Widget/TVGraphics/TVGraphicsCommon/PlayerCardEffect/Tex720/PlayerCardEffect_BigTime_2": {
+    "container": "pc1000_mobile_and.utoc",
+    "dependsOn": [],
+    "scriptModules": [
+      "/Script/Engine"
+    ]
+  },
+  "/Game/Assets/ui/Data/Widget/TVGraphics/TVGraphicsCommon/PlayerCardEffect/Tex720/PlayerCardEffect_BigTime_3": {
+    "container": "pc1000_mobile_and.utoc",
+    "dependsOn": [],
+    "scriptModules": [
+      "/Script/Engine"
+    ]
+  },
+  "/Game/Assets/ui/Data/Widget/TVGraphics/TVGraphicsCommon/PlayerRadar/MeshWidget/M_RadarColorIcon": {
+    "container": "pc1000_mobile_and.utoc",
+    "dependsOn": [
+      "/Engine/EngineResources/Black_Low",
+      "/Engine/Functions/Engine_MaterialFunctions01/Texturing/PointSampledUVs",
+      "/Engine/Functions/Engine_MaterialFunctions02/Utility/MakeFloat2"
+    ],
+    "scriptModules": [
+      "/Script/Engine"
+    ]
+  },
+  "/Game/Assets/ui/Data/Widget/TVGraphics/TVGraphicsCommon/PlayerRadar/MeshWidget/RadarColorIconVectorArt": {
+    "container": "pc1000_mobile_and.utoc",
+    "dependsOn": [
+      "/Game/Assets/ui/Data/Widget/TVGraphics/TVGraphicsCommon/PlayerRadar/MeshWidget/M_RadarColorIcon"
+    ],
+    "scriptModules": [
+      "/Script/UMG"
+    ]
+  },
+  "/Game/Assets/ui/Data/Widget/TVGraphics/TVGraphicsCommon/PlayerRadar/MeshWidget/SM_RadarColorIcon": {
+    "container": "pc1000_mobile_and.utoc",
+    "dependsOn": [
+      "/Game/Assets/ui/Data/Widget/TVGraphics/TVGraphicsCommon/PlayerRadar/MeshWidget/M_RadarColorIcon"
+    ],
+    "scriptModules": [
+      "/Script/Engine",
+      "/Script/NavigationSystem"
+    ]
+  },
+  "/Game/Assets/ui/Data/Widget/TVGraphics/TVGraphicsCommon/PlayerRadar/PlayerRadar": {
+    "container": "pc1000_mobile_and.utoc",
+    "dependsOn": [
+      "/Game/Assets/ui/Data/Widget/TVGraphics/TVGraphicsCommon/PlayerRadar/MeshWidget/RadarColorIconVectorArt",
+      "/Game/Assets/ui/Data/Widget/TVGraphics/TVGraphicsCommon/PlayerRadar/PlayerRadarTarget",
+      "/Game/Assets/ui/library/uiImage"
+    ],
+    "scriptModules": [
+      "/Script/CoreUObject",
+      "/Script/Engine",
+      "/Script/MovieScene",
+      "/Script/MovieSceneTracks",
+      "/Script/PesShared",
+      "/Script/UMG"
+    ]
+  },
+  "/Game/Assets/ui/Data/Widget/TVGraphics/TVGraphicsCommon/PlayerRadar/PlayerRadarColorIcon": {
+    "container": "pc1000_mobile_and.utoc",
+    "dependsOn": [
+      "/Game/Assets/ui/library/uiImage"
+    ],
+    "scriptModules": [
+      "/Script/CoreUObject",
+      "/Script/UMG"
+    ]
+  },
+  "/Game/Assets/ui/Data/Widget/TVGraphics/TVGraphicsCommon/PlayerRadar/PlayerRadarLayout": {
+    "container": "pc1000_mobile_and.utoc",
+    "dependsOn": [
+      "/Game/Assets/ui/Data/Widget/TVGraphics/TVGraphicsCommon/PlayerRadar/PlayerRadar"
+    ],
+    "scriptModules": [
+      "/Script/CoreUObject",
+      "/Script/PesShared",
+      "/Script/UMG"
+    ]
+  },
+  "/Game/Assets/ui/Data/Widget/TVGraphics/TVGraphicsCommon/PlayerRadar/PlayerRadarTarget": {
+    "container": "pc1000_mobile_and.utoc",
+    "dependsOn": [
+      "/Game/Assets/ui/library/uiImage"
+    ],
+    "scriptModules": [
+      "/Script/CoreUObject",
+      "/Script/UMG"
+    ]
+  },
+  "/Game/Assets/ui/Data/Widget/TVGraphics/TVGraphicsCommon/PlayerRadar/Tex720/PlayerRadarArea": {
+    "container": "pc1000_mobile_and.utoc",
+    "dependsOn": [],
+    "scriptModules": [
+      "/Script/Engine"
+    ]
+  },
+  "/Game/Assets/ui/Data/Widget/TVGraphics/TVGraphicsCommon/PlayerRadar/Tex720/PlayerRadarField": {
+    "container": "pc1000_mobile_and.utoc",
+    "dependsOn": [],
+    "scriptModules": [
+      "/Script/Engine"
+    ]
+  },
+  "/Game/Assets/ui/Data/Widget/TVGraphics/TVGraphicsCommon/PlayerRadar/Tex720/PlayerRadarIconBase": {
+    "container": "pc1000_mobile_and.utoc",
+    "dependsOn": [],
+    "scriptModules": [
+      "/Script/Engine"
+    ]
+  },
+  "/Game/Assets/ui/Data/Widget/TVGraphics/TVGraphicsCommon/PlayerRadar/Tex720/PlayerRadarIconColor": {
+    "container": "pc1000_mobile_and.utoc",
+    "dependsOn": [],
+    "scriptModules": [
+      "/Script/Engine"
+    ]
+  },
+  "/Game/Assets/ui/Data/Widget/TVGraphics/TVGraphicsCommon/PlayerRadar/Tex720/PlayerRadarLine": {
+    "container": "pc1000_mobile_and.utoc",
+    "dependsOn": [],
+    "scriptModules": [
+      "/Script/Engine"
+    ]
+  },
+  "/Game/Assets/ui/Data/Widget/TVGraphics/TVGraphicsCommon/PlayerRadar/Tex720/PlayerRadarTarget": {
+    "container": "pc1000_mobile_and.utoc",
+    "dependsOn": [],
+    "scriptModules": [
+      "/Script/Engine"
+    ]
+  },
+  "/Game/Assets/ui/Data/Widget/TVGraphics/TVGraphicsCommon/PlayerRadar/Tex720/PlayerRaderBall": {
+    "container": "pc1000_mobile_and.utoc",
+    "dependsOn": [],
+    "scriptModules": [
+      "/Script/Engine"
+    ]
+  },
+  "/Game/Assets/ui/Data/Widget/TVGraphics/TVGraphicsCommon/Sugoroku/Sugoroku": {
+    "container": "pc1000_mobile_and.utoc",
+    "dependsOn": [
+      "/Game/Assets/ui/Data/Widget/TVGraphics/TVGraphicsCommon/Sugoroku/SugorokuGoalReward",
+      "/Game/Assets/ui/Data/Widget/TVGraphics/TVGraphicsCommon/Sugoroku/SugorokuInfo",
+      "/Game/Assets/ui/Data/Widget/TVGraphics/TVGraphicsCommon/Sugoroku/SugorokuRemain"
+    ],
+    "scriptModules": [
+      "/Script/CoreUObject",
+      "/Script/MovieScene",
+      "/Script/MovieSceneTracks",
+      "/Script/UMG"
+    ]
+  },
+  "/Game/Assets/ui/Data/Widget/TVGraphics/TVGraphicsCommon/Sugoroku/SugorokuGoalReward": {
+    "container": "pc1000_mobile_and.utoc",
+    "dependsOn": [
+      "/Game/Assets/ui/Data/Widget/Parts/Components/Plates/UiPlateChoiceR24/UiPlateChoiceR24Light",
+      "/Game/Assets/ui/Data/Widget/Parts/Components/Plates/UiPlateTouchEffect/UiPlateTouchEffectR24Dark",
+      "/Game/Assets/ui/Data/Widget/Parts/Icon/CmnIconReward/CmnIconReward",
+      "/Game/Assets/ui/library/uiText"
+    ],
+    "scriptModules": [
+      "/Script/CoreUObject",
+      "/Script/MovieScene",
+      "/Script/MovieSceneTracks",
+      "/Script/PesShared",
+      "/Script/UMG"
+    ]
+  },
+  "/Game/Assets/ui/Data/Widget/TVGraphics/TVGraphicsCommon/Sugoroku/SugorokuInfo": {
+    "container": "pc1000_mobile_and.utoc",
+    "dependsOn": [
+      "/Game/Assets/ui/library/uiImage"
+    ],
+    "scriptModules": [
+      "/Script/CoreUObject",
+      "/Script/MovieScene",
+      "/Script/MovieSceneTracks",
+      "/Script/PesShared",
+      "/Script/UMG"
+    ]
+  },
+  "/Game/Assets/ui/Data/Widget/TVGraphics/TVGraphicsCommon/Sugoroku/SugorokuRemain": {
+    "container": "pc1000_mobile_and.utoc",
+    "dependsOn": [
+      "/Game/Assets/ui/library/uiImage",
+      "/Game/Assets/ui/library/uiText"
+    ],
+    "scriptModules": [
+      "/Script/CoreUObject",
+      "/Script/UMG"
+    ]
+  },
+  "/Game/Assets/ui/Data/Widget/TVGraphics/TVGraphicsCommon/Sugoroku/Tex720/SugorokuInfo_Default": {
+    "container": "pc1000_mobile_and.utoc",
+    "dependsOn": [],
+    "scriptModules": [
+      "/Script/Engine"
+    ]
+  },
+  "/Game/Assets/ui/Data/Widget/TVGraphics/TVGraphicsCommon/Sugoroku/Tex720/SugorokuInfo_FeedBack": {
+    "container": "pc1000_mobile_and.utoc",
+    "dependsOn": [],
+    "scriptModules": [
+      "/Script/Engine"
+    ]
+  },
+  "/Game/Assets/ui/Data/Widget/TVGraphics/TVGraphicsCommon/Sugoroku/Tex720/SugorokuRemainSquare_Base": {
+    "container": "pc1000_mobile_and.utoc",
+    "dependsOn": [],
+    "scriptModules": [
+      "/Script/Engine"
+    ]
+  },
+  "/Game/Assets/ui/Data/Widget/TVGraphics/TVGraphicsCommon/VirtualPad/Tex720/VirtualPadButtonAllowLarge": {
+    "container": "pc1000_mobile_and.utoc",
+    "dependsOn": [],
+    "scriptModules": [
+      "/Script/Engine"
+    ]
+  },
+  "/Game/Assets/ui/Data/Widget/TVGraphics/TVGraphicsCommon/VirtualPad/Tex720/VirtualPadButtonAllowSmall": {
+    "container": "pc1000_mobile_and.utoc",
+    "dependsOn": [],
+    "scriptModules": [
+      "/Script/Engine"
+    ]
+  },
+  "/Game/Assets/ui/Data/Widget/TVGraphics/TVGraphicsCommon/VirtualPad/Tex720/VirtualPadButtonLarge": {
+    "container": "pc1000_mobile_and.utoc",
+    "dependsOn": [],
+    "scriptModules": [
+      "/Script/Engine"
+    ]
+  },
+  "/Game/Assets/ui/Data/Widget/TVGraphics/TVGraphicsCommon/VirtualPad/Tex720/VirtualPadButtonLargeFeedback": {
+    "container": "pc1000_mobile_and.utoc",
+    "dependsOn": [],
+    "scriptModules": [
+      "/Script/Engine"
+    ]
+  },
+  "/Game/Assets/ui/Data/Widget/TVGraphics/TVGraphicsCommon/VirtualPad/Tex720/VirtualPadButtonSmall": {
+    "container": "pc1000_mobile_and.utoc",
+    "dependsOn": [],
+    "scriptModules": [
+      "/Script/Engine"
+    ]
+  },
+  "/Game/Assets/ui/Data/Widget/TVGraphics/TVGraphicsCommon/VirtualPad/Tex720/VirtualPadButtonSmallFeedback": {
+    "container": "pc1000_mobile_and.utoc",
+    "dependsOn": [],
+    "scriptModules": [
+      "/Script/Engine"
+    ]
+  },
+  "/Game/Assets/ui/Data/Widget/TVGraphics/TVGraphicsCommon/VirtualPad/Tex720/VirtualPadStick": {
+    "container": "pc1000_mobile_and.utoc",
+    "dependsOn": [],
+    "scriptModules": [
+      "/Script/Engine"
+    ]
+  },
+  "/Game/Assets/ui/Data/Widget/TVGraphics/TVGraphicsCommon/VirtualPad/Tex720/VirtualPadStickShadow": {
+    "container": "pc1000_mobile_and.utoc",
+    "dependsOn": [],
+    "scriptModules": [
+      "/Script/Engine"
+    ]
+  },
+  "/Game/Assets/ui/Data/Widget/TVGraphics/TVGraphicsCommon/VirtualPad/VirtualPadButtonLarge": {
+    "container": "pc1000_mobile_and.utoc",
+    "dependsOn": [
+      "/Game/Assets/ui/Data/Widget/TVGraphics/TVGraphicsCommon/VirtualPad/VirtualPadButtonLargeText",
+      "/Game/Assets/ui/library/uiImage"
+    ],
+    "scriptModules": [
+      "/Script/CoreUObject",
+      "/Script/MovieScene",
+      "/Script/MovieSceneTracks",
+      "/Script/PesShared",
+      "/Script/UMG"
+    ]
+  },
+  "/Game/Assets/ui/Data/Widget/TVGraphics/TVGraphicsCommon/VirtualPad/VirtualPadButtonLargeText": {
+    "container": "pc1000_mobile_and.utoc",
+    "dependsOn": [
+      "/Game/Assets/ui/library/uiText"
+    ],
+    "scriptModules": [
+      "/Script/CoreUObject",
+      "/Script/MovieScene",
+      "/Script/UMG"
+    ]
+  },
+  "/Game/Assets/ui/Data/Widget/TVGraphics/TVGraphicsCommon/VirtualPad/VirtualPadButtonSmall": {
+    "container": "pc1000_mobile_and.utoc",
+    "dependsOn": [
+      "/Game/Assets/ui/Data/Widget/TVGraphics/TVGraphicsCommon/VirtualPad/VirtualPadButtonSmallText",
+      "/Game/Assets/ui/library/uiImage"
+    ],
+    "scriptModules": [
+      "/Script/CoreUObject",
+      "/Script/MovieScene",
+      "/Script/MovieSceneTracks",
+      "/Script/PesShared",
+      "/Script/UMG"
+    ]
+  },
+  "/Game/Assets/ui/Data/Widget/TVGraphics/TVGraphicsCommon/VirtualPad/VirtualPadButtonSmallText": {
+    "container": "pc1000_mobile_and.utoc",
+    "dependsOn": [
+      "/Game/Assets/ui/library/uiText"
+    ],
+    "scriptModules": [
+      "/Script/CoreUObject",
+      "/Script/MovieScene",
+      "/Script/UMG"
+    ]
+  },
+  "/Game/Assets/ui/Data/Widget/TVGraphics/TVGraphicsCommon/VirtualPad/VirtualPadLayout": {
+    "container": "pc1000_mobile_and.utoc",
+    "dependsOn": [
+      "/Game/Assets/ui/Data/Widget/TVGraphics/TVGraphicsCommon/VirtualPad/VirtualPadButtonLarge",
+      "/Game/Assets/ui/Data/Widget/TVGraphics/TVGraphicsCommon/VirtualPad/VirtualPadButtonSmall",
+      "/Game/Assets/ui/Data/Widget/TVGraphics/TVGraphicsCommon/VirtualPad/VirtualPadStick",
+      "/Game/Assets/ui/library/uiImage"
+    ],
+    "scriptModules": [
+      "/Script/CoreUObject",
+      "/Script/PesShared",
+      "/Script/UMG"
+    ]
+  },
+  "/Game/Assets/ui/Data/Widget/TVGraphics/TVGraphicsCommon/VirtualPad/VirtualPadStick": {
+    "container": "pc1000_mobile_and.utoc",
+    "dependsOn": [
+      "/Game/Assets/ui/library/uiImage"
+    ],
+    "scriptModules": [
+      "/Script/CoreUObject",
+      "/Script/PesShared",
+      "/Script/UMG"
+    ]
+  }
+}

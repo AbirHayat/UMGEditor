@@ -1,0 +1,267 @@
+Golden Rule of eFootball Modding​
+You can modify literally anything in eFootball (assets, textures, models, gameplay parameters, and even native code with the right approach). If it exists as a file, it can be modded! The executable itself is patchable (at your own risk — see the Exe Patching section).
+
+🛠️ Technical Overview & File Architecture​
+To successfully mod eFootball, you first need to understand how the game handles its files:
+
+Engine: Unreal Engine 4.26 / 4.27 (Zen Loader / IoStore)
+Compression: ZLib
+Encryption: AES-256 — the game ships encrypted containers, you need the AES key
+File Format: an IoStore container pair plus legacy paks:
+.utoc = Table of Contents: header, chunk table, compression blocks, directory index (file paths), signatures. It's the index, not the data.
+.ucas = the data: every compressed + encrypted asset chunk lives here.
+.pak = legacy UE4 pak, mounted separately (loose/config files) AND used as the mount stub that triggers loading of a _P container pair (see Step 3).
+
+💡 Crucial Note: The vast majority of game assets (meshes, materials, Blueprints, textures) live inside the .ucas, indexed by the .utoc. A very common mistake is assuming the .utoc holds the data — it doesn't, it's the map.
+
+🔑 How the engine finds a cooked asset: packages inside IoStore containers are resolved by package ID (a city-hash of the package path) against the container's internal header (ContainerHeader). This is exactly why a loose .pak can NOT override a cooked .uasset — more on this in Step 3.
+
+🖼️ Anatomy of a cooked texture package (UE4.26)​
+.uasset = summary + name map (tiny, ~1 KB). Contains the import/export maps and all path/object strings.
+.uexp = export data: serialized header + inline mip payloads appended contiguously at the end (mip2..mipN).
+.ubulk = external bulk: mip0 + mip1 concatenated (mip1 at offset = mip0 size).
+Header size of the .uexp = uexp_length − Σ(inline mip sizes). Always recompute, never trust. Example: T_Stain_M (PF_DXT1, 1024 base, 11 mips): inline mips 2..10 = 43,704 B → header = 643 B.
+DXT1/BC1 size per mip = wh/2. The stock tail repeats the 4×4 mip three times (mip8/9/10 = 8 B each).
+Bulk headers inside the export header use mixed widths (some mips store counts/offsets as i64, some as i32). Never assume one layout; verify by byte pattern.
+
+🧰 Required Tools​
+FModel(with AES key support) for browsing & extraction
+eFootball AES Key: 0x4552D45005DFE94964893F4925EC747D3D591401E060ED8B3D58BE5721C81295
+UAssetGUI (or equivalent) for inspecting legacy .uasset properties (never for saving shipped assets!)
+Hex Editor (e.g. HxD) for precise, byte-by-byte edits
+A Zen ↔ Legacy converter (e.g. a patched retoc) to convert the container pair to legacy packages and back
+texconv (Microsoft DirectXTex — winget or release binary): the only field-proven BC1/DXT1 encoder for texture replacement. Hand-rolled encoders produced payloads the engine rejected.
+Rust toolchain (cargo) to rebuild retoc with the UE4.26 raw-exports patch (Step 2, Option C).
+Antivirus exclusion for your retoc build folder: fresh Rust binaries get flagged by heuristics (e.g. "VHO:Backdoor…Convagent.gen") and blocked/quarantined → "Access denied" when running to-zen. Add the folder to exclusions before building.
+Unreal Engine 4.26/4.27 for full asset editing
+
+📌 STEP 1: Asset Extraction & Decryption​
+The first phase is decrypting and making the game files readable.
+
+Open FModel.
+Enter the correct AES Key for eFootball in the settings.
+Set the extraction mode to "All".
+Load the container pair (.utoc + .ucas) containing the asset you want to edit (e.g. pitch meshes, material parameters, kit textures).
+Extract/export your target files.
+
+❓ What if the extracted file is unreadable or corrupted?
+
+Files using the Zen Loader aren't natively readable by standard UE tools. If this happens, you need to convert the container pair (.utoc / .ucas) into Legacy Unreal Engine packages. Once converted to legacy format, the .uasset / .uexp / .ubulk files can be opened and edited freely.
+
+📌 STEP 2: Editing the Assets​
+Once you have accessible files, you have four main approaches:
+
+Option A: UE Editor / Graphic Tools​
+Open the exported .uasset file inside the appropriate editor (e.g. modifying shaders, material properties, or textures) and save the modified asset.
+
+Option B: Surgical Byte-by-Byte Patching (Hex Editing)​
+For those with technical know-how making quick numerical tweaks (e.g. toggling boolean flags or changing counts/values):
+
+Open the .uexp in a Hex Editor.
+Patch the specific bytes directly (same byte size! e.g. an int32 stays 4 bytes).
+Warning: this requires surgical precision. A single wrong offset will corrupt the asset.
+
+⚠️ Why "surgical" beats "re-serialization" (hard-won lesson)
+
+Cooked assets use unversioned property serialization: property values must stay in exact class-schema order. Generic editors that append or fully re-serialize properties can produce files that mod tools read perfectly but the game silently refuses to load — no crash, no log, the package just never appears in memory.
+
+The proven-safe approach for numeric/bool tweaks is hex-editing the .uexp payload in place, leaving every structure untouched.
+
+📐 Canonical patching rules​
+Every offset is absolute in the .uexp and must be verified against pristine stock before patching (the expected original bytes must be present there).
+Every float is written as IEEE754 little-endian, recomputed from the exact value — never transcribed from memory.
+If a value appears multiple times, disambiguate with ≥32 bytes of surrounding context.
+Offsets are version-dependent: after a game update, re-verify or re-discover them. Never trust an old sheet.
+Bounds check: every offset report must print file size + offset + proof that offset &lt; size. An offset beyond EOF is a fabricated report.
+AST proof: verify parameters via name → NameMap index → value offset chains. In a master material, ScalarValues is a packed float array: N candidate offsets = N different parameters. Resolve each name; revert any offset that isn't your target.
+Same-length string renames are the only safe way to rename/re-point packages without a full serializer: patch the ASCII bytes in the .uasset in place (name map + path strings), keep length identical, verify magic C1 83 2A 9E and unchanged file size. Texture references in the .uexp are name-map indices, so patching the .uasset strings alone re-points everything.
+
+🎯 Know your lever: the derived-values trap​
+Many exposed properties are overwritten at runtime: subsystem delegates reset them on BeginPlay, native C++ recomputes them every frame. Patching their defaults does nothing.
+
+Before patching a value, ask: who writes it at runtime? If a subsystem or native code overwrites it, the real lever is elsewhere — often a bytecode literal (a float constant or a call opcode inside the script), which is data and is patchable.
+
+⚠️ But anonymous bytecode floats are NOT safe levers. Patching a float constant inside Kismet bytecode without a full disassembly of its consumption context can crash the VM at runtime (verified: arbitrary float patches in BPs can cause mid-match crashes even with perfect packaging).
+
+Safe: opcode swaps (e.g. BooleanOR 0xB1 → BooleanAND 0xB2), float arguments to proven native calls, JumpIfNot target rewrites (4 bytes, same-length), PopExecutionFlow → Nothing for control-flow neutralization.
+Unsafe: anything whose consumer isn't proven; floats in the middle of compiled shader blobs; any int32 replace without verifying it's really an FPackageIndex and not a coincidental float/curve/color value.
+
+🧪 Lever taxonomy — field-verified cases​
+MaterialInstance scalars (OpacityMaskClipValue etc.): safe data lever on BLEND_Masked materials.
+BLEND_Translucent materials: do NOT lower OpacityMaskClipValue — the albedo gets clipped and textures vanish (verified on shoe kits).
+Master material ScalarValues: see bounds/AST rule above. After mega updates Konami may shift default values or re-order scalars — always re-verify the whole array against a freshly-extracted asset; a fuzzy match (≥25/37 scalars matching stock) is a good sanity check before patching.
+Blueprint Kismet bytecode: opcode swaps and control-flow reroutes are safe; direct float patching in the middle of script blobs is not. Always run a bytecode disassembler (e.g. a Kismet walker) to verify the target opcode is what you think it is.
+PMC (MaterialParameterCollection): safe scalar levers, but verify offsets per-update — Konami occasionally reorders entries.
+Niagara systems: emitter parameters (SpawnCountScale, SpriteSize, Lifetime) are patchable in the .uexp; but material/texture re-pointing must go through the name map, never blind int32 replace.
+DataTable rows: row values are patchable; adding/removing rows requires recomputing PreloadDependenciesOffset and TotalHeaderSize in the summary table.
+Exe strings / call targets: patchable (see Exe Patching section) but with ban risk.
+
+Option C: Texture Replacement — full pipeline (field-verified)​
+Encode your PNG with texconv:
+   texconv -f BC1_UNORM -m 11 -o out T_Stain_M.png -y
+
+Read the DDS (128-byte header) and map mips: if your PNG is 2048 but the stock mip0 is 1024, skip DDS mip0; your mip k = DDS mip k+1 (k=0..7); reuse the DDS 4×4 mip for the three 4×4 tail slots (mip8/9/10).
+Assemble: overwrite the inline mip region of the stock .uexp in place (stored offsets stay valid), and write mip0+mip1 concatenated as the .ubulk. Sizes must match stock exactly.
+Convert with retoc to-zen (with the raw-exports patch below) and ship as a NEW package — see the stock-override trap.
+
+🔧 The retoc raw-exports patch (mandatory for UE4.26 textures)​
+For container header versions ≤ Initial (UE4.26/4.27), retoc's serialize_zen_asset rewrites the export buffer "in bundle order" (write_exports_in_bundle_order). That relocation invalidates the cooked OffsetInFile values of inline bulk → the game reads garbage → crash at texture load, even with 100% stock bytes. Patch retoc/src/zen_asset_conversion.rs:
+
+// in serialize_zen_asset(), else-branch:
+
+// BEFORE:
+write_exports_in_bundle_order(&mut result_package_writer, builder,
+    &legacy_asset_bundle.exports_file_buffer)?;
+
+// AFTER (keep cooked offsets):
+result_package_writer.write_all(&legacy_asset_bundle.exports_file_buffer)?;
+
+Rebuild with cargo build --release. Verify with a stock round-trip first: extract → convert → install → must NOT crash.
+
+Notes: -c accepts Zlib/Zstd/LZ4/Oodle (there is no "None"); raw incompressible blocks are handled correctly by retoc (method index 0 = stored as-is, 1 = compressed).
+
+🚫 The stock-override trap — why texture mods crash​
+Field-verified matrix (same pipeline, same sizes):
+100% stock repack → works.
+Modified payload on the same package ID (even Microsoft-texconv-valid BC1) → crash at texture load.
+Modified payload under a new package ID → works.
+
+Conclusion: the engine refuses altered payloads for existing cooked package IDs inside patch containers (bulk/DDC resolution conflict). Big content mods work because they add new packages or ship whole re-cooked containers — they never byte-patch a stock texture inside a _P container.
+
+✅ The workaround: same-length rename + re-point​
+Rename the package with a same-length name: T_Stain_M → T_Stain_2 (9→9 chars, one byte changes). Byte-patch the ASCII occurrences inside the .uasset in place; verify magic and unchanged length.
+Ship it at the matching new path (…/T_Stain_2.uasset/.uexp/.ubulk) → new package ID → loads fine with your pixels.
+Re-point the consumer: find who references it by grepping the ASCII string across extracted .uasset files (import maps live in the .uasset, NOT the .uexp). Apply the same same-length patch in that .uasset and ship it alongside.
+
+Option D: Blueprint Bytecode Editing (advanced)​
+Blueprints are cooked Kismet bytecode inside .uexp.
+
+Rules:
+NEVER use to-zen on a Blueprint. Re-converting a BP alters the export table and the VM crashes at match load. Always merge BPs with copy-packages (byte-exact, no re-conversion).
+Opcode swaps (single-byte: 0xB1→0xB2, 0xFB→0xF0, etc.) are safe and size-preserving.
+JumpIfNot/Jump target rewrites are safe (4-byte little-endian offset operand).
+String constant corruption (Contains("X") type checks) is safe if you keep the length identical.
+FloatConst patching is ONLY safe when you've verified the exact opcode context (disassemble the script first) and the consumer is a known-safe native call. Anonymous float patches are the #1 cause of mid-match VM crashes.
+Always verify the walk: a Kismet disassembler that consumes the exact storage size proves the script is well-formed.
+
+🎬 Niagara Systems​
+Niagara systems (.uasset with UNiagaraSystem exports) are heavily compiled. Rules:
+Do NOT to-zen Niagara assets unless you've verified your retoc fork handles the Niagara VM blob correctly. Round-trip failures produce crash-at-boot behavior.
+Prefer copy-packages with --patch for numeric parameter tweaks.
+For texture/material re-pointing inside an emitter, patch the name map in the .uasset (same-length rule), not blind int32 replaces in the .uexp.
+The trigger problem: Niagara systems exist in the pak but may not be referenced by the game's native code. A system can be fully valid, perfectly packaged, and still never spawn because the C++ spawner reads a DataTable (e.g. DT_EffectSystem) that doesn't list it. Verify the caller chain (strings + XREF scan in the exe) before investing in emitter tuning.
+SpawnCountScale, SpriteSize, Lifetime, burst counts are the typical safe levers in the emitter parameter store.
+
+💻 Exe Patching (last resort, ban risk)​
+eFootball is always-online. Exe modifications may trigger anti-cheat bans. Rules:
+Always keep an unpatched eFootball.exe.bak and test on a secondary account.
+Use a pre-flight check: read the target bytes before patching and abort if they don't match the expected original (the game may have been updated since you found the offset).
+Offsets shift on every exe update. Re-discover targets via string scan (Def_*, system names, asset names) + XREF resolution (RIP-relative lea instructions in .text, table entries in .rdata).
+NOP-ing conditional jumps (jz/jnz/jns) is the safest patch class; replacing call with mov eax, &lt;const&gt; works for simple value-returning functions.
+Never patch multiple gates in one build — isolate one change at a time so you can identify the crash source.
+After every mega update, all exe offsets die. Re-run the string+XREF scan from scratch.
+
+📌 STEP 3: Repackaging & Mod Creation​
+Once your file is edited, it's time to get it back into the game. Three methods, from simplest to most advanced:
+
+Method 1: Minimal Overlay Patch (_P.pak) — loose & config files 🔥 RECOMMENDED
+   └── Recreate exact folder structure -> place modified files -> generate "_P.pak"
+
+Method 2: Full Container Repack — cooked assets, replace originals
+   └── Convert edited files back to Zen -> rebuild .utoc/.ucas
+       -> REPLACE the originals (EXACT filenames, BACKUP first!)
+
+Method 3: Minimal Patch Container (_P .utoc/.ucas) — cooked assets, advanced
+   └── Ship ONLY the patched package in a small extra container
+       -> drop it in the Paks tree (e.g. a ~mods subfolder), no originals touched
+       -> MUST ship the companion .pak mount stub (below) or it will NOT load
+
+
+🏆 Method 1: Create a Minimal Mod (_P.pak)​
+The cleanest, lightest, and most distribution-friendly method for loose/config files:
+
+Recreate a root folder structure that matches the exact internal path of the original eFootball file.
+Place only your modified file inside that folder.
+Pack the folder into a new .pak using the _P suffix at the end of the filename.
+
+Why use the _P suffix? In Unreal Engine, _P stands for Patch. When eFootball boots up, the engine loads all base files first, then loads files ending in _P last. Your modded files will automatically override the originals in memory without touching the original game files!
+
+🧬 Method 3 (advanced): minimal patch container for cooked assets​
+A legacy .pak can't override cooked packages, but an extra IoStore container can: the engine mounts every container under the Paks tree and resolves packages by ID across all of them. Ship a small _P.utoc/.ucas containing only your patched package (byte-exact copy + your patch, package store entry included) and drop it in the Paks tree. No backups, no replaced originals, clean distribution.
+
+One patch container per package: two containers patching the same package will conflict.
+The container header MUST be valid (see the checklist below) or the game won't boot.
+The companion .pak mount stub is mandatory (below).
+Texture payloads: never override a stock texture package (stock-override trap, Step 2 Option C). Ship new packages + re-pointed references instead.
+
+🔌 The companion .pak mount stub (MANDATORY)​
+In eFootball's Zen Loader, an extra _P.utoc/.ucas pair is ONLY mounted if a legacy .pak with the SAME base name exists next to it. The .pak is a mount stub (~2 KB, may contain just a README); its content is irrelevant, but it must be a valid UnrealPak archive. Without it, the container is silently ignored — no crash, no log, mod simply inert.
+Practical tip: binary-copy the .pak of any known-working mod and rename it.
+Never hand-craft stubs, never use --no-pak.
+
+⚠️ The _P suffix & overrides: truth table (read this before wasting a week)​
+WORKS: loose/config files (.ini, some textures) in a legacy _P.pak — the VFS mounts it last and shadows the originals.
+DOES NOT WORK: a legacy .pak trying to override cooked packages (.uasset) — resolved by package ID against IoStore containers, never against paks.
+DOES NOT WORK: a _P container overriding the payload of a stock cooked texture package — crash at texture load (stock-override trap).
+WORKS (advanced): an extra _P.utoc/.ucas container + companion .pak stub, with a valid header; new packages (renamed same-length) + re-pointed references.
+BLACK SCREENS come from broken container headers (zero AES GUID, wrong flags/version) — NOT from filenames.
+
+🧬 Rebuilding a .utoc/.ucas — bytes you MUST preserve​
+If you rebuild a container (Methods 2 & 3), preserve these from the original header or the game will refuse it at boot:
+container_id (offset 56–63): city-hash of the container name. When REBUILDING an existing container, COPY its id. When CREATING a new _P container, let the tool compute it from the container's OWN name. Do NOT copy pc0000's id into a mod container.
+encryption_key_guid (64–79): the AES key lookup GUID. Zero = container refused (black screen).
+partition_size (88–95): 0xFFFFFFFFFFFFFFFF for standalone containers (0 = refused). Keep partition_count consistent.
+version = 2 (DirectoryIndex) and toc_header_size = 0x90. Generate natively (e.g. retoc --override-container-header-version PreInitial). You CANNOT hand-patch a v3 TOC into v2: the internal layout differs and the parser aborts.
+The first chunk must be the ContainerHeader (chunk type 0x0A in the UE4 mapping).
+Keep the flags truthful: the original ships Compressed|Encrypted|Indexed (0x0B) — ZLib + AES-256 ECB (16-byte blocks) applied to BOTH the compressed blocks and the directory index. If you write plaintext data, drop the Encrypted bit accordingly; if the flag says Encrypted, the data must actually be encrypted or the game decrypts garbage.
+
+⚠️ CRITICAL TROUBLESHOOTING​
+If your mod is not being loaded or has no effect, the top causes in order are:
+Missing companion .pak mount stub (container silently ignored).
+TOC version 3 instead of 2 (must be generated natively, never hand-patched).
+Broken container header (zero AES GUID, wrong flags/version) → black screen.
+Lost asset references / stale source (rebuild from pristine stock only).
+Asset is never sampled by the game (wrong family, wrong consumer) → canary test it.
+Native code overwrites your value at runtime → the real lever is elsewhere (bytecode, exe).
+
+🚨 Incident response​
+Black screen at boot = header or stray-container problem: empty ~mods, boot stock, re-add one container at a time. Only TOC version 0x02 containers belong in ~mods.
+Crash after boot / mid-match = asset loads but fails in use: usually a stale or contaminated source, or an unsafe bytecode patch. Rebuild from pristine stock; revert the last patched byte.
+Crash at texture load with custom payload = stock-override trap. Do not debug your encoder; ship as a new package + re-point (Step 2 Option C).
+Crash even with a stock repack = missing raw-exports retoc patch (UE4.26).
+"Access denied" running retoc = AV heuristic on a fresh Rust build; add folder exclusion / restore from quarantine.
+Mod inert (no effect at all) = companion .pak missing, wrong TOC version, or you're patching an asset the game never samples (see Canary test below) or that gets overwritten by native code at runtime.
+Crash only in match, not at boot = VM-level bytecode corruption or a gated subsystem that crashes when activated; revert the last BP/Niagara patch.
+Keep an untouched stock copy forever; if in doubt, Steam "verify integrity" before extracting.
+
+📅 Post-mega-update workflow​
+When Konami ships a big update, the pak layout and asset contents shift. Rules:
+Blueprints: if your patch offsets (verified via disasm) are stable, your backup container remains valid. Otherwise re-extract, re-disasm, re-patch.
+Materials / PMC: always re-extract fresh. Defaults may have shifted — use a fuzzy-verify (match ≥25/37 scalars against your baseline) before patching. If fewer targets match, Konami has re-ordered the array and you must re-map.
+Exe: every offset dies. Re-run string+XREF scan.
+Niagara content: may survive the update if assets weren't re-cooked, but verify.
+DataTable: if the schema changed, re-extract and re-verify row layout.
+
+🐞 Debugging: "Is my mod actually loaded?" — ask the engine​
+Stop guessing. In the in-game console:
+getall <ClassName_C> <PropertyName>
+
+
+If it prints your value → the package is in memory and your edit is live.
+If it prints nothing → the game never loaded your file: the problem is packaging/mounting, not your values.
+If it prints the stock value → your override didn't take (wrong container, wrong path, or a higher-priority mount shadowed yours).
+
+💡 Visual-mod gotcha: some rendering layers (certain 3D foliage/detail systems) are disabled entirely at low graphics presets. Always test on your normal/high settings before declaring a mod broken.
+
+🐤 Canary test — is the asset even sampled?​
+When a visual mod appears inert, ship a build with an extreme transform (e.g. swap R↔B channels in the target texture, or push a scalar to 10000.0). If the screen visibly changes → the asset IS sampled and your conversion/values are at fault. If the screen does NOT change → the asset is not sampled by the renderer: wrong family or wrong offset, trace the real consumer (material parameter bindings, BP runtime setters, or native C++ code that may be gated by a setting you haven't flipped).
+
+🧠 Placebo warning​
+Always validate vs stock (mod removed), never mod-vs-mod, and never trust a first-impression "it looks great!". Compare screenshots side by side. One variable at a time; keep a known-working ground-truth mod as reference.
+
+💡 Final Tip for the Community​
+The process might seem intimidating at first due to the Zen Loader structure, but once you understand the container pair logic, the _P patch rules, the companion .pak stub and the surgical editing approach, the modding possibilities in eFootball are nearly limitless.
+
+Stay tuned — if there's enough interest, I'll release my standalone Zen-to-Legacy conversion tool soon. In the meantime, feel free to drop your questions or showcase your progress below!
+
+Happy Modding!

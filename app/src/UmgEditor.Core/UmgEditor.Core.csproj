@@ -1,0 +1,19 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <TargetFramework>net10.0</TargetFramework>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <Nullable>enable</Nullable>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <!-- pin: CUE4Parse pulls Microsoft.Bcl.Memory 9.0.0 transitively (NU1903, GHSA-73j8-2gch-69rq) -->
+    <PackageReference Include="Microsoft.Bcl.Memory" Version="9.0.14" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <!-- managed decoders only; the CUE4Parse-Natives CMake build is skipped -->
+    <ProjectReference Include="..\..\..\tools\CUE4Parse\CUE4Parse\CUE4Parse.csproj" AdditionalProperties="CUE4PARSE_SKIP_NATIVE=true" />
+  </ItemGroup>
+
+</Project>
