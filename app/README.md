@@ -1,5 +1,69 @@
 # UMG editor (eFootball Mobile)
 
+Moves and resizes widgets of eFootball Mobile's in-match UI (scoreboard, goal banner, card and substitution pop-ups)
+by patching their stored layout values in place, and packs the edits into a mod container for the device. The game
+files are only read. Edits go to `work\edits`, mods to `work\out\mods`.
+
+## Quick start
+
+### 1. Launch
+- Needs the .NET 10 SDK, the stock Paks of the game (the OBB contents) and retoc (see *External tools* below).
+- Build: `dotnet build app/UmgEditor.slnx -c Release`.
+- Run: `app\src\UmgEditor.App\bin\Release\net10.0-windows\UmgEditor.App.exe`. Without a `umgeditor.json` next to the
+  exe it uses the defaults in `Core/GameConfig.cs`. To point it elsewhere, put a `umgeditor.json` there with `PaksDir`
+  (the stock Paks folder), `AesKey`, `WorkDir`, `RetocPath` and `ModStubPak`. The first start builds the UI index
+  (`work\cache`), which takes a while once.
+
+### 2. Make an edit
+1. Pick a **project** in the top bar, or type a name and create one. A project is one set of edits
+   (`work\edits\<name>`); keep one per experiment.
+2. Search for a package (e.g. `MatchTime/MatchTime`, the offline scoreboard), select it and pick a widget in the
+   **Tree**.
+3. Change a value in the inspector (e.g. `Offsets.Left`, then Enter), or drag the widget or an edge in **Preview**
+   (Ctrl = free, without unit snapping; arrow keys nudge 1 unit; zoom for finer drags). The first edit of a package shows
+   which screens it affects and every warning; confirm to go on.
+4. Check **Impact** (every screen the edit reaches, stock vs edited, and its warnings) and **Bytes** (exactly which
+   bytes change). Undo/redo with Ctrl+Z / Ctrl+Y. **Save** (Ctrl+S) writes the patched copy.
+
+### 3. Export a mod
+**Export mod…** → mod name, container (keep `pc9999_mobile_and_P`), tick the packages, check the retoc line (green =
+the tested build). Read the **layout warnings**: each Danger one (something will vanish in game) needs its tick
+before **Build mod** is enabled. The build packs and verifies the container, then lists the 3 files with their hashes.
+`work\out\mods\<name>\` holds `mod\` (the device files), `predictions\` and `TEST_INSTRUCTIONS.md`.
+
+Without the UI: `umgmod build <name> <package>... [--ack-danger]` (see below).
+
+### 4. Test on the device (offline only)
+Follow `TEST_INSTRUCTIONS.md` in the mod folder. In short:
+1. Force-stop eFootball. In the folder that holds `pc0010_mobile_and.*`, delete any old `pc9999_mobile_and_P.*`, then
+   copy the 3 files from `mod\`.
+2. Play an **offline** match vs AI and screenshot each screen the instructions list (LDPlayer at 1920×1080).
+3. Compare with the prediction: the `validate_layout.py` commands in the instructions (±3 px).
+
+### 5. Remove the mod before playing online
+**Delete the 3 files (`pc9999_mobile_and_P.pak`, `.ucas`, `.utoc`) before any online match.** The mod changes the game's
+UI files, and edits to shared parts (e.g. MatchTimeBase) also change the online board and pop-ups. Put them back
+afterwards for more offline tests.
+
+## Known limits
+- **Stored values only.** A value is edited where the cooked file already stores it, at the same size. A field the
+  file doesn't store (the engine default) is greyed out, with the reason. Only CanvasPanelSlot position, size, anchors,
+  alignment and ZOrder are editable.
+- **No keyframes.** Animation tracks aren't edited. An animation that keys a slot's margins (e.g. `KickOff_Show`) or
+  moves a widget can override or shift your value while it plays. The pre-edit warnings name these.
+- **Preview placeholders.** Text is drawn as the widget's name in a placeholder font ("font not rendered"),
+  materials and textures that can't be decoded are labelled boxes, and tint isn't applied. Positions and sizes match
+  the game (checked against screenshots to ±3 px); colours and glyphs are not reproduced.
+- **Library widgets are blocked.** The insides of `/Game/Assets/ui/library/` widgets (uiImage, uiText, …) are shared by
+  much of the game's UI, so they can't be edited. An instance placed in your package (e.g. `Img_Logo`, a uiImage) is
+  moved through its own slot as usual.
+- **Online packages are untested.** The online board and pop-ups (`MatchTimeConnection*`) are only predicted, never
+  checked in game. A mod is for offline testing and must not be taken online.
+- Clipping is predicted, not avoided: moving a widget outside a parent that clips it hides it (canary C8). Watch the
+  Impact warnings.
+
+## Reference
+
 See `../CLAUDE.md` for the build/test commands and `../work/recon/REPORT.md` for the format findings.
 
 ## External tools
