@@ -173,6 +173,18 @@ public class EditorControllerTests
         Assert.IsTrue(c.Impact().Count(i => i.Changes.Count > 0) >= 8);
     }
 
+    /// <summary>6e: an earlier edit (the shared plate) isn't reported as a consequence of the next one (Mask in MatchTime).</summary>
+    [TestMethod]
+    public void PendingWarnings_CompareWithTheEditsBefore_NotWithStock()
+    {
+        var c = Controller();
+        Confirmed(c, Base, "Img_Plate", (n, e) => SlotEditor.SetField(n, e, Right, 100));
+        var outcome = Confirmed(c, MatchTime, "Mask", (n, e) => SlotEditor.SetField(n, e, "LayoutData.Offsets.Left", 829));
+        var text = string.Join(" | ", outcome.PendingWarnings.Select(w => $"{w.Kind}: {w.Message}"));
+        Assert.IsFalse(outcome.PendingWarnings.Any(w => w.Kind == WarningKind.OthersMove), "the plate moved because of the first edit: " + text);
+        Assert.AreEqual(Severity.Danger, outcome.PendingWarnings.Single(w => w.Kind == WarningKind.LeavesClip).Severity, text);
+    }
+
     [TestMethod]
     public void UndoRedo_IsProjectWide_InEditOrder()
     {

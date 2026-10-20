@@ -270,8 +270,9 @@ public sealed class EditorController
         if (firstEdit && !confirmed)
             return new EditOutcome(false, null, new EditWarnings(_engine, _usage, _width, _height).ForSelection(tree, node).ConfirmationText, []);
 
-        var after = Edits.With(result.Changes, session.StockValue);
-        var pending = new EditWarnings(_engine, _usage, _width, _height).ForPendingEdit(tree, node, after);
+        var previous = Edits;
+        var after = previous.With(result.Changes, session.StockValue);
+        var pending = new EditWarnings(_engine, _usage, _width, _height).ForPendingEdit(tree, node, after, previous);
         var before = session.Current;
         if (session.Apply(result) is { } why) return EditOutcome.Refused(why);
         _gate.Confirm(node.PackagePath);
@@ -419,6 +420,13 @@ public sealed class EditorController
 
     /// <summary>Every package the current edits reach (edited + embedding packages), stock vs edited.</summary>
     public IReadOnlyList<PackageImpact> Impact() => new EditImpact(_engine, _usage, _width, _height).Predict(Edits, _loadTree);
+
+    /// <summary>
+    /// The impact panel for an edit set (take <see cref="Edits"/> on the caller's thread; this only lays out, so it may
+    /// run in the background): every package reached, its changed boxes in px and units, and its pending-edit warnings.
+    /// </summary>
+    public ImpactReport ImpactOf(EditSet edits) =>
+        ImpactReport.Build(Project, _width, _height, new EditImpact(_engine, _usage, _width, _height).Predict(edits, _loadTree));
 
     /// <summary>Packs the saved edits of every package in the project. Refused while anything is unsaved.</summary>
     public ModResult BuildMod(string modName, string containerName, IRetoc retoc)

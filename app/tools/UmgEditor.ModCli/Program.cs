@@ -107,7 +107,7 @@ try
 
             var warnings = new EditWarnings(NewEngine(), new UsageGraph(index), W, H);
             var report = warnings.ForSelection(tree, node);
-            var pending = warnings.ForPendingEdit(tree, node, session.Current.With(edit.Changes, session.StockValue));
+            var pending = warnings.ForPendingEdit(tree, node, session.Current.With(edit.Changes, session.StockValue), session.Current);
             Console.WriteLine(report.ConfirmationText);
             foreach (var w in pending) Console.WriteLine($"  [{w.Severity}] {w.Message}");
             if (session.Saved.Count == 0 && !session.IsDirty && !yes)

@@ -71,6 +71,14 @@ public partial class MainWindow : Window
             _vm.CopyText(row.ToText(), $"{row.Slot}.{row.Field}");
     }
 
+    // impact tab: a click on a package (or its Preview button) shows it in the Preview tab with the edits
+    private void OnPreviewImpactPackage(object sender, RoutedEventArgs e)
+    {
+        if (sender is not FrameworkElement { DataContext: ImpactPackage package }) return;
+        e.Handled = true;
+        _ = _vm.PreviewImpactAsync(package);
+    }
+
     // TreeView.SelectedItem is read-only, so selection is forwarded here
     private void OnTreeSelectionChanged(object sender, RoutedPropertyChangedEventArgs<object> e) =>
         _vm.SelectedNode = e.NewValue as WidgetNodeViewModel;

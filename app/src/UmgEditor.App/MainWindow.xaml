@@ -60,6 +60,84 @@
                 </DataTrigger>
             </DataTemplate.Triggers>
         </DataTemplate>
+        <!-- 6e: one package of the impact panel (click it, or Preview, to see it with the edits) -->
+        <DataTemplate x:Key="ImpactPackageTemplate">
+            <Border x:Name="P" Margin="0,6,0,0" Padding="8,6" Background="#FAFAFA" BorderBrush="#E5E7EB" BorderThickness="1" CornerRadius="3"
+                    Cursor="Hand" MouseLeftButtonUp="OnPreviewImpactPackage" AutomationProperties.Name="{Binding Name}">
+                <StackPanel>
+                    <DockPanel>
+                        <Button DockPanel.Dock="Right" Content="Preview ▸" Padding="8,0" FontSize="11" VerticalAlignment="Top" Click="OnPreviewImpactPackage"
+                                AutomationProperties.AutomationId="{Binding Name, StringFormat='ImpactPreview_{0}'}"
+                                ToolTip="Show this package in the Preview tab with the project's edits; green = boxes the edits change" />
+                        <StackPanel Orientation="Horizontal">
+                            <TextBlock Text="{Binding Name}" FontSize="14" FontWeight="SemiBold" />
+                            <Border Style="{StaticResource Badge}" Background="#1D4ED8" Visibility="{Binding IsEdited, Converter={StaticResource BoolToVis}}">
+                                <TextBlock Style="{StaticResource BadgeText}" Text="edited" />
+                            </Border>
+                            <Border Style="{StaticResource Badge}" Background="#7C3AED" Visibility="{Binding IsOnline, Converter={StaticResource BoolToVis}}">
+                                <TextBlock Style="{StaticResource BadgeText}" Text="online" />
+                            </Border>
+                        </StackPanel>
+                    </DockPanel>
+                    <TextBlock Foreground="#666" FontSize="11" TextWrapping="Wrap" Text="{Binding Note}" />
+                    <TextBlock x:Name="C" Margin="0,2,0,0" TextWrapping="Wrap" Text="{Binding ChangeText}" />
+                    <ItemsControl Margin="0,2,0,0" ItemsSource="{Binding Warnings}" ItemTemplate="{StaticResource WarningTemplate}" />
+                    <ItemsControl ItemsSource="{Binding Boxes}">
+                        <ItemsControl.ItemTemplate>
+                            <DataTemplate>
+                                <StackPanel Margin="0,6,0,0" ToolTip="{Binding Path}">
+                                    <StackPanel Orientation="Horizontal">
+                                        <TextBlock x:Name="N" Text="{Binding Name}" FontWeight="SemiBold" />
+                                        <Border x:Name="K" Style="{StaticResource Badge}" Background="#10B981">
+                                            <TextBlock Style="{StaticResource BadgeText}" Text="{Binding Kind}" />
+                                        </Border>
+                                        <TextBlock x:Name="H" Margin="6,0,0,0" Foreground="#888" FontSize="11" Text="hidden in the stored pose" VerticalAlignment="Center" Visibility="Collapsed" />
+                                        <TextBlock Margin="8,0,0,0" Foreground="#888" FontSize="11" Text="{Binding ShortPath}" VerticalAlignment="Center" />
+                                    </StackPanel>
+                                    <ItemsControl Margin="10,1,0,0" ItemsSource="{Binding Edges}" TextElement.FontFamily="Consolas" TextElement.FontSize="11.5">
+                                        <ItemsControl.ItemTemplate>
+                                            <DataTemplate>
+                                                <StackPanel x:Name="R" Orientation="Horizontal">
+                                                    <TextBlock Width="50" Text="{Binding Edge}" Foreground="#666" />
+                                                    <TextBlock Width="150" Text="{Binding BeforeText}" />
+                                                    <TextBlock Width="22" Text="→" Foreground="#888" />
+                                                    <TextBlock x:Name="A" Width="150" Text="{Binding AfterText}" FontWeight="SemiBold" />
+                                                    <TextBlock x:Name="D" Text="{Binding DeltaText}" Foreground="#047857" FontWeight="SemiBold" />
+                                                </StackPanel>
+                                                <DataTemplate.Triggers>
+                                                    <DataTrigger Binding="{Binding Changed}" Value="False">
+                                                        <Setter TargetName="R" Property="Opacity" Value="0.45" />
+                                                        <Setter TargetName="A" Property="FontWeight" Value="Normal" />
+                                                    </DataTrigger>
+                                                </DataTemplate.Triggers>
+                                            </DataTemplate>
+                                        </ItemsControl.ItemTemplate>
+                                    </ItemsControl>
+                                </StackPanel>
+                                <DataTemplate.Triggers>
+                                    <DataTrigger Binding="{Binding Edited}" Value="True">
+                                        <Setter TargetName="K" Property="Background" Value="#3B82F6" />
+                                    </DataTrigger>
+                                    <DataTrigger Binding="{Binding Visible}" Value="False">
+                                        <Setter TargetName="N" Property="Foreground" Value="#888" />
+                                        <Setter TargetName="H" Property="Visibility" Value="Visible" />
+                                    </DataTrigger>
+                                </DataTemplate.Triggers>
+                            </DataTemplate>
+                        </ItemsControl.ItemTemplate>
+                    </ItemsControl>
+                </StackPanel>
+            </Border>
+            <DataTemplate.Triggers>
+                <DataTrigger Binding="{Binding IsOnline}" Value="True">
+                    <Setter TargetName="P" Property="Background" Value="#FAF5FF" />
+                    <Setter TargetName="P" Property="BorderBrush" Value="#DDD6FE" />
+                </DataTrigger>
+                <Trigger SourceName="P" Property="IsMouseOver" Value="True">
+                    <Setter TargetName="P" Property="BorderBrush" Value="#10B981" />
+                </Trigger>
+            </DataTemplate.Triggers>
+        </DataTemplate>
     </Window.Resources>
 
     <DockPanel>
@@ -156,7 +234,7 @@
                     </TextBlock>
                     <TextBlock Margin="0,4,0,8" Foreground="#444" TextWrapping="Wrap" Text="{Binding TreeStatus}" />
                 </StackPanel>
-                <TabControl x:Name="MiddleTabs">
+                <TabControl x:Name="MiddleTabs" SelectedIndex="{Binding MiddleTabIndex}">
                 <TabItem Header="Tree">
                 <TreeView x:Name="WidgetTreeView" ItemsSource="{Binding TreeRoots}" SelectedItemChanged="OnTreeSelectionChanged"
                           VirtualizingPanel.IsVirtualizing="True">
@@ -206,6 +284,20 @@
                 <TabItem Header="Preview">
                     <DockPanel DataContext="{Binding Preview}" Margin="0,6,0,0">
                         <StackPanel DockPanel.Dock="Top">
+                            <Border x:Name="ImpactBanner" Margin="0,0,0,6" Padding="8,5" Background="#ECFDF5" BorderBrush="#6EE7B7" BorderThickness="1" CornerRadius="3"
+                                    Visibility="{Binding IsImpact, Converter={StaticResource BoolToVis}}">
+                                <DockPanel>
+                                    <StackPanel DockPanel.Dock="Right" Orientation="Horizontal" VerticalAlignment="Top"
+                                                DataContext="{Binding DataContext, RelativeSource={RelativeSource AncestorType=Window}}">
+                                        <Button x:Name="BackToImpactButton" Content="◂ Impact" Padding="8,0" Command="{Binding BackToImpactCommand}" />
+                                        <Button x:Name="ShowOpenPackageButton" Content="Open package" Padding="8,0" Margin="4,0,0,0" Command="{Binding ShowOpenPackageCommand}"
+                                                ToolTip="Back to the package open in the tree" />
+                                    </StackPanel>
+                                    <TextBlock x:Name="ImpactBannerText" TextWrapping="Wrap">
+                                        <Run Text="Impact preview: " FontWeight="SemiBold" /><Run Text="{Binding ImpactLabel, Mode=OneWay}" />
+                                    </TextBlock>
+                                </DockPanel>
+                            </Border>
                             <WrapPanel>
                                 <ComboBox Width="290" ItemsSource="{Binding Presets}" SelectedItem="{Binding SelectedPreset}" />
                                 <TextBox Width="56" Margin="8,0,0,0" Padding="2" Text="{Binding ViewportWidth, UpdateSourceTrigger=LostFocus}" ToolTip="Viewport width (px)" />
@@ -223,6 +315,11 @@
                                           ToolTip="Red dotted: a margin or 2D-transform animation moves this at runtime. The preview shows the stored pose." />
                                 <CheckBox Margin="0,0,12,0" Content="Edited" Foreground="#1D4ED8" IsChecked="{Binding HighlightEdited}"
                                           ToolTip="Blue dashed: laid out with an edited value from the project" />
+                                <CheckBox x:Name="ChangedCheck" Margin="0,0,12,0" Content="Changed by the edits" Foreground="#047857" IsChecked="{Binding HighlightChanged}"
+                                          Visibility="{Binding IsImpact, Converter={StaticResource BoolToVis}}"
+                                          ToolTip="Green dash-dot: boxes the project's edits change in this package (from the impact panel)" />
+                                <CheckBox x:Name="StockCheck" Margin="0,0,12,0" Content="Stock (no edits)" IsChecked="{Binding ShowStock}"
+                                          ToolTip="Lay out without the project's edits, to compare before and after" />
                                 <CheckBox Margin="0,0,12,0" Content="Clip rects" IsChecked="{Binding ShowClipRects}" />
                                 <CheckBox Content="Hidden widgets" IsChecked="{Binding ShowHidden}" />
                             </WrapPanel>
@@ -355,6 +452,37 @@
                                     </DataTemplate>
                                 </ItemsControl.ItemTemplate>
                             </ItemsControl>
+                        </ScrollViewer>
+                    </DockPanel>
+                </TabItem>
+                <!-- 6e: impact of the project's edits -->
+                <TabItem x:Name="ImpactTab" Header="{Binding ImpactTabHeader}">
+                    <DockPanel Margin="0,6,0,0">
+                        <DockPanel DockPanel.Dock="Top">
+                            <Button x:Name="CopyImpactButton" DockPanel.Dock="Right" Content="Copy all" Padding="10,1" Margin="8,0,0,0" VerticalAlignment="Top"
+                                    Command="{Binding CopyImpactCommand}" ToolTip="Copy the whole impact report as text" />
+                            <TextBlock x:Name="ImpactSummaryText" TextWrapping="Wrap" FontWeight="SemiBold" Text="{Binding Impact.Summary, FallbackValue='Loading…'}" />
+                        </DockPanel>
+                        <TextBlock x:Name="ImpactStatusText" DockPanel.Dock="Top" Margin="0,4,0,0" Foreground="#B45309" TextWrapping="Wrap" Text="{Binding ImpactStatus}"
+                                   Visibility="{Binding ImpactStatus, Converter={StaticResource NullToVis}}" />
+                        <TextBlock DockPanel.Dock="Top" Margin="0,4,0,6" FontSize="11" Foreground="#666" TextWrapping="Wrap"
+                                   Text="Every package the project's edits reach (edited ones, then every package that embeds them), laid out stock and edited at 1786×1000, the measured game view. px = game-view pixels from its top-left; u = design units (px ÷ the box's px per unit). Edited = laid out with an edited value, moved = moved by it. Click a package to preview it with the edits." />
+                        <ScrollViewer VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Auto">
+                            <StackPanel>
+                                <ItemsControl x:Name="ImpactList" ItemsSource="{Binding Impact.Offline}" ItemTemplate="{StaticResource ImpactPackageTemplate}" />
+                                <Expander x:Name="ImpactOnlineExpander" Margin="0,10,0,0" IsExpanded="False" Visibility="{Binding Impact.HasOnline, Converter={StaticResource BoolToVis}, FallbackValue=Collapsed}"
+                                          ToolTip="Online versions (MatchTimeConnection…): they change with the edits too">
+                                    <Expander.Header>
+                                        <StackPanel Orientation="Horizontal">
+                                            <TextBlock Text="{Binding Impact.OnlineHeader}" FontWeight="SemiBold" />
+                                            <Border Style="{StaticResource Badge}" Background="#7C3AED">
+                                                <TextBlock Style="{StaticResource BadgeText}" Text="online" />
+                                            </Border>
+                                        </StackPanel>
+                                    </Expander.Header>
+                                    <ItemsControl x:Name="ImpactOnlineList" ItemsSource="{Binding Impact.Online}" ItemTemplate="{StaticResource ImpactPackageTemplate}" />
+                                </Expander>
+                            </StackPanel>
                         </ScrollViewer>
                     </DockPanel>
                 </TabItem>

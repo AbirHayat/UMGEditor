@@ -133,44 +133,69 @@ public sealed class EditWarnings(LayoutEngine engine, UsageGraph usage, int view
     // ---- for a pending edit ----
 
     /// <summary>Exact consequences of applying these edits: rescaling, other widgets moving, leaving a clip rect.</summary>
-    public IReadOnlyList<EditWarning> ForPendingEdit(WidgetPackageTree tree, WidgetNode node, EditSet edits)
+    /// <param name="edits">All edits with the pending one applied</param>
+    /// <param name="previous">The edits just before it (null = stock), so earlier edits don't count as its consequences</param>
+    public IReadOnlyList<EditWarning> ForPendingEdit(WidgetPackageTree tree, WidgetNode node, EditSet edits, EditSet? previous = null)
+    {
+        var before = engine.Arrange(tree, viewportWidth, viewportHeight, previous);
+        var after = engine.Arrange(tree, viewportWidth, viewportHeight, edits);
+        var editedBox = after.All().FirstOrDefault(b => ReferenceEquals(b.Node, node));
+        return Consequences(before, after, editedBox == null ? [] : [editedBox], node.Name);
+    }
+
+    /// <summary>
+    /// The same consequences for one package of the impact panel, arranged stock vs edited: the edited widgets are the
+    /// boxes laid out with an edited value (every instance of an edited child inside this package).
+    /// </summary>
+    public static IReadOnlyList<EditWarning> ForImpact(LayoutResult before, LayoutResult after)
+    {
+        var edited = after.All().Where(b => b.Inputs.Any(i => i.Source == ValueSource.Edited)).ToList();
+        var names = edited.Select(b => b.Node.Name).Distinct().ToList();
+        var subject = names.Count == 0 ? "the edited widgets" : names.Count <= 3 ? string.Join(", ", names) : $"{string.Join(", ", names.Take(3))} and {names.Count - 3} more";
+        return Consequences(before, after, edited, subject);
+    }
+
+    private static IReadOnlyList<EditWarning> Consequences(LayoutResult before, LayoutResult after, IReadOnlyList<LayoutBox> editedBoxes, string subject)
     {
         var warnings = new List<EditWarning>();
-        var before = engine.Arrange(tree, viewportWidth, viewportHeight);
-        var after = engine.Arrange(tree, viewportWidth, viewportHeight, edits);
-
         foreach (var c in ScaleChanges(before, after))
             warnings.Add(new(WarningKind.Rescale, Severity.Warning,
-                $"{c.Widget} scale ×{c.Before.ToString("0.#####", CultureInfo.InvariantCulture)} → ×{c.After.ToString("0.#####", CultureInfo.InvariantCulture)}: the whole board rescales and moves, not just {node.Name}."));
+                $"{c.Widget} scale ×{c.Before.ToString("0.#####", CultureInfo.InvariantCulture)} → ×{c.After.ToString("0.#####", CultureInfo.InvariantCulture)}: the whole board rescales and moves, not just {subject}."));
 
         // the same embedded tree is shared by every instance of a child widget, so boxes are keyed by their tree path
-        var editedBox = after.All().FirstOrDefault(b => ReferenceEquals(b.Node, node));
-        var branchPrefix = editedBox == null ? null : LayoutExport.PathOf(editedBox);
+        var branches = editedBoxes.Select(LayoutExport.PathOf).ToList();
         var beforeByPath = new Dictionary<string, LayoutBox>();
         foreach (var b in before.All()) beforeByPath.TryAdd(LayoutExport.PathOf(b), b);
         var moved = 0;
         foreach (var b in after.All())
         {
             var path = LayoutExport.PathOf(b);
-            if (branchPrefix != null && (path == branchPrefix || path.StartsWith(branchPrefix + "/"))) continue;
+            if (branches.Any(branch => path == branch || path.StartsWith(branch + "/"))) continue;
             if (beforeByPath.TryGetValue(path, out var o) && Differs(o.Bounds, b.Bounds)) moved++;
         }
         if (moved > 0)
-            warnings.Add(new(WarningKind.OthersMove, Severity.Warning, $"{moved} other widget{(moved == 1 ? "" : "s")} outside {node.Name} move or resize as a result."));
+            warnings.Add(new(WarningKind.OthersMove, Severity.Warning, $"{moved} other widget{(moved == 1 ? "" : "s")} outside {subject} move or resize as a result."));
 
-        // clipping: warn only when the edit hides more of the widget than stock already does
-        if (editedBox?.Clip is { } clip)
+        // clipping: warn only when the edit cuts off more of the widget than stock already does (a widget that only
+        // shrinks shows less but loses nothing to the clip)
+        foreach (var (editedBox, branch) in editedBoxes.Zip(branches))
         {
+            if (editedBox.Clip is not { } clip) continue;
+            var name = editedBox.Node.Name;
             var r = editedBox.Bounds;
             var inside = r.Intersect(clip);
-            var stockBox = branchPrefix != null ? beforeByPath.GetValueOrDefault(branchPrefix) : null;
-            var stockInside = stockBox == null ? r : stockBox.Clip is { } stockClip ? stockBox.Bounds.Intersect(stockClip) : stockBox.Bounds;
+            var stockBox = beforeByPath.GetValueOrDefault(branch);
+            var stockR = stockBox?.Bounds ?? r;
+            var stockInside = stockBox?.Clip is { } stockClip ? stockR.Intersect(stockClip) : stockR;
             var clipper = Ancestors(editedBox).FirstOrDefault(a => a.Node.ClipsToBounds)?.Node.Name ?? "a clipping ancestor";
+            EditWarning? w = null;
             if (inside.Width <= 0 || inside.Height <= 0)
-                warnings.Add(new(WarningKind.LeavesClip, Severity.Danger, $"{node.Name} ends up completely outside {clipper}: it will vanish in game."));
-            else if (inside.Width < stockInside.Width - MovedPx || inside.Height < stockInside.Height - MovedPx)
-                warnings.Add(new(WarningKind.LeavesClip, Severity.Warning,
-                    $"{node.Name} ends up partly outside {clipper}: it will be cut off (visible {inside.Width:0.#}×{inside.Height:0.#} px of {r.Width:0.#}×{r.Height:0.#}, stock showed {stockInside.Width:0.#}×{stockInside.Height:0.#})."));
+                w = new(WarningKind.LeavesClip, Severity.Danger, $"{name} ends up completely outside {clipper}: it will vanish in game.");
+            else if (r.Width - inside.Width > stockR.Width - stockInside.Width + MovedPx || r.Height - inside.Height > stockR.Height - stockInside.Height + MovedPx)
+                w = new(WarningKind.LeavesClip, Severity.Warning,
+                    $"{name} ends up partly outside {clipper}: it will be cut off (visible {inside.Width:0.#}×{inside.Height:0.#} px of {r.Width:0.#}×{r.Height:0.#}, " +
+                    $"stock showed {stockInside.Width:0.#}×{stockInside.Height:0.#} of {stockR.Width:0.#}×{stockR.Height:0.#}).");
+            if (w != null && !warnings.Contains(w)) warnings.Add(w);
         }
         return warnings;
     }

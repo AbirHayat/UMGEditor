@@ -93,6 +93,15 @@ public class EditWarningsTests
         Assert.IsFalse(pending.Any(w => w.Kind == WarningKind.LeavesClip), string.Join(" | ", pending.Select(w => w.Message)));
     }
 
+    /// <summary>Narrowing Mask shows less of it but cuts nothing more off (its bottom 2 units are clipped in stock already).</summary>
+    [TestMethod]
+    public void LeavesClip_Shrinking_NoWarning()
+    {
+        var tree = MatchTime; var mask = tree.Find("Mask")!;
+        var pending = Warnings.ForPendingEdit(tree, mask, Edits(SlotEditor.ResizeEdge(mask, EditSet.Empty, Edge.Right, -50)));
+        Assert.IsFalse(pending.Any(w => w.Kind == WarningKind.LeavesClip), string.Join(" | ", pending.Select(w => w.Message)));
+    }
+
     [TestMethod]
     public void LeavesClip_PartlyOutside_IsCutOff()
     {

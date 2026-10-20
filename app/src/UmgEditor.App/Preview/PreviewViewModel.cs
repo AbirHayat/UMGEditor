@@ -65,8 +65,46 @@ public sealed class PreviewViewModel : ObservableObject
     public void Show(WidgetPackageTree? tree)
     {
         _tree = tree;
+        SetImpact(null, null);
         Rearrange();
     }
+
+    // ---- 6e: a package from the impact panel ----
+
+    /// <summary>Shows a package the edits reach (not necessarily the open one), with its changed boxes highlighted.</summary>
+    public void ShowImpact(WidgetPackageTree tree, string label, IReadOnlySet<string> changed)
+    {
+        _tree = tree;
+        SetImpact(label, changed);
+        Rearrange();
+    }
+
+    /// <summary>New label and changed boxes for the impact package already shown (the project's edits changed).</summary>
+    public void UpdateImpact(string label, IReadOnlySet<string> changed)
+    {
+        if (ImpactLabel != null) SetImpact(label, changed);
+    }
+
+    /// <summary>The package shown from the impact panel, null while the preview shows the open package.</summary>
+    public string? ImpactPackagePath => ImpactLabel == null ? null : _tree?.PackagePath;
+
+    private void SetImpact(string? label, IReadOnlySet<string>? changed)
+    {
+        ImpactLabel = label;
+        _changed = changed;
+        OnPropertyChanged(nameof(ImpactLabel));
+        OnPropertyChanged(nameof(IsImpact));
+        OnPropertyChanged(nameof(Options));
+    }
+
+    /// <summary>What the banner says while an impact package is shown.</summary>
+    public string? ImpactLabel { get; private set; }
+    public bool IsImpact => ImpactLabel != null;
+    private IReadOnlySet<string>? _changed;
+
+    private bool _showStock;
+    /// <summary>Lay out without the project's edits (stock), to compare with the edited layout.</summary>
+    public bool ShowStock { get => _showStock; set { if (Set(ref _showStock, value)) Rearrange(); } }
 
     private EditSet? _edits;
     /// <summary>The current project's edits, laid out on top of the stock values (an edited child shows in its users too).</summary>
@@ -120,20 +158,22 @@ public sealed class PreviewViewModel : ObservableObject
     public string Status { get => _status; private set => Set(ref _status, value); }
 
     // ---- overlay toggles ----
-    private bool _outlines, _clipRects, _assumed = true, _hidden, _animated, _edited = true;
+    private bool _outlines, _clipRects, _assumed = true, _hidden, _animated, _edited = true, _highlightChanged = true;
     public bool ShowOutlines { get => _outlines; set { if (Set(ref _outlines, value)) OnPropertyChanged(nameof(Options)); } }
     public bool ShowClipRects { get => _clipRects; set { if (Set(ref _clipRects, value)) OnPropertyChanged(nameof(Options)); } }
     public bool HighlightAssumed { get => _assumed; set { if (Set(ref _assumed, value)) OnPropertyChanged(nameof(Options)); } }
     public bool ShowHidden { get => _hidden; set { if (Set(ref _hidden, value)) OnPropertyChanged(nameof(Options)); } }
     public bool HighlightAnimated { get => _animated; set { if (Set(ref _animated, value)) OnPropertyChanged(nameof(Options)); } }
     public bool HighlightEdited { get => _edited; set { if (Set(ref _edited, value)) OnPropertyChanged(nameof(Options)); } }
+    /// <summary>Green: boxes the edits change (only while an impact package is shown).</summary>
+    public bool HighlightChanged { get => _highlightChanged; set { if (Set(ref _highlightChanged, value)) OnPropertyChanged(nameof(Options)); } }
 
     private WidgetNode? _selected;
     public WidgetNode? Selected { get => _selected; set { if (Set(ref _selected, value)) { OnPropertyChanged(nameof(Options)); OnPropertyChanged(nameof(SelectedBox)); } } }
 
     public LayoutBox? SelectedBox => Selected == null ? null : Layout?.All().FirstOrDefault(b => ReferenceEquals(b.Node, Selected));
 
-    public PreviewOptions Options => new(_outlines, _clipRects, _assumed, _hidden, _animated, _edited, _selected);
+    public PreviewOptions Options => new(_outlines, _clipRects, _assumed, _hidden, _animated, _edited, _selected, _highlightChanged ? _changed : null);
 
     // ---- screenshot underlay ----
     private BitmapSource? _underlay;
@@ -174,7 +214,7 @@ public sealed class PreviewViewModel : ObservableObject
     {
         if (_engine == null || _tree == null) { Layout = null; return; }
         var version = ++_arrangeVersion;
-        var (engine, tree, w, h, edits) = (_engine, _tree, _width, _height, _edits);
+        var (engine, tree, w, h, edits) = (_engine, _tree, _width, _height, _showStock ? null : _edits);
         Status = "Laying out…";
         Task.Run(() => engine.Arrange(tree, w, h, edits)).ContinueWith(t =>
         {
@@ -184,7 +224,7 @@ public sealed class PreviewViewModel : ObservableObject
             var approx = t.Result.All().Count(b => b.Approximation != null);
             var invisible = t.Result.All().Count(b => !b.Visible || b.Opacity == 0);
             var edited = t.Result.All().Count(b => b.Inputs.Any(i => i.Source == Core.Layout.ValueSource.Edited));
-            Status = $"{t.Result.All().Count()} widgets laid out at {w}×{h}" + (edited > 0 ? $" · {edited} use edited values from the project" : "")
+            Status = $"{t.Result.All().Count()} widgets laid out at {w}×{h}" + (_showStock ? " · stock: the project's edits are not applied" : "") + (edited > 0 ? $" · {edited} use edited values from the project" : "")
                      + (approx > 0 ? $" · {approx} approximated (orange)" : "")
                      + (invisible > 0 ? $" · {invisible} hidden or at opacity 0 in the stored pose (tick Hidden widgets to show them)" : "");
             OnPropertyChanged(nameof(SelectedBox));

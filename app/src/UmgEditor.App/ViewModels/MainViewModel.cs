@@ -24,6 +24,7 @@ public sealed class MainViewModel : ObservableObject
     public MainViewModel(GameConfig config)
     {
         _config = config;
+        Preview = new PreviewViewModel(config.WorkDir);
         _searchDelay = new DispatcherTimer { Interval = TimeSpan.FromMilliseconds(200) };
         _searchDelay.Tick += (_, _) => { _searchDelay.Stop(); ApplyFilter(); };
         RebuildCommand = new RelayCommand(() => _ = LoadAsync(rebuild: true), () => !IsBusy);
@@ -31,9 +32,12 @@ public sealed class MainViewModel : ObservableObject
         RedoCommand = new RelayCommand(Redo, () => _controller?.CanRedo == true);
         SaveCommand = new RelayCommand(Save, () => _controller?.AnyDirty == true);
         CreateProjectCommand = new RelayCommand(CreateProject, () => _controller != null && NewProjectName.Trim().Length > 0);
+        CopyImpactCommand = new RelayCommand(() => { if (Impact is { } r) CopyText(r.ToText(), $"the impact of the edits ({r.Packages.Count} packages)"); },
+            () => Impact is { IsEmpty: false });
+        BackToImpactCommand = new RelayCommand(() => MiddleTabIndex = ImpactTabIndex);
+        ShowOpenPackageCommand = new RelayCommand(() => Preview.Show(_openTree), () => Preview.IsImpact);
         CopyBytesCommand = new RelayCommand(() => { if (Bytes is { } b) CopyText(b.ToText(), $"the bytes to patch ({b.ValueCount} value{(b.ValueCount == 1 ? "" : "s")})"); },
             () => Bytes is { IsEmpty: false });
-        Preview = new PreviewViewModel(config.WorkDir);
     }
 
     public PreviewViewModel Preview { get; }
@@ -317,6 +321,81 @@ public sealed class MainViewModel : ObservableObject
         SetAction($"Created project {c.Project} ({c.ProjectFolder}).");
     }
 
+    // ---- 6e: impact ----
+
+    public const int TreeTabIndex = 0, PreviewTabIndex = 1, BytesTabIndex = 2, ImpactTabIndex = 3;
+
+    private int _middleTab;
+    /// <summary>The middle column's tab (Tree, Preview, Bytes to patch, Impact).</summary>
+    public int MiddleTabIndex { get => _middleTab; set => Set(ref _middleTab, value); }
+
+    private ImpactReport? _impact;
+    private int _impactVersion;
+    /// <summary>Every package the project's edits reach, stock vs edited; rebuilt in the background after every change.</summary>
+    public ImpactReport? Impact
+    {
+        get => _impact;
+        private set { if (Set(ref _impact, value)) OnPropertyChanged(nameof(ImpactTabHeader)); }
+    }
+
+    public string ImpactTabHeader => Impact is { IsEmpty: false } r ? $"Impact ({r.Packages.Count})" : "Impact";
+
+    private string? _impactStatus;
+    /// <summary>"Laying out…" while the report is rebuilt, or why it failed.</summary>
+    public string? ImpactStatus { get => _impactStatus; private set => Set(ref _impactStatus, value); }
+
+    public RelayCommand CopyImpactCommand { get; }
+    public RelayCommand BackToImpactCommand { get; }
+    public RelayCommand ShowOpenPackageCommand { get; }
+
+    private async Task RefreshImpactAsync()
+    {
+        var version = ++_impactVersion;
+        if (_controller is not { } c) return;
+        var edits = c.Edits; // snapshot on the UI thread; laying out runs in the background
+        ImpactStatus = "Laying out every package the edits reach…";
+        try
+        {
+            var report = await Task.Run(() => c.ImpactOf(edits));
+            if (version != _impactVersion) return;
+            Impact = report;
+            ImpactStatus = null;
+            // a package shown from the panel follows the edits
+            if (Preview.ImpactPackagePath is { } shown)
+            {
+                var p = report.Packages.FirstOrDefault(x => x.PackagePath.Equals(shown, StringComparison.OrdinalIgnoreCase));
+                Preview.UpdateImpact(ImpactLabel(p, shown), ChangedPaths(p));
+            }
+        }
+        catch (Exception e)
+        {
+            if (version != _impactVersion) return;
+            ImpactStatus = "Couldn't lay out the affected packages: " + e.Message;
+        }
+    }
+
+    /// <summary>Impact panel click: the package in the Preview tab with the project's edits, its changed boxes in green.</summary>
+    public async Task PreviewImpactAsync(ImpactPackage package)
+    {
+        try
+        {
+            var tree = await LoadTree(package.PackagePath, readOnly: false);
+            Preview.ShowImpact(tree, ImpactLabel(package, package.PackagePath), ChangedPaths(package));
+            MiddleTabIndex = PreviewTabIndex;
+            SetAction($"Previewing {package.Name} with the project's edits ({package.ChangeText}).");
+        }
+        catch (Exception e)
+        {
+            SetAction($"Couldn't preview {package.Name}: {e.Message}");
+        }
+    }
+
+    private static IReadOnlySet<string> ChangedPaths(ImpactPackage? p) => (p?.Boxes.Select(b => b.Path) ?? []).ToHashSet();
+
+    private static string ImpactLabel(ImpactPackage? p, string packagePath) => p == null
+        ? $"{GamePaths.ShortName(packagePath)}: no longer reached by the project's edits."
+        : $"{p.Name}{(p.IsOnline ? " (online)" : "")} · {p.Note} · {p.ChangeText}";
+
     // ---- 6d: bytes to patch ----
 
     private BytesReport? _bytes;
@@ -409,6 +488,7 @@ public sealed class MainViewModel : ObservableObject
         CommandManager.InvalidateRequerySuggested();
         _ = InspectAsync();
         _ = RefreshBytesAsync();
+        _ = RefreshImpactAsync();
     }
 
     public string NodeSource => SelectedNode?.Node is not { } n ? "" :
