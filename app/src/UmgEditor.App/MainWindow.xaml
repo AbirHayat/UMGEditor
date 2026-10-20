@@ -304,6 +304,9 @@
                                 <TextBox Width="56" Margin="8,0,0,0" Padding="2" Text="{Binding ViewportWidth, UpdateSourceTrigger=LostFocus}" ToolTip="Viewport width (px)" />
                                 <TextBlock Text=" × " VerticalAlignment="Center" />
                                 <TextBox Width="56" Padding="2" Text="{Binding ViewportHeight, UpdateSourceTrigger=LostFocus}" ToolTip="Viewport height (px)" />
+                                <TextBlock Text="  zoom " VerticalAlignment="Center" Foreground="#666" />
+                                <ComboBox x:Name="ZoomPicker" Width="70" ItemsSource="{Binding ZoomPresets}" SelectedItem="{Binding SelectedZoom}"
+                                          ToolTip="Zoom the preview (Ctrl + mouse wheel on it). 100 % = one game-view pixel per screen pixel; drags get finer as you zoom in." />
                                 <Button Content="Export PNG + rects" Margin="8,0,0,0" Padding="8,1" Command="{Binding ExportCommand}"
                                         ToolTip="Writes the preview at native resolution and every widget rect (px, px per unit) to work/out/preview" />
                             </WrapPanel>
@@ -341,9 +344,23 @@
                             <TextBlock Margin="0,4,0,0" Foreground="#444" TextWrapping="Wrap" Text="{Binding Status}" />
                         </StackPanel>
                         <Grid>
-                            <pv:PreviewCanvas x:Name="PreviewCanvas" ClipToBounds="True" Layout="{Binding Layout}" Renderer="{Binding Renderer}"
-                                              Options="{Binding Options}" Underlay="{Binding Underlay}" UnderlayOpacity="{Binding UnderlayOpacity}"
-                                              UnderlayCrop="{Binding UnderlayCrop}" Handles="{Binding Handles}" DragLabel="{Binding DragLabel}" />
+                            <ScrollViewer x:Name="PreviewScroll" Focusable="False">
+                                <ScrollViewer.Style>
+                                    <Style TargetType="ScrollViewer">
+                                        <Setter Property="HorizontalScrollBarVisibility" Value="Auto" />
+                                        <Setter Property="VerticalScrollBarVisibility" Value="Auto" />
+                                        <Style.Triggers>
+                                            <DataTrigger Binding="{Binding IsFit}" Value="True">
+                                                <Setter Property="HorizontalScrollBarVisibility" Value="Disabled" />
+                                                <Setter Property="VerticalScrollBarVisibility" Value="Disabled" />
+                                            </DataTrigger>
+                                        </Style.Triggers>
+                                    </Style>
+                                </ScrollViewer.Style>
+                                <pv:PreviewCanvas x:Name="PreviewCanvas" ClipToBounds="True" Layout="{Binding Layout}" Renderer="{Binding Renderer}"
+                                                  Options="{Binding Options}" Underlay="{Binding Underlay}" UnderlayOpacity="{Binding UnderlayOpacity}"
+                                                  UnderlayCrop="{Binding UnderlayCrop}" Handles="{Binding Handles}" DragLabel="{Binding DragLabel}" Zoom="{Binding Zoom}" />
+                            </ScrollViewer>
                             <!-- 6f: live while dragging; an overlay, so the canvas keeps its size (and the widget its place) during the drag -->
                             <Border x:Name="DragPanel" VerticalAlignment="Bottom" Margin="6" Padding="8,6" MaxWidth="560" HorizontalAlignment="Left"
                                     Background="#F2FFFFFF" BorderBrush="#D1D5DB" BorderThickness="1" CornerRadius="3" IsHitTestVisible="False"

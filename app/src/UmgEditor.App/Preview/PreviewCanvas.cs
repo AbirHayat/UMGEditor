@@ -17,7 +17,9 @@ namespace UmgEditor.App.Preview;
 /// </summary>
 public sealed class PreviewCanvas : FrameworkElement
 {
-    public static readonly DependencyProperty LayoutProperty = Register(nameof(Layout), typeof(LayoutResult));
+    // AffectsMeasure: when zoomed the canvas is the viewport's size × zoom
+    public static readonly DependencyProperty LayoutProperty = DependencyProperty.Register(nameof(Layout), typeof(LayoutResult), typeof(PreviewCanvas),
+        new FrameworkPropertyMetadata(null, FrameworkPropertyMetadataOptions.AffectsMeasure | FrameworkPropertyMetadataOptions.AffectsRender));
     public static readonly DependencyProperty RendererProperty = Register(nameof(Renderer), typeof(PreviewRenderer));
     public static readonly DependencyProperty OptionsProperty = Register(nameof(Options), typeof(PreviewOptions));
     public static readonly DependencyProperty UnderlayProperty = Register(nameof(Underlay), typeof(BitmapSource));
@@ -28,6 +30,11 @@ public sealed class PreviewCanvas : FrameworkElement
     public static readonly DependencyProperty HandlesProperty = Register(nameof(Handles), typeof(DragAvailability));
     /// <summary>Shown next to the widget while dragging ("Offsets.Left 126 → 146 (+20 u)").</summary>
     public static readonly DependencyProperty DragLabelProperty = Register(nameof(DragLabel), typeof(string));
+    /// <summary>Screen px per viewport px; 0 = fit the viewport into the available space. Zoomed, the canvas takes the
+    /// viewport's size × zoom (inside a ScrollViewer) and drags get finer by the same factor.</summary>
+    public static readonly DependencyProperty ZoomProperty = DependencyProperty.Register(nameof(Zoom), typeof(double), typeof(PreviewCanvas),
+        new FrameworkPropertyMetadata(0.0, FrameworkPropertyMetadataOptions.AffectsMeasure | FrameworkPropertyMetadataOptions.AffectsRender,
+            (d, _) => ((PreviewCanvas) d).ScrollSelectionIntoView()));
 
     public LayoutResult? Layout { get => (LayoutResult?) GetValue(LayoutProperty); set => SetValue(LayoutProperty, value); }
     public PreviewRenderer? Renderer { get => (PreviewRenderer?) GetValue(RendererProperty); set => SetValue(RendererProperty, value); }
@@ -37,6 +44,7 @@ public sealed class PreviewCanvas : FrameworkElement
     public Int32Rect UnderlayCrop { get => (Int32Rect) GetValue(UnderlayCropProperty); set => SetValue(UnderlayCropProperty, value); }
     public DragAvailability? Handles { get => (DragAvailability?) GetValue(HandlesProperty); set => SetValue(HandlesProperty, value); }
     public string? DragLabel { get => (string?) GetValue(DragLabelProperty); set => SetValue(DragLabelProperty, value); }
+    public double Zoom { get => (double) GetValue(ZoomProperty); set => SetValue(ZoomProperty, value); }
 
     /// <summary>Raised with the deepest visible widget under the click.</summary>
     public event Action<LayoutBox>? BoxClicked;
@@ -50,6 +58,8 @@ public sealed class PreviewCanvas : FrameworkElement
     public Action<bool>? DragEnd { get; set; }
     /// <summary>Arrow key: move the selected widget by (dx, dy) units.</summary>
     public Action<int, int>? Nudge { get; set; }
+    /// <summary>Ctrl + mouse wheel: one zoom step in (+1) or out (-1).</summary>
+    public Action<int>? ZoomStep { get; set; }
 
     private const double Grab = 6, HandleSize = 8, DragThreshold = 3;
     private double _scale;
@@ -69,6 +79,27 @@ public sealed class PreviewCanvas : FrameworkElement
 
     protected override AutomationPeer OnCreateAutomationPeer() => new FrameworkElementAutomationPeer(this);
 
+    protected override Size MeasureOverride(Size available)
+    {
+        if (Zoom > 0 && Layout is { } l) return new Size(l.ViewportWidth * Zoom, l.ViewportHeight * Zoom);
+        // fit: take what the parent offers (a ScrollViewer with scrolling disabled offers its viewport)
+        return new Size(double.IsInfinity(available.Width) ? 400 : available.Width, double.IsInfinity(available.Height) ? 300 : available.Height);
+    }
+
+    /// <summary>After a zoom change, scroll the selected widget into view (once the new size is laid out).</summary>
+    private void ScrollSelectionIntoView() => Dispatcher.BeginInvoke(() =>
+    {
+        if (SelectedBox is { } box && _scale > 0) BringIntoView(Rect.Inflate(ScreenRect(box), 60, 60));
+    }, System.Windows.Threading.DispatcherPriority.Loaded);
+
+    protected override void OnMouseWheel(MouseWheelEventArgs e)
+    {
+        base.OnMouseWheel(e);
+        if (!Keyboard.Modifiers.HasFlag(ModifierKeys.Control)) return;
+        ZoomStep?.Invoke(e.Delta > 0 ? 1 : -1);
+        e.Handled = true;
+    }
+
     private LayoutBox? SelectedBox => Options?.Selected is { } sel ? Layout?.All().FirstOrDefault(b => ReferenceEquals(b.Node, sel)) : null;
 
     private Rect ScreenRect(LayoutBox box) =>
@@ -78,8 +109,8 @@ public sealed class PreviewCanvas : FrameworkElement
     {
         dc.DrawRectangle(new SolidColorBrush(Color.FromRgb(45, 45, 50)), null, new Rect(RenderSize));
         if (Layout is not { } layout || Renderer is not { } renderer) return;
-        _scale = Math.Min(ActualWidth / layout.ViewportWidth, ActualHeight / layout.ViewportHeight);
-        _offset = new Vector((ActualWidth - layout.ViewportWidth * _scale) / 2, (ActualHeight - layout.ViewportHeight * _scale) / 2);
+        _scale = Zoom > 0 ? Zoom : Math.Min(ActualWidth / layout.ViewportWidth, ActualHeight / layout.ViewportHeight);
+        _offset = Zoom > 0 ? new Vector(0, 0) : new Vector((ActualWidth - layout.ViewportWidth * _scale) / 2, (ActualHeight - layout.ViewportHeight * _scale) / 2);
         renderer.Render(dc, layout, Options ?? new PreviewOptions(), _scale, _offset);
 
         if (Underlay is { } shot)

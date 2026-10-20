@@ -183,6 +183,13 @@ function DragToUnits([double]$x0, [double]$y, [double]$units, [double]$label, [i
     [Mouse]::Up(); Start-Sleep -Milliseconds 900
     $final
 }
+function SetZoom($name) {
+    $z = ById $win 'ZoomPicker'
+    Expand $z; Start-Sleep -Milliseconds 400
+    Select-Item (ByName $z $name 10); Start-Sleep -Milliseconds 300
+    try { $z.GetCurrentPattern([System.Windows.Automation.ExpandCollapsePattern]::Pattern).Collapse() } catch {}
+    Start-Sleep -Seconds 2
+}
 function UndoEnabled { (ById $win 'UndoButton').Current.IsEnabled }
 function ShowPreview { Tab (PreviewTab); Start-Sleep -Seconds 2 }
 
@@ -216,6 +223,24 @@ try {
     Check 'hint explains dragging' ((Text 'DragHintText') -like 'Drag the selected widget*Ctrl*Esc*arrow keys nudge 1 unit*')
     Shot '1_handles_score_box'
 
+    # 1b) zoom: at Fit one screen px is ~3 units; at 300 % a drag lands on exactly 20 units (the package's first edit)
+    SetZoom '300 %'
+    $z = PxPerUnit
+    "zoom 300 %: $([Math]::Round($z, 3)) screen px per unit; canvas $(CanvasStatus)"
+    Check '300 %: 2.78 screen px per unit' ([Math]::Abs($z - 3 * 0.925926) -lt 0.01)
+    $b = Box
+    $zoomed = DragToUnits (($b.L + $b.R) / 2) (($b.T + $b.B) / 2) 20 20 1
+    "zoomed drag: $zoomed"
+    Check 'zoomed drag: exactly 20 units' ($zoomed -eq 'Offsets.Left 126 → 146 (+20 u)')
+    $d = Dialog 'First edit of MatchTime'
+    Answer $d 'OK'
+    Start-Sleep -Seconds 3
+    Check 'stored Left 146' ((FieldValue 'Offsets.Left') -eq '146')
+    Shot '1b_zoomed_300'
+    (Canvas).SetFocus(); Keys '^z'
+    Check 'undone: Left 126' ((FieldValue 'Offsets.Left') -eq '126')
+    SetZoom 'Fit'
+
     # 2) move by 20 units (+0.3 px jitter that snapping removes): live label while held, first-edit prompt on release
     $b = Box; $u = PxPerUnit
     "box on screen: $($b.L),$($b.T) - $($b.R),$($b.B); $([Math]::Round($u, 4)) screen px per unit"
@@ -230,8 +255,6 @@ try {
     "the drag snapped to $($script:n) whole units (≈ $([Math]::Round(1 / $u, 1)) units per screen px at this zoom)"
     Check 'live label: whole units' ($script:label -eq "Offsets.Left 126 → $left (+$($script:n) u)")
     Check 'the box stays under the cursor vertically while dragging' ($script:during -match "box [\d.]+,$([regex]::Escape(($b.T - (Canvas).Current.BoundingRectangle.Y).ToString('0.#', [Globalization.CultureInfo]::InvariantCulture))),")
-    $d = Dialog 'First edit of MatchTime'
-    Answer $d 'OK'
     Start-Sleep -Seconds 3
     "Left after the drag: $(FieldValue 'Offsets.Left'); message: $(Info)"
     Check "drag stored Left = $left" ((FieldValue 'Offsets.Left') -eq "$left")

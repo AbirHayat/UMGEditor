@@ -102,6 +102,35 @@ public sealed class PreviewViewModel : ObservableObject
     public bool IsImpact => ImpactLabel != null;
     private IReadOnlySet<string>? _changed;
 
+    // ---- zoom (finer drags) ----
+
+    public sealed record ZoomPreset(string Name, double Factor)
+    {
+        public override string ToString() => Name;
+    }
+
+    /// <summary>Fit, or screen px per viewport px (100 % = one game-view pixel per screen pixel).</summary>
+    public IReadOnlyList<ZoomPreset> ZoomPresets { get; } =
+        [new("Fit", 0), new("50 %", 0.5), new("100 %", 1), new("150 %", 1.5), new("200 %", 2), new("300 %", 3), new("400 %", 4)];
+
+    private ZoomPreset? _zoom;
+    public ZoomPreset SelectedZoom
+    {
+        get => _zoom ??= ZoomPresets[0];
+        set { if (Set(ref _zoom, value ?? ZoomPresets[0])) { OnPropertyChanged(nameof(Zoom)); OnPropertyChanged(nameof(IsFit)); } }
+    }
+
+    public double Zoom => SelectedZoom.Factor;
+    public bool IsFit => SelectedZoom.Factor == 0;
+
+    /// <summary>Ctrl + wheel: the next preset in or out (from Fit, in goes to 100 %).</summary>
+    public void StepZoom(int direction)
+    {
+        var i = ZoomPresets.ToList().IndexOf(SelectedZoom);
+        if (i == 0) { SelectedZoom = direction > 0 ? ZoomPresets[2] : ZoomPresets[0]; return; }
+        SelectedZoom = ZoomPresets[Math.Clamp(i + direction, 1, ZoomPresets.Count - 1)];
+    }
+
     // ---- 6f: dragging ----
 
     private DragAvailability? _handles;

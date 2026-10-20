@@ -24,6 +24,7 @@ public partial class MainWindow : Window
         PreviewCanvas.DragMove = _vm.DragTo;
         PreviewCanvas.DragEnd = _vm.EndDrag;
         PreviewCanvas.Nudge = _vm.Nudge;
+        PreviewCanvas.ZoomStep = _vm.Preview.StepZoom;
         Loaded += async (_, _) =>
         {
             SearchBox.Focus();
