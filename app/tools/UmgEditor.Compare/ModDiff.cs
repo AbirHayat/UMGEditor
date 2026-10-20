@@ -34,6 +34,7 @@ static class ModDiff
         r.ModContainers.AddRange(modFiles.Order());
         var served = modded.Source.Provider.Files.Keys
             .Where(k => modFiles.Contains(modded.Source.ContainerOf(k)))
+            .Distinct(StringComparer.Ordinal) // the provider lists a key once per container that has it
             .Order(StringComparer.OrdinalIgnoreCase).ToList();
         log?.Report($"{served.Count} files served by the mod's containers");
 
