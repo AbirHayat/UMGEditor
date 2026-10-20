@@ -167,7 +167,7 @@ All top/bottom edges are within 2 px (tops +1.4…+2.0, bottoms the usual −0.6
 First mod exported from the editor (step 6g). One package, MatchTime, 8 saved edits: `Img_Logo` moved to the board's
 left end and halved (Left 492→0, Top −21→10, Right 120→60, Bottom 120→60); `Text_TeamName_Away` Left 252→371,
 `Img_AwayColor_1`/`_2` Left 366→485, `Time_Timer` Left 368→491 (all four ≈ +110…114 px to the right). Same texture mod
-as before (white score boxes). a = in play 0:00, b = goal banner, c = card pop-up (covers the board).
+as before (white score boxes). a = in play (0–0), b = goal banner, c = card pop-up (covers the board).
 `validate_layout.py` against `work/out/mods/ucl_c1/predictions/MatchTime.json` (crop 50/32), game px:
 
 | Shot | Element | Measured (pred) | Result |
