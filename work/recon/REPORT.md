@@ -162,3 +162,33 @@ All top/bottom edges are within 2 px (tops +1.4…+2.0, bottoms the usual −0.6
   otherwise (now n/a or different).
 - **KickOff_Show still open:** c6_a again shows the board fully in at 0:00 with the stored value, as in C1. Catching
   the slot *during* the ~2.9 s intro needs a screen recording rather than a screenshot.
+
+## Canary C8 = mod `ucl_c1` (2026-10-20, LDPlayer, built by the editor's "Export mod…"; screenshots `ss/c8_a..c8_c.png`)
+First mod exported from the editor (step 6g). One package, MatchTime, 8 saved edits: `Img_Logo` moved to the board's
+left end and halved (Left 492→0, Top −21→10, Right 120→60, Bottom 120→60); `Text_TeamName_Away` Left 252→371,
+`Img_AwayColor_1`/`_2` Left 366→485, `Time_Timer` Left 368→491 (all four ≈ +110…114 px to the right). Same texture mod
+as before (white score boxes). a = in play 0:00, b = goal banner, c = card pop-up (covers the board).
+`validate_layout.py` against `work/out/mods/ucl_c1/predictions/MatchTime.json` (crop 50/32), game px:
+
+| Shot | Element | Measured (pred) | Result |
+|---|---|---|---|
+| c8_a | `Img_Logo` L / T / B | 45 / 25 / 80 (44.4 / 25.9 / 81.5) | PASS |
+| c8_b | `Img_Logo` L / T / B | 45 / 25 / 82 (44.4 / 25.9 / 81.5) | PASS |
+| c8_a, c8_b | `Text_TeamName_Away` L | 389 ×2 (388.0) | PASS |
+| c8_a, c8_b | `Img_AwayColor_1` T / B | 25 / 52, – / 52 (25.0 / 52.8) | PASS |
+| c8_a, c8_b | `Img_MatchTimeBg` (not edited) L / R | 45 / 388 ×2 (44.4 / 388.9) | PASS, unchanged: "JCU" now sits on the stadium, not on the plate |
+| c8_a, c8_b | `Time_Timer` | **not on screen** | timer gone |
+
+- **Timer vanished: clipped by its parent.** `Normal/Normal_Display` (the CanvasPanel holding names, colours and the
+  timer) is stored with `Clipping = ClipToBounds`; its box is 44..500 px. The edit moved `Time_Timer` to 499.1..617.6,
+  leaving 0.9 px inside. In both shots every pixel column right of the away colour bars (screenshot x ≥ 549 = game 499)
+  is stadium: the cut is exactly at the parent's edge. The validator's `Time_Timer left 499 PASS` is that cut (bars →
+  stadium), not the timer.
+- **Predicted:** the Impact panel for project `ucl_c1` gives exactly one warning, *"Time_Timer ends up partly outside
+  Normal_Display: it will be cut off (visible 0.9×57.4 px of 118.5×59.3, stock showed 114.8×57.4 of 118.5×59.3)"*.
+  The game agrees with the layout engine's clip rect. But the warning was only in the editor's Impact tab: the
+  export dialog, `TEST_INSTRUCTIONS.md` and `umgmod predict` didn't carry it, and the predicted-rects table listed the
+  timer's full rect as if it would show. Fixed in the next step (warnings carried everywhere, Danger warnings need a
+  tick before Build, clipped boxes marked).
+- To bring the timer back, either keep it inside x ≤ 500 or widen `Normal`/`Normal_Display` (and `Img_MatchTimeBg`
+  for the plate behind the away name). Not done: C8 is recorded as is.
