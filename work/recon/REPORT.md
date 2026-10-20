@@ -153,8 +153,12 @@ All top/bottom edges are within 2 px (tops +1.4…+2.0, bottoms the usual −0.6
 - **Card and substitution pop-ups confirmed:** the MatchTimeBase edit reaches them as EditImpact predicted
   (−92.6 px each). That closes the "presumably affected" note from C3 for the offline packages; the four online
   MatchTimeConnection* packages are still predicted only.
-- **Validator false FAIL on c6_e:** it reported 448 (−3.9 px) because its scan row crosses the yellow "g" of
-  "P. E. Aubameyang", which runs over the plate's edge. On every row clear of the text (y 114–118 and 154–156 in the
-  screenshot) the dark-navy plate ends at screenshot x 502 = game 452, the same as c6_d.
+- **Validator false FAIL on c6_e (fixed):** it first reported 448 (−3.9 px) because its scanlines crossed the glyphs
+  of "P. E. Aubameyang", which runs over the plate's edge. `validate_layout.py` now re-picks scanlines that cross a
+  text widget's box when the inside of the edge has glyph ink (a step no image widget's edge explains) and prints a
+  note with the lines used: c6_e now measures 452 (+0.1 px, PASS), the same as c6_d. Rerun over every image widget of
+  the five C6 exports: every previously scored edge measures the same as before, except the c6_c timer plate's right
+  edge (505 FAIL → 500 PASS, the "11:04" digits were next to it); only the hidden aggregate / added-time rows change
+  otherwise (now n/a or different).
 - **KickOff_Show still open:** c6_a again shows the board fully in at 0:00 with the stored value, as in C1. Catching
   the slot *during* the ~2.9 s intro needs a screen recording rather than a screenshot.
