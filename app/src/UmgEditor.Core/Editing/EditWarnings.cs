@@ -67,6 +67,8 @@ public sealed class FirstEditGate
 public sealed class EditWarnings(LayoutEngine engine, UsageGraph usage, int viewportWidth, int viewportHeight)
 {
     private const float MovedPx = 0.01f;
+    /// <summary>A box with less than this much left inside its clip (px, either axis) is as good as gone: the validator's tolerance.</summary>
+    public const float VanishPx = 3f;
 
     // ---- on selection ----
 
@@ -193,14 +195,19 @@ public sealed class EditWarnings(LayoutEngine engine, UsageGraph usage, int view
             var stockBox = beforeByPath.GetValueOrDefault(branch);
             var stockR = stockBox?.Bounds ?? r;
             var stockInside = stockBox?.Clip is { } stockClip ? stockR.Intersect(stockClip) : stockR;
-            var clipper = Ancestors(editedBox).FirstOrDefault(a => a.Node.ClipsToBounds)?.Node.Name ?? "a clipping ancestor";
+            var clipper = ClipperName(editedBox);
+            var stockShowed = $"stock showed {stockInside.Width:0.#}×{stockInside.Height:0.#} of {stockR.Width:0.#}×{stockR.Height:0.#}";
             EditWarning? w = null;
             if (inside.Width <= 0 || inside.Height <= 0)
                 w = new(WarningKind.LeavesClip, Severity.Danger, $"{name} ends up completely outside {clipper}: it will vanish in game.");
             else if (r.Width - inside.Width > stockR.Width - stockInside.Width + MovedPx || r.Height - inside.Height > stockR.Height - stockInside.Height + MovedPx)
-                w = new(WarningKind.LeavesClip, Severity.Warning,
-                    $"{name} ends up partly outside {clipper}: it will be cut off (visible {inside.Width:0.#}×{inside.Height:0.#} px of {r.Width:0.#}×{r.Height:0.#}, " +
-                    $"stock showed {stockInside.Width:0.#}×{stockInside.Height:0.#} of {stockR.Width:0.#}×{stockR.Height:0.#}).");
+                w = inside.Width < VanishPx || inside.Height < VanishPx
+                    // canary C8: Time_Timer kept 0.9 px inside Normal_Display and nothing of it showed in game
+                    ? new(WarningKind.LeavesClip, Severity.Danger,
+                        $"{name} ends up almost completely outside {clipper}: only {inside.Width:0.#}×{inside.Height:0.#} px of {r.Width:0.#}×{r.Height:0.#} stays visible, " +
+                        $"so it will practically vanish in game ({stockShowed}).")
+                    : new(WarningKind.LeavesClip, Severity.Warning,
+                        $"{name} ends up partly outside {clipper}: it will be cut off (visible {inside.Width:0.#}×{inside.Height:0.#} px of {r.Width:0.#}×{r.Height:0.#}, {stockShowed}).");
             if (w != null && !warnings.Contains(w)) warnings.Add(w);
         }
         return warnings;
@@ -217,6 +224,10 @@ public sealed class EditWarnings(LayoutEngine engine, UsageGraph usage, int view
     {
         for (var p = box.Parent; p != null; p = p.Parent) yield return p;
     }
+
+    /// <summary>The nearest ancestor that clips this box (the one named in the clip warnings).</summary>
+    internal static string ClipperName(LayoutBox box) =>
+        Ancestors(box).FirstOrDefault(a => a.Node.ClipsToBounds)?.Node.Name ?? "a clipping ancestor";
 
     private static bool Differs(RectangleF a, RectangleF b) =>
         Math.Abs(a.X - b.X) > MovedPx || Math.Abs(a.Y - b.Y) > MovedPx || Math.Abs(a.Width - b.Width) > MovedPx || Math.Abs(a.Height - b.Height) > MovedPx;

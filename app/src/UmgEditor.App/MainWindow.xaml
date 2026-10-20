@@ -95,6 +95,8 @@
                                         <TextBlock x:Name="H" Margin="6,0,0,0" Foreground="#888" FontSize="11" Text="hidden in the stored pose" VerticalAlignment="Center" Visibility="Collapsed" />
                                         <TextBlock Margin="8,0,0,0" Foreground="#888" FontSize="11" Text="{Binding ShortPath}" VerticalAlignment="Center" />
                                     </StackPanel>
+                                    <TextBlock Margin="10,1,0,0" Foreground="#B91C1C" FontSize="11.5" FontWeight="SemiBold" TextWrapping="Wrap" Text="{Binding CutText}"
+                                               Visibility="{Binding CutText, Converter={StaticResource NullToVis}}" />
                                     <ItemsControl Margin="10,1,0,0" ItemsSource="{Binding Edges}" TextElement.FontFamily="Consolas" TextElement.FontSize="11.5">
                                         <ItemsControl.ItemTemplate>
                                             <DataTemplate>

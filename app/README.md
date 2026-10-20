@@ -33,14 +33,20 @@ Packs the project's **saved** edits into one container under `work\out\mods\<nam
   packages with saved edits (ticked), the retoc path (see above).
 - Refused (Build stays disabled, the reasons in red) while anything in the project is unsaved, for a bad mod or
   container name, no package, the same package twice, a package without saved edits, or a missing retoc / .pak stub.
+- **Layout warnings:** the Impact panel's warnings for the saved edits of the ticked packages are listed (rescale,
+  widgets outside the edit moving, a widget pushed out of a clipping ancestor). Each **Danger** one (something will
+  vanish: completely outside its clip, or less than 3 px of it left inside, as canary C8's timer) has its own tick box,
+  and Build stays disabled until every one is ticked. They go into the log and `TEST_INSTRUCTIONS.md` (with whether
+  they were acknowledged).
 - The build runs in the background with a live log (each retoc command and its output), then lists the files for the
   device with their sizes and sha256. `ModBuilder` does the packing (same steps as `umgmod build`); a failed
   `retoc verify` or CUE4Parse read-back aborts, removes `mod\` and writes `FAILED.txt`.
 - On success the folder holds `mod\` (only the 3 files for the device), `predictions\` (stock and edited layout JSON
   of every package the edits reach, for `validate_layout.py`), `build.json`, and `TEST_INSTRUCTIONS.md` (like
-  `work/out/mods/CANARY_C6.md`): the files and hashes, the edits and their bytes, the steps, every affected screen
-  (online ones marked "predicted only"), the predicted rects, the checking commands, and the warning to remove the
-  mod before playing online.
+  `work/out/mods/CANARY_C6.md`): the layout warnings, the files and hashes, the edits and their bytes, the steps, every
+  affected screen (online ones marked "predicted only"), the predicted rects (a box a clip cuts off more than in stock
+  is marked **cut off by X: w×h of W×H px visible** or **outside X: not visible**), the checking commands (edges that
+  aren't on screen are left out, with a `#` line saying why), and the warning to remove the mod before playing online.
 
 ## Making a mod without the UI: `umgmod`
 `app/tools/UmgEditor.ModCli/bin/Release/net10.0/umgmod.exe`:
@@ -64,8 +70,9 @@ umgmod [--set NAME] predict <package>...
   deleted.
 - `predict` arranges, stock vs edited at 1786×1000, every package the saved edits reach: the edited packages plus
   every package that embeds them (e.g. MatchTimeBase → the goal/card/substitution pop-ups and the online board). It
-  prints every box that changes and writes `work\out\mods\_predictions\<set>\<Package>[.stock].json` for
-  `validate_layout.py`.
+  prints the Impact panel's warnings per package (`[Danger]` / `[Warning]`), every box that changes (cut-off boxes
+  marked like in the instructions) and the warning count, and writes
+  `work\out\mods\_predictions\<set>\<Package>[.stock].json` for `validate_layout.py`.
 - `--set NAME` keeps independent edits of the same package apart (e.g. one per canary).
 - `<package>` is a `/Game/...` path or a unique suffix (`MatchTime/MatchTimeBase`). `<field>` may omit
   `LayoutData.` (`Offsets.Right`).

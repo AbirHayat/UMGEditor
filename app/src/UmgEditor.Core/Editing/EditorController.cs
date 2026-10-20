@@ -521,9 +521,26 @@ public sealed class EditorController
             edits.AddRange(s.Plan().Entries.Select(e => new ExportEdit(GamePaths.ShortName(s.PackagePath), WidgetOf(s.PackagePath, e.Key.SlotExport) is { } w ? $"{w} ({e.SlotName})" : e.SlotName,
                 e.Key.Path.Replace("LayoutData.", ""), e.OldValue, e.NewValue, e.OffsetHex, e.OldHex, e.NewHex)));
         }
+        var impactWarnings = saved.Count == 0 ? [] : ExportWarning.From(ExportImpact(saved));
+        var unticked = impactWarnings.Where(w => w.IsDanger && !request.IsAcknowledged(w)).ToList();
+        if (unticked.Count > 0)
+            refusals.Add($"Tick {(unticked.Count == 1 ? "the danger warning" : $"each of the {unticked.Count} danger warnings")} below to acknowledge " +
+                         $"{(unticked.Count == 1 ? "it" : "them")}: {string.Join("; ", unticked.Select(w => w.Package + ": " + w.Warning.Message))}");
         if (refusals.Count == 0 && Directory.Exists(outDir))
             warnings.Add($"{outDir} exists and will be replaced.");
-        return new ExportPlan(request with { ModName = name, ContainerName = request.ContainerName.Trim() }, Project, outDir, retoc, refusals, warnings, packages, saved, edits);
+        return new ExportPlan(request with { ModName = name, ContainerName = request.ContainerName.Trim() }, Project, outDir, retoc, refusals, warnings, packages, saved, edits, impactWarnings);
+    }
+
+    private (string Key, ImpactReport Report)? _exportImpact;
+
+    /// <summary>The impact of the saved edits being shipped; cached, since the dialog re-plans on every keystroke.</summary>
+    private ImpactReport ExportImpact(EditSet saved)
+    {
+        var key = string.Join("\n", saved.Values.Select(kv => $"{kv.Key}={kv.Value.ToString("R", System.Globalization.CultureInfo.InvariantCulture)}").Order(StringComparer.Ordinal));
+        if (_exportImpact is { } cached && cached.Key == key) return cached.Report;
+        var report = ImpactOf(saved);
+        _exportImpact = (key, report);
+        return report;
     }
 
     /// <summary>
@@ -560,6 +577,8 @@ public sealed class EditorController
             }
         }
         var report = ImpactReport.Build(Project, _width, _height, impacts);
+        foreach (var w in ExportWarning.From(report))
+            log?.Report($"  {w.Text}{(w.IsDanger ? " (acknowledged)" : "")}");
         var instructions = Path.Combine(plan.OutDir, ModInstructions.FileName);
         mods.WriteAllText(instructions, ModInstructions.Build(plan, build, report, p => _usage.DirectUsers(p).Count == 0, DateTime.Now));
         log?.Report($"{files.Count} prediction files in {predictions}");

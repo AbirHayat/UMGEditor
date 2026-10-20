@@ -102,6 +102,7 @@ public class ExportTests
         StringAssert.Contains(plan.Retoc.Text, ModBuilder.TestedRetocSha256);
         CollectionAssert.AreEquivalent(new[] { ("0xA64", "00 00 C8 42"), ("0x133E23", "00 00 12 43") }, plan.Edits.Select(e => (e.OffsetHex, e.NewHex)).ToArray(), "C6's bytes");
         Assert.AreEqual(0, plan.Warnings.Count, string.Join(" | ", plan.Warnings));
+        Assert.AreEqual(0, plan.ImpactWarnings.Count, string.Join(" | ", plan.ImpactWarnings.Select(w => w.Text)));
     }
 
     // ---- the build ----
@@ -147,6 +148,8 @@ public class ExportTests
         Console.WriteLine(md);
         StringAssert.StartsWith(md, $"# Mod {ModName}: test instructions");
         StringAssert.Contains(md, "> **Remove the mod before playing online.**");
+        StringAssert.Contains(md, "## Warnings (Impact panel)\nNone: no rescale");
+        Assert.IsFalse(md.Contains("cut off by") || md.Contains("not checked"), "C6 pushes nothing out of a clip");
         foreach (var screen in new[] { "MatchTime", "MatchTimeGoal", "MatchTimeCard", "MatchTimeMemberChange",
                      "MatchTimeConnection", "MatchTimeConnectionGoal", "MatchTimeConnectionCard", "MatchTimeConnectionMemberChange" })
             StringAssert.Contains(md, $"| {screen} |", screen);
@@ -180,6 +183,86 @@ public class ExportTests
         Assert.IsFalse(Directory.Exists(Path.Combine(result.OutDir, "predictions")), "nothing is predicted for a failed build");
         Assert.IsFalse(File.Exists(Path.Combine(result.OutDir, ModInstructions.FileName)));
         Assert.IsTrue(log.Any(l => l.Contains("removed; see FAILED.txt")), string.Join("\n", log));
+    }
+
+    // ---- Impact warnings (canary C8: the timer pushed out of Normal_Display vanished) ----
+
+    /// <summary>C8's timer edit alone, saved: Danger, the timer keeps 0.9 px inside its clipping parent.</summary>
+    private EditorController TimerOut()
+    {
+        var c = Controller();
+        Edit(c, MatchTime, "Time_Timer", "LayoutData.Offsets.Left", 491);
+        Assert.IsTrue(c.SaveAll().All(r => r.Result.Saved));
+        return c;
+    }
+
+    [TestMethod]
+    public void Plan_DangerWarning_RefusedUntilTicked()
+    {
+        var c = TimerOut();
+        var plan = c.PlanExport(Request(MatchTime));
+        var danger = plan.ImpactWarnings.Single();
+        Assert.IsTrue(danger.IsDanger);
+        Assert.AreEqual("MatchTime", danger.Package);
+        StringAssert.Contains(danger.Text, "[Danger] MatchTime: Time_Timer ends up almost completely outside Normal_Display");
+        Assert.IsFalse(plan.Ok, "an unticked Danger warning blocks the build");
+        StringAssert.StartsWith(plan.Refusals.Single(), "Tick the danger warning below");
+        CollectionAssert.AreEqual(new[] { danger }, plan.Unacknowledged.ToArray());
+
+        var ticked = c.PlanExport(Request(MatchTime) with { Acknowledged = [danger.Key] });
+        Assert.IsTrue(ticked.Ok, string.Join(" | ", ticked.Refusals));
+        Assert.AreEqual(0, ticked.Unacknowledged.Count);
+        Assert.AreEqual(1, ticked.ImpactWarnings.Count, "still listed once ticked");
+        Assert.IsFalse(c.PlanExport(Request(MatchTime) with { Acknowledged = ["MatchTime: some other warning"] }).Ok, "a tick is per warning");
+    }
+
+    [TestMethod]
+    public void Plan_PlainWarning_ListedButNoTickNeeded()
+    {
+        var c = Controller();
+        Edit(c, MatchTime, "Mask", "LayoutData.Offsets.Left", 429); // partly outside Normal_Display: cut off, not gone
+        Assert.IsTrue(c.SaveAll().All(r => r.Result.Saved));
+        var plan = c.PlanExport(Request(MatchTime));
+        Assert.IsTrue(plan.Ok, string.Join(" | ", plan.Refusals));
+        var w = plan.ImpactWarnings.Single();
+        Assert.AreEqual(Severity.Warning, w.Warning.Severity);
+        StringAssert.Contains(w.Text, "Mask ends up partly outside Normal_Display");
+    }
+
+    [TestMethod]
+    public void Plan_ImpactWarnings_OnlyForThePickedPackages()
+    {
+        var c = TimerOut();
+        Edit(c, Base, "Img_Plate", Right, 100);
+        Assert.IsTrue(c.SaveAll().All(r => r.Result.Saved));
+        var baseOnly = c.PlanExport(Request(Base));
+        Assert.IsTrue(baseOnly.Ok, string.Join(" | ", baseOnly.Refusals));
+        Assert.AreEqual(0, baseOnly.ImpactWarnings.Count, "the timer edit isn't shipped");
+        Assert.IsFalse(c.PlanExport(Request(Base, MatchTime)).Ok);
+    }
+
+    [TestMethod]
+    public void Run_TimerOut_InstructionsCarryTheWarning_MarkTheCut_SkipItsEdges()
+    {
+        var c = TimerOut();
+        var first = c.PlanExport(Request(MatchTime));
+        var plan = c.PlanExport(Request(MatchTime) with { Acknowledged = first.ImpactWarnings.Select(w => w.Key).ToList() });
+        var log = new List<string>();
+        var result = c.RunExport(plan, new RetocProcess(plan.Retoc.Path), new SyncProgress(log.Add));
+        Assert.IsTrue(result.Built, string.Join(" | ", result.Refusals));
+        Assert.IsTrue(log.Any(l => l.Contains("[Danger] MatchTime: Time_Timer") && l.EndsWith("(acknowledged)")), string.Join("\n", log));
+
+        var md = File.ReadAllText(result.InstructionsPath!);
+        Console.WriteLine(md);
+        StringAssert.Contains(md, "## Warnings (Impact panel)\n- **Danger** · MatchTime: Time_Timer ends up almost completely outside Normal_Display");
+        StringAssert.Contains(md, "*Acknowledged in the export dialog before the build.*");
+        StringAssert.Contains(md, "| `…/Normal/Normal_Display/Time_Timer` **cut off by Normal_Display: 0.9×57.4 of 118.5×59.3 px visible, practically gone** |");
+        StringAssert.Contains(md, "`…/Timer/Plate_MatchTimeBg/CanvasPanel_0` **outside Normal_Display: not visible**");
+        StringAssert.Contains(md, "A box marked *cut off* / *outside* loses more to a clipping ancestor than in stock");
+        // nothing of the timer is checked against the screenshot: there is nothing of it to measure
+        var check = md.Split('\n').Where(l => l.StartsWith("python ")).ToList();
+        Assert.IsTrue(check.All(l => !l.Contains("Time_Timer") && !l.Contains("Timer/")), string.Join("\n", check));
+        StringAssert.Contains(md, "# MatchTime: not checked at all: `…/Normal/Normal_Display/Time_Timer` is cut off by Normal_Display");
     }
 
     [TestMethod]

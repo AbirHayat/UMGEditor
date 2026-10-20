@@ -111,6 +111,19 @@ public class EditWarningsTests
         StringAssert.Contains(w.Message, "cut off");
     }
 
+    /// <summary>Canary C8 in game: Time_Timer Left 368→491 kept 0.9 px inside Normal_Display and was gone. Under 3 px left = Danger.</summary>
+    [TestMethod]
+    public void LeavesClip_C8_SliverLeft_IsDanger()
+    {
+        var tree = MatchTime; var timer = tree.Find("Time_Timer")!;
+        var w = Single(Warnings.ForPendingEdit(tree, timer, Edits(SlotEditor.SetField(timer, EditSet.Empty, "LayoutData.Offsets.Left", 491))), WarningKind.LeavesClip);
+        Assert.AreEqual(Severity.Danger, w.Severity);
+        StringAssert.Contains(w.Message, "only 0.9×57.4 px of 118.5×59.3 stays visible");
+        // 4 units further left, ≈ 4.6 px stay inside: still only cut off
+        var cut = Single(Warnings.ForPendingEdit(tree, timer, Edits(SlotEditor.SetField(timer, EditSet.Empty, "LayoutData.Offsets.Left", 487))), WarningKind.LeavesClip);
+        Assert.AreEqual(Severity.Warning, cut.Severity, cut.Message);
+    }
+
     [TestMethod]
     public void Rescale_PendingEdit_ShowsScaleBeforeAfter_AndWholeBoardMoves()
     {

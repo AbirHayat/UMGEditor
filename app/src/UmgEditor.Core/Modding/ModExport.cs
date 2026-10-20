@@ -5,7 +5,28 @@ using UmgEditor.Core.Editing;
 namespace UmgEditor.Core.Modding;
 
 /// <summary>What the export dialog asks for.</summary>
-public sealed record ExportRequest(string ModName, string ContainerName, IReadOnlyList<string> Packages, string RetocPath);
+/// <param name="Acknowledged">Keys (<see cref="ExportWarning.Key"/>) of the Danger warnings the user ticked</param>
+public sealed record ExportRequest(string ModName, string ContainerName, IReadOnlyList<string> Packages, string RetocPath,
+    IReadOnlyCollection<string>? Acknowledged = null)
+{
+    public bool IsAcknowledged(ExportWarning w) => Acknowledged?.Contains(w.Key) == true;
+}
+
+/// <summary>
+/// A warning of the Impact panel for the saved edits being shipped, per package it concerns. A Danger warning (something
+/// will vanish) has to be ticked before the build.
+/// </summary>
+public sealed record ExportWarning(string Package, bool Online, EditWarning Warning)
+{
+    public bool IsDanger => Warning.Severity == Severity.Danger;
+    /// <summary>Identifies the warning across re-plans (the same edits give the same text).</summary>
+    public string Key => $"{Package}: {Warning.Message}";
+    public string Text => $"[{Warning.Severity}] {Package}{(Online ? " (online)" : "")}: {Warning.Message}";
+
+    public static IReadOnlyList<ExportWarning> From(ImpactReport impact) =>
+        impact.Packages.SelectMany(p => p.Warnings.Select(w => new ExportWarning(p.Name, p.IsOnline, w)))
+            .OrderByDescending(w => w.Warning.Severity).ToList();
+}
 
 /// <summary>The retoc executable the export will run, identified by sha256 (this retoc has no --version).</summary>
 public sealed record RetocInfo(string Path, bool Exists, string Sha256)
@@ -35,14 +56,17 @@ public sealed record ExportEdit(string Package, string Widget, string Field, dou
 /// <summary>
 /// The checked export: everything the background build needs (the saved chunks are read here, on the caller's
 /// thread), or why it is refused. Warnings don't block (a retoc that isn't the tested build, a folder that is replaced).
+/// ImpactWarnings are the Impact panel's warnings for the saved edits picked; an unticked Danger one is a refusal.
 /// </summary>
 public sealed record ExportPlan(
     ExportRequest Request, string Project, string OutDir, RetocInfo Retoc,
     IReadOnlyList<string> Refusals, IReadOnlyList<string> Warnings,
-    IReadOnlyList<ModPackage> Packages, EditSet SavedEdits, IReadOnlyList<ExportEdit> Edits)
+    IReadOnlyList<ModPackage> Packages, EditSet SavedEdits, IReadOnlyList<ExportEdit> Edits,
+    IReadOnlyList<ExportWarning> ImpactWarnings)
 {
     public bool Ok => Refusals.Count == 0;
     public string ModDir => Path.Combine(OutDir, "mod");
+    public IReadOnlyList<ExportWarning> Unacknowledged => ImpactWarnings.Where(w => w.IsDanger && !Request.IsAcknowledged(w)).ToList();
 }
 
 /// <summary>Outcome of a background export. When not built, mod\ was removed (FAILED.txt says why) and nothing else is written.</summary>
@@ -99,6 +123,13 @@ public static class ModInstructions
         L($"| retoc | `{plan.Retoc.Path}` sha256 `{plan.Retoc.Sha256}` {(plan.Retoc.IsTested ? "(the tested build)" : "(**not** the tested build)")} |");
         L("| Checks passed | retoc verify, CUE4Parse read-back of every package byte for byte |");
         L();
+        var warnings = ExportWarning.From(impact);
+        L("## Warnings (Impact panel)");
+        if (warnings.Count == 0) L("None: no rescale, no widget pushed out of a clip, nothing outside the edited widgets moves.");
+        foreach (var w in warnings)
+            L($"- **{w.Warning.Severity}** · {w.Package}{(w.Online ? " (online)" : "")}: {w.Warning.Message}" +
+              (w.IsDanger ? plan.Request.IsAcknowledged(w) ? " *Acknowledged in the export dialog before the build.*" : " *Not acknowledged.*" : ""));
+        L();
         L("## Files to copy");
         L("| File | Size | sha256 |");
         L("|---|---|---|");
@@ -139,17 +170,25 @@ public static class ModInstructions
             {
                 string Lrtb(Func<EdgeChange, double> v) => string.Join(" / ", b.Edges.Select(e => EdgeChange.F(v(e))));
                 var change = string.Join(", ", b.Edges.Where(e => e.Changed).Select(e => $"{e.Edge} {e.DeltaText}"));
-                L($"| `{b.ShortPath}`{(b.Visible ? "" : " (hidden)")} | {Lrtb(e => e.BeforePx)} | {Lrtb(e => e.AfterPx)} | {change} |");
+                L($"| `{b.ShortPath}`{(b.Visible ? "" : " (hidden)")}{(b.CutOff ? $" **{b.Cut!.Text}**" : "")} | {Lrtb(e => e.BeforePx)} | {Lrtb(e => e.AfterPx)} | {change} |");
             }
+            if (p.Boxes.Any(b => b.CutOff))
+                L("\nA box marked *cut off* / *outside* loses more to a clipping ancestor than in stock: only the part inside the ancestor shows, and its edges outside it are not on screen.");
         }
         L();
         L("## Checking");
         L("```");
-        foreach (var p in offline.Where(p => p.Boxes.Any(b => b.Visible)))
+        foreach (var p in offline)
         {
-            var targets = p.Boxes.Where(b => b.Visible).Select(b =>
-                $"{string.Join("/", b.Path.Split('/').TakeLast(4))}:{string.Concat(b.Edges.Where(e => e.Changed).Select(e => e.Edge[0]))}");
-            L($"python work/scripts/validate_layout.py {Path.Combine(plan.OutDir, "predictions", p.Name + ".json")} ss/{Shot(name, p.Name)} 50 32 {string.Join(" ", targets)}");
+            // only edges that are on screen where predicted: a clipped edge shows as the clip line, not as the box
+            var checks = p.Boxes.Where(b => b.Visible)
+                .Select(b => (Box: b, Edges: b.Edges.Where(e => e.Changed && (b.Cut == null || b.Cut.EdgeShows(e.Edge))).ToList())).ToList();
+            var targets = checks.Where(c => c.Edges.Count > 0)
+                .Select(c => $"{string.Join("/", c.Box.Path.Split('/').TakeLast(4))}:{string.Concat(c.Edges.Select(e => e.Edge[0]))}").ToList();
+            if (targets.Count > 0)
+                L($"python work/scripts/validate_layout.py {Path.Combine(plan.OutDir, "predictions", p.Name + ".json")} ss/{Shot(name, p.Name)} 50 32 {string.Join(" ", targets)}");
+            foreach (var c in checks.Where(c => c.Box.Cut != null && c.Edges.Count < c.Box.Edges.Count(e => e.Changed)))
+                L($"# {p.Name}: not checked {(c.Edges.Count == 0 ? "at all" : string.Join("/", c.Box.Edges.Where(e => e.Changed && !c.Edges.Contains(e)).Select(e => e.Edge)))}: `{c.Box.ShortPath}` is {c.Box.Cut!.Text}");
         }
         L("```");
         L("Or send the screenshots.");

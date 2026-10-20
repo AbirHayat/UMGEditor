@@ -30,9 +30,59 @@ public sealed record EdgeChange(string Edge, double BeforePx, double AfterPx, do
     internal static string S(double v) => (v >= 0 ? "+" : "−") + F(Math.Abs(v));
 }
 
-/// <summary>A widget box that differs between the stock and the edited layout of one package.</summary>
-public sealed record ImpactBox(BoxChange Change, IReadOnlyList<EdgeChange> Edges, bool Edited)
+/// <summary>
+/// How much of a box a clipping ancestor cuts off in the edited layout (game px): what is left visible, and how much
+/// stock already lost to a clip (e.g. the board's texts lose their bottom 1.9 px in stock too).
+/// </summary>
+public sealed record ClipCut(string Clipper, RectangleF Box, RectangleF Visible, RectangleF StockBox, RectangleF StockVisible)
 {
+    private const float EdgePx = 0.5f;
+    private const float MovedPx = 0.01f;
+
+    /// <summary>The edit cuts more of it off than stock does (the same test as the LeavesClip warning).</summary>
+    public bool CutsMoreThanStock =>
+        Box.Width - Visible.Width > StockBox.Width - StockVisible.Width + MovedPx || Box.Height - Visible.Height > StockBox.Height - StockVisible.Height + MovedPx;
+
+    public bool Gone => Visible.Width <= 0 || Visible.Height <= 0;
+    /// <summary>Less than <see cref="EditWarnings.VanishPx"/> left in either axis: nothing of it shows (canary C8).</summary>
+    public bool PracticallyGone => Gone || Visible.Width < EditWarnings.VanishPx || Visible.Height < EditWarnings.VanishPx;
+
+    /// <summary>Whether this edge of the box is on screen where predicted (not cut away, and the box doesn't vanish).</summary>
+    public bool EdgeShows(string edge) => !PracticallyGone && edge switch
+    {
+        "left" => Math.Abs(Visible.X - Box.X) < EdgePx,
+        "right" => Math.Abs(Visible.Right - Box.Right) < EdgePx,
+        "top" => Math.Abs(Visible.Y - Box.Y) < EdgePx,
+        "bottom" => Math.Abs(Visible.Bottom - Box.Bottom) < EdgePx,
+        _ => false,
+    };
+
+    /// <summary>"cut off by Normal_Display: 0.9×57.4 of 118.5×59.3 px visible, practically gone".</summary>
+    public string Text => Gone ? $"outside {Clipper}: not visible"
+        : $"cut off by {Clipper}: {EdgeChange.F(Visible.Width)}×{EdgeChange.F(Visible.Height)} of {EdgeChange.F(Box.Width)}×{EdgeChange.F(Box.Height)} px visible" +
+          (PracticallyGone ? ", practically gone" : "");
+
+    /// <summary>The cut of a laid-out box, or null when nothing clips it (beyond rounding).</summary>
+    public static ClipCut? Of(LayoutBox box, LayoutBox? stock)
+    {
+        if (box.Clip is not { } clip) return null;
+        var r = box.Bounds;
+        var inside = r.Intersect(clip);
+        if (r.Width - inside.Width <= MovedPx && r.Height - inside.Height <= MovedPx) return null;
+        var stockR = stock?.Bounds ?? r;
+        var stockInside = stock?.Clip is { } stockClip ? stockR.Intersect(stockClip) : stockR;
+        return new ClipCut(EditWarnings.ClipperName(box), r, inside, stockR, stockInside);
+    }
+}
+
+/// <summary>A widget box that differs between the stock and the edited layout of one package.</summary>
+/// <param name="Cut">Set when a clipping ancestor cuts the edited box (partly or entirely), even as much as in stock</param>
+public sealed record ImpactBox(BoxChange Change, IReadOnlyList<EdgeChange> Edges, bool Edited, ClipCut? Cut = null)
+{
+    /// <summary>The edit makes a clip cut off more of it than in stock: marked in the panel, the instructions and umgmod.</summary>
+    public bool CutOff => Cut?.CutsMoreThanStock == true;
+    public string? CutText => CutOff ? Cut!.Text : null;
+
     public string Path => Change.Path;
     public string Name => Path[(Path.LastIndexOf('/') + 1)..];
     /// <summary>The last three path segments ("…/CanvasPanel_0/Img_Plate"), enough to tell instances apart.</summary>
@@ -49,7 +99,7 @@ public sealed record ImpactBox(BoxChange Change, IReadOnlyList<EdgeChange> Edges
     public string SizeText => $"{EdgeChange.F(Change.Before.Width)}×{EdgeChange.F(Change.Before.Height)} → {EdgeChange.F(Change.After.Width)}×{EdgeChange.F(Change.After.Height)} px";
 
     public string ToText() =>
-        $"    {Path}{(Edited ? "  [edited]" : "")}{(Visible ? "" : "  [hidden in the stored pose]")}\n" +
+        $"    {Path}{(Edited ? "  [edited]" : "")}{(Visible ? "" : "  [hidden in the stored pose]")}{(CutOff ? $"  [{Cut!.Text}]" : "")}\n" +
         string.Join("", Edges.Select(e => $"      {e.Text}\n"));
 }
 
@@ -114,7 +164,7 @@ public sealed record ImpactReport(string Project, int ViewportWidth, int Viewpor
                     Edge("left", c.Before.X, c.After.X), Edge("right", c.Before.Right, c.After.Right),
                     Edge("top", c.Before.Y, c.After.Y), Edge("bottom", c.Before.Bottom, c.After.Bottom),
                 };
-                return new ImpactBox(c, edges, e?.Inputs.Any(x => x.Source == ValueSource.Edited) == true);
+                return new ImpactBox(c, edges, e?.Inputs.Any(x => x.Source == ValueSource.Edited) == true, e == null ? null : ClipCut.Of(e, s));
             }).ToList();
             return new ImpactPackage(i.Package, boxes, EditWarnings.ForImpact(i.Stock, i.Edited), null);
         }).ToList();

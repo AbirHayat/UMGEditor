@@ -1,5 +1,6 @@
 using UmgEditor.Core;
 using UmgEditor.Core.Editing;
+using UmgEditor.Core.Layout;
 using static UmgEditor.Tests.GameFixture;
 
 namespace UmgEditor.Tests;
@@ -112,6 +113,61 @@ public class ImpactReportTests
         var w = report.Packages.Single().Warnings.Single(x => x.Kind == WarningKind.LeavesClip);
         Assert.AreEqual(Severity.Danger, w.Severity);
         StringAssert.Contains(w.Message, "Mask ends up completely outside");
+    }
+
+    /// <summary>
+    /// Canary C8 in game: Time_Timer Left 368→491 left 0.9 px of it inside Normal_Display (clips at x 500) and the timer
+    /// was gone. Danger, and the timer's boxes are marked cut off; the away name, cut 1.9 px at the bottom in stock as
+    /// well, isn't marked.
+    /// </summary>
+    [TestMethod]
+    public void C8_TimerPushedOutOfNormalDisplay_DangerAndCutOffBoxes()
+    {
+        var edits = Edit(MatchTime, "Time_Timer", (n, e) => SlotEditor.SetField(n, e, "LayoutData.Offsets.Left", 491))
+            .With(Edit(MatchTime, "Text_TeamName_Away", (n, e) => SlotEditor.SetField(n, e, "LayoutData.Offsets.Left", 371)).Values
+                .Select(kv => new FieldChange(kv.Key, double.NaN, kv.Value)), _ => null);
+        var board = Report(edits).Packages.Single(p => p.Name == "MatchTime");
+        Console.WriteLine(board.ToText());
+
+        var w = board.Warnings.Single(x => x.Kind == WarningKind.LeavesClip);
+        Assert.AreEqual(Severity.Danger, w.Severity);
+        StringAssert.Contains(w.Message, "Time_Timer ends up almost completely outside Normal_Display");
+        StringAssert.Contains(w.Message, "practically vanish");
+
+        var timer = Box(board, "Normal_Display/Time_Timer");
+        Assert.IsTrue(timer.CutOff);
+        Assert.AreEqual("cut off by Normal_Display: 0.9×57.4 of 118.5×59.3 px visible, practically gone", timer.CutText);
+        Assert.IsTrue(timer.Cut!.PracticallyGone);
+        Assert.IsFalse(timer.Cut.EdgeShows("left"), "0.9 px left: the left edge isn't a timer edge on screen");
+        StringAssert.Contains(timer.ToText(), "[cut off by Normal_Display");
+        Assert.AreEqual("outside Normal_Display: not visible", Box(board, "Timer/Text_Colon").CutText);
+
+        var away = Box(board, "Normal_Display/Text_TeamName_Away");
+        Assert.IsNotNull(away.Cut, "its bottom is clipped, in stock too");
+        Assert.IsFalse(away.CutOff, "cut no more than in stock: not marked");
+        Assert.IsNull(away.CutText);
+        Assert.IsTrue(away.Cut!.EdgeShows("left") && away.Cut.EdgeShows("right") && !away.Cut.EdgeShows("bottom"));
+    }
+
+    [TestMethod]
+    public void ClipCut_EdgesTextAndStockComparison()
+    {
+        var box = new RectangleF(100, 20, 50, 40);
+        // right half cut, stock uncut
+        var half = new ClipCut("Clip", box, new RectangleF(100, 20, 25, 40), box, box);
+        Assert.IsTrue(half.CutsMoreThanStock);
+        Assert.IsFalse(half.PracticallyGone);
+        Assert.IsTrue(half.EdgeShows("left") && half.EdgeShows("top") && half.EdgeShows("bottom"));
+        Assert.IsFalse(half.EdgeShows("right"));
+        Assert.AreEqual("cut off by Clip: 25×40 of 50×40 px visible", half.Text);
+        // the same cut as stock: not more
+        Assert.IsFalse((half with { StockVisible = new RectangleF(100, 20, 25, 40) }).CutsMoreThanStock);
+        // less than VanishPx left: practically gone, no edge counts
+        var sliver = half with { Visible = new RectangleF(100, 20, 2.5f, 40) };
+        Assert.IsTrue(sliver.PracticallyGone);
+        Assert.IsFalse(sliver.EdgeShows("left"));
+        StringAssert.EndsWith(sliver.Text, "practically gone");
+        Assert.AreEqual("outside Clip: not visible", (half with { Visible = new RectangleF(150, 20, 0, 40) }).Text);
     }
 
     [TestMethod]

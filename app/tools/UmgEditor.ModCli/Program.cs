@@ -178,7 +178,9 @@ try
             mods.DeleteDirectory(outDir);
             var impacts = new EditImpact(NewEngine(), new UsageGraph(index), W, H).Predict(edits, p => WidgetTreeReader.Build(source, p));
             Console.WriteLine($"viewport {W}x{H} game px; LDPlayer screenshot = game px + 50 (x) / + 32 (y). JSON for validate_layout.py: {outDir}");
-            foreach (var impact in impacts)
+            // the Impact panel's view of the same layouts: its warnings and which boxes a clip cuts off
+            var report = ImpactReport.Build(editSet ?? "default", W, H, impacts);
+            foreach (var (impact, reported) in impacts.Zip(report.Packages))
             {
                 var a = impact.Package;
                 var title = $"{a.Name}{(a.Board != null ? $" [{a.Board.Label}]" : a.IsOnline ? " [online]" : "")}{(a.Edited ? " (edited)" : $" (embeds via {a.Via})")}";
@@ -187,10 +189,16 @@ try
                 mods.WriteAllText(Path.Combine(outDir, a.Name + ".json"), LayoutExport.ToJson(impact.Edited, a.PackagePath, new { Edits = edits.Values.Select(kv => $"{GamePaths.ShortName(kv.Key.Package)} slot#{kv.Key.SlotExport} {kv.Key.Path} -> {Num(kv.Value)}") }));
                 var scale = impact.Stock.ScaleBoxes.Zip(impact.Edited.ScaleBoxes).Where(p => Math.Abs(p.First.Applied - p.Second.Applied) > 1e-6).ToList();
                 Console.WriteLine($"== {title}: {impact.Changes.Count} box{(impact.Changes.Count == 1 ? "" : "es")} change{(scale.Count > 0 ? $"; RESCALES {string.Join(", ", scale.Select(p => $"{p.First.Widget} x{p.First.Applied:0.#####} -> x{p.Second.Applied:0.#####}"))}" : "")}");
+                foreach (var w in reported.Warnings)
+                    Console.WriteLine($"   [{w.Severity}] {w.Message}");
+                var cuts = reported.Boxes.Where(b => b.CutOff).ToDictionary(b => b.Path, b => b.Cut!);
                 foreach (var c in impact.Changes)
-                    Console.WriteLine($"   {(c.Visible ? "        " : "[hidden]")} {c.Path}  [{c.OwnerPackage}]" + Environment.NewLine +
+                    Console.WriteLine($"   {(c.Visible ? "        " : "[hidden]")} {c.Path}  [{c.OwnerPackage}]" +
+                                      (cuts.TryGetValue(c.Path, out var cut) ? $"  [{cut.Text}]" : "") + Environment.NewLine +
                                       $"            L {c.Before.X:0.0} -> {c.After.X:0.0}  R {c.Before.Right:0.0} -> {c.After.Right:0.0}  T {c.Before.Y:0.0} -> {c.After.Y:0.0}  B {c.Before.Bottom:0.0} -> {c.After.Bottom:0.0}");
             }
+            var dangers = report.Packages.Sum(p => p.Warnings.Count(w => w.Severity == Severity.Danger));
+            Console.WriteLine($"{report.WarningCount} warning{(report.WarningCount == 1 ? "" : "s")}{(dangers > 0 ? $", {dangers} danger (the export dialog asks to acknowledge each)" : "")}");
             return 0;
         }
         default:

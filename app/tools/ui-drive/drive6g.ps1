@@ -2,7 +2,8 @@
 # retoc hash shown, a container without _P and a bad mod name refused; a retoc whose verify fails (-FakeRetoc, a .cmd
 # wrapper around the real retoc) aborts the build and removes mod\; the real retoc builds canary C6's container in the
 # background (log, 3 files with hashes = C6's, predictions, TEST_INSTRUCTIONS.md with every screen and the online
-# warning) and the retoc path is saved to umgeditor.json. Creates project $Project and work\out\mods\$Project-mod
+# warning) and the retoc path is saved to umgeditor.json; then canary C8's timer edit (Time_Timer Left 491, pushed out of
+# Normal_Display): its Danger warning is listed and Build stays disabled until it is ticked (not built). Creates project $Project and work\out\mods\$Project-mod
 # (delete both, and umgeditor.json next to the exe if it wasn't there before). Stops at the first failed check.
 # usage: powershell -NoProfile -ExecutionPolicy Bypass -File drive6g.ps1 -Exe <UmgEditor.App.exe> -Out <folder> -FakeRetoc <retoc_failverify.cmd>
 param([string]$Exe, [string]$Out, [string]$Project = 'zz6g', [string]$FakeRetoc)
@@ -226,6 +227,7 @@ try {
     "out dir: $(DText 'ExportOutDir')"
     Check 'output under work\out\mods\<name>' ((DText 'ExportOutDir') -like "$modDir *")
     Check 'nothing refused' ($null -eq (DText 'ExportRefusals') -and (DialogEl 'ExportBuildButton').Current.IsEnabled)
+    Check 'C6: no layout warnings' ((DText 'ExportImpactWarnings') -eq 'No layout warnings for the picked edits.')
     DSet 'ExportContainer' 'pc9999_mobile_and'
     "refusals: $(DText 'ExportRefusals')"
     Check 'container must end in _P' ((DText 'ExportRefusals') -like '*ending in _P*' -and -not (DialogEl 'ExportBuildButton').Current.IsEnabled)
@@ -278,6 +280,27 @@ try {
     CloseExport
     Check 'the retoc path was saved as a setting' ((Get-Content (Join-Path (Split-Path $Exe) 'umgeditor.json') -Raw) -like '*retoc-x86_64-pc-windows-msvc\\retoc.exe*')
     "status line: $(ActionStatus)"
+
+    # 5) canary C8's timer edit saved too: the Impact panel's Danger warning is listed and Build waits for its tick
+    Select-Tree @('ScaleBox_0', 'Main', 'Window', 'Page_1', 'MatchTime', 'Normal', 'Normal_Display', 'Time_Timer') | Out-Null
+    TypeEnter (Field 'Offsets.Left') '491'
+    Keys '^s'
+    $script:dlg = OpenExport
+    $iw = (DialogEl 'ExportImpactWarningsHeader').Current.HelpText
+    "impact warnings: $iw"
+    "refusals: $(DText 'ExportRefusals')"
+    Check 'the timer Danger warning is listed' ($iw -like '*`[Danger`] MatchTime: Time_Timer ends up almost completely outside Normal_Display*`[tick to acknowledge`]*')
+    Check 'warning row shown' ((DText 'ExportImpactWarning_0') -like '`[Danger`] MatchTime: Time_Timer*')
+    Check 'refused until ticked, Build disabled' ((DText 'ExportRefusals') -like '*Tick the danger warning below*' -and -not (DialogEl 'ExportBuildButton').Current.IsEnabled)
+    Check 'tick box unticked' ((Toggled 'ExportAck_0') -eq 'Off')
+    ShotOf $script:dlg '5_danger_unticked'
+    (DialogEl 'ExportAck_0').GetCurrentPattern([System.Windows.Automation.TogglePattern]::Pattern).Toggle(); Start-Sleep -Milliseconds 700
+    Check 'ticked: nothing refused, Build enabled' ($null -eq (DText 'ExportRefusals') -and (DialogEl 'ExportBuildButton').Current.IsEnabled)
+    Check 'ticked state shown in the summary' ((DialogEl 'ExportImpactWarningsHeader').Current.HelpText -like '*`[acknowledged`]*')
+    ShotOf $script:dlg '5_danger_ticked'
+    (DialogEl 'ExportAck_0').GetCurrentPattern([System.Windows.Automation.TogglePattern]::Pattern).Toggle(); Start-Sleep -Milliseconds 700
+    Check 'unticked again: Build disabled' (-not (DialogEl 'ExportBuildButton').Current.IsEnabled)
+    CloseExport # not built: the ticked build is covered by ExportTests.Run_TimerOut_*
 
     [void]$p.CloseMainWindow()
     Start-Sleep -Seconds 3

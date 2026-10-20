@@ -17,6 +17,20 @@ public sealed class PackageChoice(ExportCandidate candidate, Action changed) : O
     public bool IsChecked { get => _checked; set { if (Set(ref _checked, value)) changed(); } }
 }
 
+/// <summary>An Impact warning for the edits being shipped; a Danger one has a tick box that Build waits for.</summary>
+public sealed class ImpactWarningRow(ExportWarning warning, int index, bool acknowledged, Action<ImpactWarningRow> changed) : ObservableObject
+{
+    public ExportWarning Warning => warning;
+    public string Text => warning.Text;
+    public bool IsDanger => warning.IsDanger;
+    public string Severity => warning.Warning.Severity.ToString();
+    public string TextId => $"ExportImpactWarning_{index}";
+    public string AckId => $"ExportAck_{index}";
+
+    private bool _acknowledged = acknowledged;
+    public bool IsAcknowledged { get => _acknowledged; set { if (Set(ref _acknowledged, value)) changed(this); } }
+}
+
 /// <summary>A built file as a list row (a class: list rows must not be equal records, see WarningView).</summary>
 public sealed class FileRow(ModFile file)
 {
@@ -28,7 +42,8 @@ public sealed class FileRow(ModFile file)
 /// <summary>
 /// 6g: the export dialog. Every input change re-plans through EditorController.PlanExport (refusals and warnings
 /// shown live, Build only when nothing is refused); Build runs RunExport in the background and streams its log.
-/// The retoc path is a setting: it is saved to umgeditor.json when a build starts.
+/// The retoc path is a setting: it is saved to umgeditor.json when a build starts. The Impact panel's warnings for the
+/// picked edits are listed; each Danger one needs its tick (the plan refuses until then).
 /// </summary>
 public sealed class ExportViewModel : ObservableObject
 {
@@ -47,6 +62,7 @@ public sealed class ExportViewModel : ObservableObject
         OpenFolderCommand = new RelayCommand(() => Open(Plan.OutDir), () => Directory.Exists(Plan.OutDir) && !IsBuilding);
         OpenInstructionsCommand = new RelayCommand(() => Open(_instructions!), () => _instructions != null && File.Exists(_instructions));
         _plan = controller.PlanExport(Request);
+        SyncImpactWarnings();
     }
 
     public string Project => _controller.Project;
@@ -63,15 +79,57 @@ public sealed class ExportViewModel : ObservableObject
     private string _retocPath;
     public string RetocPath { get => _retocPath; set { if (Set(ref _retocPath, value ?? "")) Replan(); } }
 
-    private ExportRequest Request => new(ModName, ContainerName, Packages.Where(p => p.IsChecked).Select(p => p.PackagePath).ToList(), RetocPath);
+    private ExportRequest Request => new(ModName, ContainerName, Packages.Where(p => p.IsChecked).Select(p => p.PackagePath).ToList(), RetocPath, _acknowledged.ToHashSet());
 
     private ExportPlan _plan;
     public ExportPlan Plan { get => _plan; private set { if (Set(ref _plan, value)) OnPlanChanged(); } }
 
     private void Replan() => Plan = _controller.PlanExport(Request);
 
+    // ---- Impact warnings for the picked packages' saved edits (ticks survive re-plans: keyed by the warning) ----
+
+    private readonly HashSet<string> _acknowledged = [];
+
+    private IReadOnlyList<ImpactWarningRow> _impactWarnings = [];
+    public IReadOnlyList<ImpactWarningRow> ImpactWarnings { get => _impactWarnings; private set => Set(ref _impactWarnings, value); }
+    public bool HasImpactWarnings => ImpactWarnings.Count > 0;
+    /// <summary>All of them as one text (one UIA element; lists of equal strings vanish from UIA).</summary>
+    public string ImpactWarningsText => ImpactWarnings.Count == 0
+        ? "No layout warnings for the picked edits."
+        : string.Join("\n", ImpactWarnings.Select(w => w.Text + (w.IsDanger ? w.IsAcknowledged ? " [acknowledged]" : " [tick to acknowledge]" : "")));
+    public string ImpactWarningsHeader
+    {
+        get
+        {
+            var dangers = ImpactWarnings.Count(w => w.IsDanger);
+            return $"Layout warnings (Impact panel): {ImpactWarnings.Count}" + (dangers > 0 ? $", {dangers} danger: tick each to build anyway" : "");
+        }
+    }
+
+    private void OnAcknowledged(ImpactWarningRow row)
+    {
+        if (row.IsAcknowledged) _acknowledged.Add(row.Warning.Key);
+        else _acknowledged.Remove(row.Warning.Key);
+        Replan();
+    }
+
+    private void SyncImpactWarnings()
+    {
+        var warnings = Plan.ImpactWarnings;
+        if (warnings.Select(w => w.Key).SequenceEqual(ImpactWarnings.Select(r => r.Warning.Key)))
+        {
+            OnPropertyChanged(nameof(ImpactWarningsText));
+            return; // same warnings: keep the rows (and the focus on a tick box)
+        }
+        ImpactWarnings = warnings.Select((w, i) => new ImpactWarningRow(w, i, _acknowledged.Contains(w.Key), OnAcknowledged)).ToList();
+        OnPropertyChanged(nameof(HasImpactWarnings));
+        OnPropertyChanged(nameof(ImpactWarningsText));
+        OnPropertyChanged(nameof(ImpactWarningsHeader));
+    }
+
     private void OnPlanChanged()
     {
+        SyncImpactWarnings();
         OnPropertyChanged(nameof(RefusalsText));
         OnPropertyChanged(nameof(WarningsText));
         OnPropertyChanged(nameof(OutDirText));
