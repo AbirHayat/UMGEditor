@@ -20,11 +20,15 @@ public sealed class GameSource : IDisposable
     /// <summary>Changes whenever a container file is added, removed, resized or touched; used to invalidate caches.</summary>
     public string Fingerprint { get; }
 
+    /// <summary>Mobile or PC, detected from the mounted file keys (PesMobile/… vs PesConsole/…).</summary>
+    public GamePlatform Platform { get; }
+
     private GameSource(GameConfig config, DefaultFileProvider provider, string fingerprint)
     {
         Config = config;
         Provider = provider;
         Fingerprint = fingerprint;
+        Platform = GamePlatform.Detect(provider.Files.Keys);
     }
 
     public static GameSource Open(GameConfig config)
@@ -48,7 +52,7 @@ public sealed class GameSource : IDisposable
     /// </summary>
     public string ResolveFileKey(string packageOrObjectPath)
     {
-        var key = GamePaths.ToFileKey(packageOrObjectPath);
+        var key = GamePaths.ToFileKey(packageOrObjectPath, Platform);
         if (Provider.Files.ContainsKey(key)) return key;
         var map = LazyInitializer.EnsureInitialized(ref _caseInsensitiveKeys, () =>
         {
@@ -58,13 +62,13 @@ public sealed class GameSource : IDisposable
         });
         if (map.TryGetValue(key, out var actual)) return actual;
 
-        // cooked data can reference another platform's override folder (seen: Platforms/_Windows); this build ships _Android
+        // cooked data can reference another platform's override folder (seen on mobile: Platforms/_Windows); use this build's own
         var platforms = key.IndexOf("/Platforms/_", StringComparison.OrdinalIgnoreCase);
         if (platforms >= 0)
         {
             var slash = key.IndexOf('/', platforms + "/Platforms/_".Length);
-            var android = key[..platforms] + "/Platforms/_Android" + key[slash..];
-            if (map.TryGetValue(android, out actual)) return actual;
+            var own = key[..platforms] + "/Platforms/" + Platform.OverrideFolder + key[slash..];
+            if (map.TryGetValue(own, out actual)) return actual;
         }
         return key;
     }

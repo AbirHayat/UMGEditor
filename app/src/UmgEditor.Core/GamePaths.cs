@@ -3,22 +3,23 @@ namespace UmgEditor.Core;
 /// <summary>Converts between provider file keys and engine object paths.</summary>
 public static class GamePaths
 {
-    private const string ContentPrefix = "PesMobile/Content/";
     private const string GamePrefix = "/Game/";
 
-    /// <summary>"PesMobile/Content/Assets/x/Y.uasset" → "/Game/Assets/x/Y"</summary>
+    /// <summary>"PesMobile/Content/Assets/x/Y.uasset" (or PesConsole/Content/… on PC) → "/Game/Assets/x/Y"</summary>
     public static string ToPackagePath(string fileKey)
     {
         var noExt = fileKey.EndsWith(".uasset", StringComparison.OrdinalIgnoreCase) ? fileKey[..^".uasset".Length] : fileKey;
-        return noExt.StartsWith(ContentPrefix, StringComparison.OrdinalIgnoreCase) ? GamePrefix + noExt[ContentPrefix.Length..] : noExt;
+        foreach (var p in GamePlatform.All)
+            if (noExt.StartsWith(p.ContentPrefix, StringComparison.OrdinalIgnoreCase)) return GamePrefix + noExt[p.ContentPrefix.Length..];
+        return noExt;
     }
 
-    /// <summary>"/Game/Assets/x/Y" (or an object path "/Game/Assets/x/Y.Y_C") → "PesMobile/Content/Assets/x/Y.uasset"</summary>
-    public static string ToFileKey(string packageOrObjectPath)
+    /// <summary>"/Game/Assets/x/Y" (or an object path "/Game/Assets/x/Y.Y_C") → "PesMobile/Content/Assets/x/Y.uasset" (the platform's content folder)</summary>
+    public static string ToFileKey(string packageOrObjectPath, GamePlatform? platform = null)
     {
         var package = PackageOf(packageOrObjectPath);
         return package.StartsWith(GamePrefix, StringComparison.OrdinalIgnoreCase)
-            ? ContentPrefix + package[GamePrefix.Length..] + ".uasset"
+            ? (platform ?? GamePlatform.Mobile).ContentPrefix + package[GamePrefix.Length..] + ".uasset"
             : package + ".uasset";
     }
 

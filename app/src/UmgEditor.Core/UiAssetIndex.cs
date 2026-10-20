@@ -71,9 +71,9 @@ public static class UiAssetIndex
         var file = source.Provider.Files[path];
         var name = System.IO.Path.GetFileNameWithoutExtension(path);
         var folder = System.IO.Path.GetDirectoryName(path)!.Replace('\\', '/');
-        var isOverride = path.Contains("/Platforms/_Android/", StringComparison.OrdinalIgnoreCase);
+        var isOverride = path.Contains(source.Platform.OverrideMarker, StringComparison.OrdinalIgnoreCase);
         var isBulk = BulkImageFolders.Any(f => path.Contains(f, StringComparison.OrdinalIgnoreCase));
-        var group = GroupOf(path, isOverride);
+        var group = GroupOf(path, isOverride ? source.Platform : null);
         var container = source.ContainerOf(path);
 
         if (isBulk)
@@ -113,9 +113,9 @@ public static class UiAssetIndex
     }
 
     /// <summary>Widget/&lt;Category&gt; for ui/Data/Widget, otherwise the first folder below ui/.</summary>
-    private static string GroupOf(string path, bool isOverride)
+    private static string GroupOf(string path, GamePlatform? overrideOf)
     {
-        if (isOverride) return "Android override";
+        if (overrideOf != null) return overrideOf.OverrideFolder.TrimStart('_') + " override";
         var i = path.IndexOf("/ui/Data/Widget/", StringComparison.OrdinalIgnoreCase);
         if (i >= 0)
         {

@@ -7,6 +7,7 @@
     <Project Path="tests/UmgEditor.Tests/UmgEditor.Tests.csproj" />
   </Folder>
   <Folder Name="/tools/">
+    <Project Path="tools/UmgEditor.Compare/UmgEditor.Compare.csproj" />
     <Project Path="tools/UmgEditor.ModCli/UmgEditor.ModCli.csproj" />
     <Project Path="tools/UmgEditor.Smoke/UmgEditor.Smoke.csproj" />
   </Folder>

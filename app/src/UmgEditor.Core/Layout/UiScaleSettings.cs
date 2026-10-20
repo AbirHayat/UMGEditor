@@ -30,13 +30,11 @@ public sealed partial class UiScaleSettings
     public IReadOnlyList<string> Origins { get; private init; } = [];
     public ValueSource Source { get; private init; } = ValueSource.Assumed;
 
-    private static readonly string[] Files = ["Engine/Config/BaseEngine.ini", "PesMobile/Config/DefaultEngine.ini"]; // later files override
-
     public static UiScaleSettings Load(GameSource source)
     {
         string? rule = null, curve = null, appScale = null;
         var origins = new List<string>();
-        foreach (var file in Files)
+        foreach (var file in new[] { "Engine/Config/BaseEngine.ini", source.Platform.ConfigPrefix + "DefaultEngine.ini" }) // later files override
         {
             if (!source.Provider.TrySaveAsset(file, out var bytes)) continue;
             var section = ReadSection(System.Text.Encoding.UTF8.GetString(bytes), "/Script/Engine.UserInterfaceSettings");
