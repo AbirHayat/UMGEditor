@@ -130,3 +130,31 @@ plate is a slightly lighter navy. That changes colours only; every geometry chec
   white name bar is a different plate and unchanged. MatchTimeCard / MatchTimeMemberChange and the online
   equivalents embed MatchTimeBase too, so they are presumably affected the same way. The predictions only arranged
   the MatchTime board. A shared-child edit needs a prediction for every direct user, and the warning should name them.
+
+## Canary C6 (2026-10-19/20, LDPlayer, built by `umgmod`; screenshots `ss/c6_a..c6_e.png`)
+First container with **two packages** (MatchTime + MatchTimeBase, two store entries in the header): C1's
+`Img_MatchTimeBg_1` Left 126→146 plus C3's MatchTimeBase `Img_Plate` Right 0→100. Same texture mod as C1–C3 (white
+boxes). `validate_layout.py` against `work/out/mods/_predictions/C6/*.json` (crop 50/32), game px:
+
+| Shot | Screen | Element | Measured (pred) | Result |
+|---|---|---|---|---|
+| c6_a | kick-off, 0:00 | score box L / R | 180 / 291 (179.6 / 290.7) | PASS |
+| | | navy plate R | 296 (296.3) | PASS |
+| c6_c | in play, 11:04 | score box L / R | 180 / 291 (179.6 / 290.7) | PASS |
+| | | navy plate R | 295 (296.3) | PASS |
+| c6_b | goal banner | "Today's Goals" plate R | 463 (463.0) | PASS |
+| c6_d | card pop-up ("Booked") | navy plate R | 452 (451.9) | PASS (first measurement) |
+| c6_e | substitution pop-up | navy plate R | 452 (451.9) | PASS (first measurement), see below |
+
+All top/bottom edges are within 2 px (tops +1.4…+2.0, bottoms the usual −0.6 half pixel).
+
+- **Two-package container works:** both edits are on screen together, so ModBuilder's multi-entry header is accepted
+  and both store entries load.
+- **Card and substitution pop-ups confirmed:** the MatchTimeBase edit reaches them as EditImpact predicted
+  (−92.6 px each). That closes the "presumably affected" note from C3 for the offline packages; the four online
+  MatchTimeConnection* packages are still predicted only.
+- **Validator false FAIL on c6_e:** it reported 448 (−3.9 px) because its scan row crosses the yellow "g" of
+  "P. E. Aubameyang", which runs over the plate's edge. On every row clear of the text (y 114–118 and 154–156 in the
+  screenshot) the dark-navy plate ends at screenshot x 502 = game 452, the same as c6_d.
+- **KickOff_Show still open:** c6_a again shows the board fully in at 0:00 with the stored value, as in C1. Catching
+  the slot *during* the ~2.9 s intro needs a screen recording rather than a screenshot.
