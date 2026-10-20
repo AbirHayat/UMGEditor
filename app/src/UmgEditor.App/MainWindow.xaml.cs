@@ -1,5 +1,6 @@
 using System.IO;
 using System.Windows;
+using System.Windows.Automation;
 using System.Windows.Controls;
 using System.Windows.Input;
 using UmgEditor.App.ViewModels;
@@ -42,12 +43,32 @@ public partial class MainWindow : Window
         {
             e.Handled = true;
             if (!_vm.CommitField(field, box.Text)) box.Text = field.DisplayValue;
+            else box.Tag = nameof(TypedState.Applied); // applied: no cue while the inspector re-reads the field
         }
         else if (e.Key == Key.Escape)
         {
             e.Handled = true;
             box.Text = field.DisplayValue;
         }
+    }
+
+    // typed text that differs from the applied value: the template's triggers colour the box by Tag, the hint is the
+    // tooltip, and UI Automation reads the state as ItemStatus
+    private void OnFieldTextChanged(object sender, TextChangedEventArgs e)
+    {
+        if (sender is not TextBox { DataContext: FieldInspection field } box) return;
+        var state = field.Typed(box.Text);
+        box.Tag = state.ToString();
+        AutomationProperties.SetItemStatus(box, state.ToString());
+        if (field.TypedHint(box.Text) is { } hint) box.ToolTip = hint;
+        else box.ClearValue(ToolTipProperty);
+    }
+
+    // bytes-to-patch tab: copy one value
+    private void OnCopyPatchRow(object sender, RoutedEventArgs e)
+    {
+        if (sender is FrameworkElement { DataContext: PatchRow row })
+            _vm.CopyText(row.ToText(), $"{row.Slot}.{row.Field}");
     }
 
     // TreeView.SelectedItem is read-only, so selection is forwarded here

@@ -31,6 +31,8 @@ public sealed class MainViewModel : ObservableObject
         RedoCommand = new RelayCommand(Redo, () => _controller?.CanRedo == true);
         SaveCommand = new RelayCommand(Save, () => _controller?.AnyDirty == true);
         CreateProjectCommand = new RelayCommand(CreateProject, () => _controller != null && NewProjectName.Trim().Length > 0);
+        CopyBytesCommand = new RelayCommand(() => { if (Bytes is { } b) CopyText(b.ToText(), $"the bytes to patch ({b.ValueCount} value{(b.ValueCount == 1 ? "" : "s")})"); },
+            () => Bytes is { IsEmpty: false });
         Preview = new PreviewViewModel(config.WorkDir);
     }
 
@@ -43,7 +45,22 @@ public sealed class MainViewModel : ObservableObject
     public bool IsBusy { get => _isBusy; private set => Set(ref _isBusy, value); }
 
     private string _status = "";
+    /// <summary>Loading, indexing and the package filter.</summary>
     public string Status { get => _status; private set => Set(ref _status, value); }
+
+    private string _actionStatus = "";
+    /// <summary>Status line for project actions (save, undo/redo, discard, new project, copy); the filter doesn't overwrite it.</summary>
+    public string ActionStatus { get => _actionStatus; private set => Set(ref _actionStatus, value); }
+
+    private string? _actionDetail;
+    /// <summary>Tooltip of the action status line (the full save report after a save).</summary>
+    public string? ActionDetail { get => _actionDetail; private set => Set(ref _actionDetail, value); }
+
+    private void SetAction(string text, string? detail = null)
+    {
+        ActionStatus = $"{DateTime.Now:HH:mm:ss}  {text}";
+        ActionDetail = detail;
+    }
 
     private IReadOnlyList<UiAssetEntry> _items = [];
     public IReadOnlyList<UiAssetEntry> Items { get => _items; private set => Set(ref _items, value); }
@@ -143,12 +160,13 @@ public sealed class MainViewModel : ObservableObject
             }
             if (_controller.SwitchProject(value) is { } why)
             {
-                Status = why;
+                SetAction(why);
                 OnPropertyChanged(); // the combo box goes back to the current project
                 return;
             }
             _project = value;
             OnPropertyChanged();
+            OnPropertyChanged(nameof(Title)); // the controller's Changed ran before _project was set
         }
     }
 
@@ -160,7 +178,12 @@ public sealed class MainViewModel : ObservableObject
     public string Title => "eFootball Mobile UMG Editor — " + _project + (_controller?.AnyDirty == true ? " *" : "");
 
     private string _newProjectName = "";
-    public string NewProjectName { get => _newProjectName; set => Set(ref _newProjectName, value ?? ""); }
+    public string NewProjectName
+    {
+        get => _newProjectName;
+        // New follows the name even when it isn't typed (pasted, or set by UI Automation): no input event re-queries it
+        set { if (Set(ref _newProjectName, value ?? "")) CommandManager.InvalidateRequerySuggested(); }
+    }
 
     /// <summary>A package or project switch was cancelled: the list and picker must show the open one again.</summary>
     public event EventHandler? SwitchRefused;
@@ -225,28 +248,30 @@ public sealed class MainViewModel : ObservableObject
     {
         if (_controller is not { } c || c.NextUndo is not { } package || !c.Undo()) return;
         ClearEditMessage();
-        Status = $"Undid an edit in {GamePaths.ShortName(package)}.";
+        SetAction($"Undid an edit in {GamePaths.ShortName(package)}.");
     }
 
     private void Redo()
     {
         if (_controller is not { } c || c.NextRedo is not { } package || !c.Redo()) return;
         ClearEditMessage();
-        Status = $"Redid an edit in {GamePaths.ShortName(package)}.";
+        SetAction($"Redid an edit in {GamePaths.ShortName(package)}.");
     }
 
     private void Save() => SaveAndReport(null);
 
-    /// <summary>Saves (one package, or all when null) and shows the save dialog. Returns true when nothing was refused.</summary>
+    /// <summary>
+    /// Saves (one package, or all when null). A save shows on the status line, with the full report in its tooltip;
+    /// only refusals open the dialog. Returns true when nothing was refused.
+    /// </summary>
     private bool SaveAndReport(string? package)
     {
         if (_controller is not { } c) return false;
         var results = package == null ? c.SaveAll() : c.SavePackage(package);
         var report = EditorController.SaveReport(results);
         var ok = results.All(r => r.Result.Saved);
-        Status = report.Split('\n')[0];
-        if (results.Count > 0)
-            Ask(report, ok ? "Saved" : "Save refused", MessageBoxButton.OK, ok ? MessageBoxImage.Information : MessageBoxImage.Error);
+        SetAction(EditorController.SaveStatus(results), report);
+        if (!ok) Ask(report, "Save refused", MessageBoxButton.OK, MessageBoxImage.Error);
         return ok;
     }
 
@@ -264,7 +289,7 @@ public sealed class MainViewModel : ObservableObject
         if (answer == MessageBoxResult.Yes) return SaveAndReport(package);
         if (answer != MessageBoxResult.No) return false;
         c.DiscardUnsaved(package);
-        Status = $"Discarded the unsaved edits in {what}.";
+        SetAction($"Discarded the unsaved edits in {what} (Ctrl+Z brings them back).");
         return true;
     }
 
@@ -283,13 +308,65 @@ public sealed class MainViewModel : ObservableObject
         if (_controller is not { } c) return;
         var name = NewProjectName.Trim();
         if (c.AnyDirty && !ResolveUnsaved(null, $"creating project {name}")) return;
-        if (c.CreateProject(name) is { } why) { Status = "New project: " + why; return; }
+        if (c.CreateProject(name) is { } why) { SetAction("New project: " + why); return; }
         Projects = EditorController.Projects(_config);
         _project = c.Project;
         OnPropertyChanged(nameof(SelectedProject));
         OnPropertyChanged(nameof(Title));
         NewProjectName = "";
-        Status = $"Created project {c.Project} ({c.ProjectFolder}).";
+        SetAction($"Created project {c.Project} ({c.ProjectFolder}).");
+    }
+
+    // ---- 6d: bytes to patch ----
+
+    private BytesReport? _bytes;
+    private int _bytesVersion;
+    /// <summary>What the bytes-to-patch tab shows; rebuilt after every change to the project.</summary>
+    public BytesReport? Bytes
+    {
+        get => _bytes;
+        private set { if (Set(ref _bytes, value)) OnPropertyChanged(nameof(BytesTabHeader)); }
+    }
+
+    public string BytesTabHeader => Bytes is { IsEmpty: false } b ? $"Bytes to patch ({b.ValueCount})" : "Bytes to patch";
+
+    private string? _bytesError;
+    public string? BytesError { get => _bytesError; private set => Set(ref _bytesError, value); }
+
+    public RelayCommand CopyBytesCommand { get; }
+
+    /// <summary>Puts text on the clipboard and says so on the status line.</summary>
+    public void CopyText(string text, string what)
+    {
+        try
+        {
+            Clipboard.SetText(text);
+            SetAction($"Copied {what} to the clipboard.");
+        }
+        catch (System.Runtime.InteropServices.COMException e)
+        {
+            SetAction($"Couldn't copy {what}: the clipboard is in use ({e.Message}).");
+        }
+    }
+
+    private async Task RefreshBytesAsync()
+    {
+        var version = ++_bytesVersion;
+        if (_controller is not { } c) return;
+        // widget names come from the package trees: load them off the UI thread first (cached), then plan here
+        try { await Task.WhenAll(c.Sessions.Select(s => LoadTree(s.PackagePath, readOnly: false)).ToList()); }
+        catch (Exception) { /* a tree that doesn't load only costs the widget name */ }
+        if (version != _bytesVersion) return;
+        try
+        {
+            Bytes = c.BytesToPatch();
+            BytesError = null;
+        }
+        catch (Exception e)
+        {
+            Bytes = null;
+            BytesError = "Couldn't plan the bytes to patch: " + e.Message;
+        }
     }
 
     private static MessageBoxResult Ask(string text, string caption, MessageBoxButton buttons, MessageBoxImage icon) =>
@@ -331,6 +408,7 @@ public sealed class MainViewModel : ObservableObject
         OnPropertyChanged(nameof(Title));
         CommandManager.InvalidateRequerySuggested();
         _ = InspectAsync();
+        _ = RefreshBytesAsync();
     }
 
     public string NodeSource => SelectedNode?.Node is not { } n ? "" :

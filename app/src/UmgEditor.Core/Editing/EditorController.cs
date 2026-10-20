@@ -9,6 +9,9 @@ namespace UmgEditor.Core.Editing;
 /// <summary>Why a field (or a whole slot) is greyed out, grouped so the UI can explain each kind once.</summary>
 public enum GreyReason { None, Library, EmbeddedReadOnly, NoSlot, NotCanvasSlot, NotStored, Boolean, NotLayoutValue }
 
+/// <summary>Text typed into an inspector field compared with the value that is applied.</summary>
+public enum TypedState { Applied, Pending, Invalid }
+
 /// <summary>One slot field as the inspector shows it: stock value, whether it's stored or edited, and why it may be greyed.</summary>
 public sealed record FieldInspection(string Path, string StockValue, bool Stored, double? EditedValue, GreyReason Grey, string? Reason)
 {
@@ -19,6 +22,27 @@ public sealed record FieldInspection(string Path, string StockValue, bool Stored
     public string ShortPath => Path.Replace("LayoutData.", "");
     /// <summary>Why it's greyed, or the stock value when edited.</summary>
     public string? ToolTip => Reason ?? (IsEdited ? $"Stock value {StockValue}. Type it again (or undo) to go back." : null);
+
+    /// <summary>
+    /// Whether typed text differs from the applied value: Applied when Enter would change nothing (same text, or a
+    /// number that stores as the same value, e.g. "100.0" for 100), Pending for another number, Invalid otherwise.
+    /// </summary>
+    public TypedState Typed(string text)
+    {
+        if (!Editable || text.Trim() == DisplayValue) return TypedState.Applied;
+        var (value, why) = EditorController.ParseNumber(text);
+        if (why != null) return TypedState.Invalid;
+        var applied = EditedValue ?? EditSet.Parse(StockValue);
+        return SlotEditor.StoredValue(Path, value).Equals(applied) ? TypedState.Applied : TypedState.Pending;
+    }
+
+    /// <summary>The cue's tooltip for typed text that isn't applied, null when it is.</summary>
+    public string? TypedHint(string text) => Typed(text) switch
+    {
+        TypedState.Pending => $"Typed {text.Trim()}, not applied: the value is still {DisplayValue}. Enter applies it, Esc reverts.",
+        TypedState.Invalid => $"{EditorController.ParseNumber(text).Refusal} The value is still {DisplayValue}; Esc reverts.",
+        _ => null,
+    };
 }
 
 /// <summary>Everything the inspector shows for a selected widget (read-only data; 6b).</summary>
@@ -351,6 +375,44 @@ public sealed class EditorController
             ? $"{GamePaths.ShortName(r.Package)}: {r.Result.Summary}\n    {r.Result.OutputPath}"
             : $"{GamePaths.ShortName(r.Package)}: REFUSED\n" + string.Join("\n", r.Result.Refusals.Select(x => $"    [{x.Rule}] {x.Message}")));
         return head + "\n\n" + string.Join("\n\n", lines);
+    }
+
+    /// <summary>The status line after a save: one entry per package (values, bytes that differ from stock).</summary>
+    public static string SaveStatus(IReadOnlyList<(string Package, SaveResult Result)> results)
+    {
+        if (results.Count == 0) return "Nothing to save.";
+        var refused = results.Where(r => !r.Result.Saved).Select(r => GamePaths.ShortName(r.Package)).ToList();
+        if (refused.Count > 0) return $"Save refused for {string.Join(", ", refused)}; nothing of {(refused.Count == 1 ? "it" : "them")} was written.";
+        var parts = results.Select(r =>
+        {
+            int values = r.Result.Plan.Entries.Count, bytes = r.Result.ChangedOffsets.Count;
+            return values == 0 ? $"{GamePaths.ShortName(r.Package)} (back to stock)"
+                : $"{GamePaths.ShortName(r.Package)} ({values} value{(values == 1 ? "" : "s")}, {bytes} byte{(bytes == 1 ? "" : "s")} differ from stock)";
+        });
+        return $"Saved {string.Join(", ", parts)}; rebuilt from the stock copy, verified, size unchanged.";
+    }
+
+    // ---- 6d: bytes to patch ----
+
+    private readonly Dictionary<string, Dictionary<int, string>> _widgetNames = new(StringComparer.OrdinalIgnoreCase);
+
+    /// <summary>The bytes-to-patch panel: every package with edits, planned on its stock copy (live: call after each change).</summary>
+    public BytesReport BytesToPatch() => BytesReport.Build(Project, _sessions.Values, WidgetOf);
+
+    /// <summary>The widget whose slot is this export (the tree is cached by the loader), or null.</summary>
+    private string? WidgetOf(string package, int slotExport)
+    {
+        if (!_widgetNames.TryGetValue(package, out var names))
+        {
+            try
+            {
+                names = _loadTree(package).All().Where(n => n.Slot != null && !n.IsReadOnly)
+                    .GroupBy(n => n.Slot!.ExportIndex).ToDictionary(g => g.Key, g => g.First().Name);
+            }
+            catch (Exception) { names = []; } // a tree that doesn't load only costs the widget name (the slot name is shown)
+            _widgetNames[package] = names;
+        }
+        return names.GetValueOrDefault(slotExport);
     }
 
     // ---- impact and mods ----

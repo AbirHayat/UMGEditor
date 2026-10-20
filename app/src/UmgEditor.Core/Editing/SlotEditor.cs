@@ -80,9 +80,11 @@ public static class SlotEditor
     {
         if (FieldRefusal(node, path) is { } r) return EditResult.Refused(r);
         if (double.IsNaN(value) || double.IsInfinity(value)) return EditResult.Refused($"{Short(path)}: {value} is not a finite number.");
-        var stored = path == "ZOrder" ? Math.Round(value) : F32(value);
-        return EditResult.Of([new FieldChange(FieldKey.Of(node, path), edits.Effective(node, path), stored)]);
+        return EditResult.Of([new FieldChange(FieldKey.Of(node, path), edits.Effective(node, path), StoredValue(path, value))]);
     }
+
+    /// <summary>What SetField stores for a typed value: ZOrder rounded to an integer, everything else rounded to float32.</summary>
+    public static double StoredValue(string path, double value) => path == "ZOrder" ? Math.Round(value) : F32(value);
 
     /// <summary>Move by (dx, dy). Non-stretched axis: Left/Top += d. Stretched axis: Left += d and Right −= d.</summary>
     public static EditResult Move(WidgetNode node, EditSet edits, double dx, double dy)

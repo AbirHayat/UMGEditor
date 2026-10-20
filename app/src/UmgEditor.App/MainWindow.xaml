@@ -94,7 +94,9 @@
             <DockPanel>
                 <ProgressBar DockPanel.Dock="Right" Width="160" Height="12" IsIndeterminate="True"
                              Visibility="{Binding IsBusy, Converter={StaticResource BoolToVis}}" />
-                <TextBlock Text="{Binding Status}" />
+                <TextBlock x:Name="StatusText" DockPanel.Dock="Right" Margin="16,0,8,0" Foreground="#666" Text="{Binding Status}" />
+                <!-- 6d: save, undo/redo, discard, new project, copy (the full save report in the tooltip) -->
+                <TextBlock x:Name="ActionStatusText" Text="{Binding ActionStatus}" ToolTip="{Binding ActionDetail}" TextTrimming="CharacterEllipsis" />
             </DockPanel>
         </Border>
 
@@ -242,6 +244,120 @@
                                           UnderlayCrop="{Binding UnderlayCrop}" />
                     </DockPanel>
                 </TabItem>
+                <!-- 6d: bytes to patch (live) -->
+                <TabItem x:Name="BytesTab" Header="{Binding BytesTabHeader}">
+                    <DockPanel Margin="0,6,0,0">
+                        <DockPanel DockPanel.Dock="Top">
+                            <Button x:Name="CopyBytesButton" DockPanel.Dock="Right" Content="Copy all" Padding="10,1" Margin="8,0,0,0" VerticalAlignment="Top"
+                                    Command="{Binding CopyBytesCommand}" ToolTip="Copy the whole report as text (the field's bytes in [ ])" />
+                            <TextBlock x:Name="BytesSummaryText" TextWrapping="Wrap" FontWeight="SemiBold" Text="{Binding Bytes.Summary, FallbackValue='Loading…'}" />
+                        </DockPanel>
+                        <TextBlock DockPanel.Dock="Top" Margin="0,4,0,0" Foreground="#B91C1C" TextWrapping="Wrap" Text="{Binding BytesError}"
+                                   Visibility="{Binding BytesError, Converter={StaticResource NullToVis}}" />
+                        <TextBlock DockPanel.Dock="Top" Margin="0,4,0,6" FontSize="11" Foreground="#666" TextWrapping="Wrap"
+                                   Text="Planned on each package's stock copy after every edit, undo and save. Offsets are in the raw Zen chunk (the .uasset under work\edits). In the ±32-byte stock context the field's bytes are highlighted; red bytes are the ones the patch changes. Copy (one value) and Copy all put the same report on the clipboard as text, with the field's bytes in [ ]." />
+                        <ScrollViewer VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Auto">
+                            <ItemsControl x:Name="BytesList" ItemsSource="{Binding Bytes.Packages}">
+                                <ItemsControl.ItemTemplate>
+                                    <DataTemplate>
+                                        <StackPanel Margin="0,0,0,14">
+                                            <TextBlock x:Name="H" Text="{Binding Header}" FontSize="14" FontWeight="SemiBold" />
+                                            <TextBox Style="{StaticResource Value}" Foreground="#666" FontSize="11" Text="{Binding FileKey, Mode=OneWay}" />
+                                            <TextBlock Margin="0,4,0,0" Foreground="#444" TextWrapping="Wrap" Text="{Binding EmptyText}"
+                                                       Visibility="{Binding EmptyText, Converter={StaticResource NullToVis}}" />
+                                            <ItemsControl ItemsSource="{Binding Rows}">
+                                                <ItemsControl.ItemTemplate>
+                                                    <DataTemplate>
+                                                        <Border Margin="0,6,0,0" Padding="8,6" Background="#FAFAFA" BorderBrush="#E5E7EB" BorderThickness="1" CornerRadius="3"
+                                                                AutomationProperties.Name="{Binding Field}">
+                                                            <StackPanel>
+                                                                <DockPanel>
+                                                                    <Button DockPanel.Dock="Right" Content="Copy" Padding="6,0" FontSize="11" Click="OnCopyPatchRow"
+                                                                            ToolTip="Copy this value's bytes as text" />
+                                                                    <TextBlock TextWrapping="Wrap" FontWeight="SemiBold">
+                                                                        <Run Text="{Binding Slot, Mode=OneWay}" /><Run Text="  ·  " Foreground="#888" /><Run Text="{Binding Field, Mode=OneWay}" Foreground="#1D4ED8" /><Run Text="{Binding TypeText, Mode=OneWay, StringFormat='  {0}'}" Foreground="#888" FontWeight="Normal" />
+                                                                    </TextBlock>
+                                                                </DockPanel>
+                                                                <Grid Margin="0,4,0,0" TextElement.FontFamily="Consolas">
+                                                                    <Grid.ColumnDefinitions>
+                                                                        <ColumnDefinition Width="70" />
+                                                                        <ColumnDefinition Width="*" />
+                                                                    </Grid.ColumnDefinitions>
+                                                                    <Grid.RowDefinitions>
+                                                                        <RowDefinition /><RowDefinition /><RowDefinition /><RowDefinition /><RowDefinition />
+                                                                    </Grid.RowDefinitions>
+                                                                    <TextBlock Foreground="#666" Text="offset" />
+                                                                    <TextBox Grid.Column="1" Style="{StaticResource Value}" FontFamily="Consolas" Text="{Binding Entry.OffsetHex, Mode=OneWay}" />
+                                                                    <TextBlock Grid.Row="1" Foreground="#666" Text="value" />
+                                                                    <TextBox Grid.Row="1" Grid.Column="1" Style="{StaticResource Value}" FontFamily="Consolas" FontWeight="SemiBold" Text="{Binding ValueText, Mode=OneWay}" />
+                                                                    <TextBlock Grid.Row="2" Foreground="#666" Text="old hex" />
+                                                                    <TextBox Grid.Row="2" Grid.Column="1" Style="{StaticResource Value}" FontFamily="Consolas" Text="{Binding Entry.OldHex, Mode=OneWay}" />
+                                                                    <TextBlock Grid.Row="3" Foreground="#666" Text="new hex" />
+                                                                    <TextBlock Grid.Row="3" Grid.Column="1" TextWrapping="Wrap">
+                                                                        <Run Text="{Binding Entry.NewHex, Mode=OneWay}" FontWeight="SemiBold" Foreground="#B91C1C" /><Run Text="{Binding ChangedText, Mode=OneWay, StringFormat='   {0}'}" Foreground="#666" FontFamily="Segoe UI" />
+                                                                    </TextBlock>
+                                                                    <TextBlock Grid.Row="4" Foreground="#666" Text="context" />
+                                                                    <TextBlock Grid.Row="4" Grid.Column="1" Foreground="#444" FontFamily="Segoe UI" TextWrapping="Wrap" Text="{Binding MatchText}" />
+                                                                </Grid>
+                                                                <ItemsControl Margin="70,2,0,0" ItemsSource="{Binding Context}" TextElement.FontFamily="Consolas" TextElement.FontSize="12">
+                                                                    <ItemsControl.ItemTemplate>
+                                                                        <DataTemplate>
+                                                                            <StackPanel Orientation="Horizontal">
+                                                                                <TextBlock Text="{Binding OffsetHex}" Foreground="#888" Margin="0,0,8,0" />
+                                                                                <ItemsControl ItemsSource="{Binding Cells}">
+                                                                                    <ItemsControl.ItemsPanel>
+                                                                                        <ItemsPanelTemplate><StackPanel Orientation="Horizontal" /></ItemsPanelTemplate>
+                                                                                    </ItemsControl.ItemsPanel>
+                                                                                    <ItemsControl.ItemTemplate>
+                                                                                        <DataTemplate>
+                                                                                            <Border x:Name="C" Padding="3,0">
+                                                                                                <TextBlock x:Name="T" Text="{Binding Text}" />
+                                                                                            </Border>
+                                                                                            <DataTemplate.Triggers>
+                                                                                                <DataTrigger Binding="{Binding Kind}" Value="Field">
+                                                                                                    <Setter TargetName="C" Property="Background" Value="#DBEAFE" />
+                                                                                                    <Setter TargetName="T" Property="Foreground" Value="#1E3A8A" />
+                                                                                                </DataTrigger>
+                                                                                                <DataTrigger Binding="{Binding Changes}" Value="True">
+                                                                                                    <Setter TargetName="T" Property="Foreground" Value="#B91C1C" />
+                                                                                                    <Setter TargetName="T" Property="FontWeight" Value="Bold" />
+                                                                                                </DataTrigger>
+                                                                                            </DataTemplate.Triggers>
+                                                                                        </DataTemplate>
+                                                                                    </ItemsControl.ItemTemplate>
+                                                                                </ItemsControl>
+                                                                            </StackPanel>
+                                                                        </DataTemplate>
+                                                                    </ItemsControl.ItemTemplate>
+                                                                </ItemsControl>
+                                                            </StackPanel>
+                                                        </Border>
+                                                    </DataTemplate>
+                                                </ItemsControl.ItemTemplate>
+                                            </ItemsControl>
+                                            <ItemsControl Margin="0,6,0,0" ItemsSource="{Binding Refusals}">
+                                                <ItemsControl.ItemTemplate>
+                                                    <DataTemplate>
+                                                        <Border Margin="0,2" Padding="6,4" Background="#FEF2F2" BorderBrush="#FCA5A5" BorderThickness="1" CornerRadius="3">
+                                                            <TextBlock TextWrapping="Wrap" Foreground="#991B1B">
+                                                                <Run Text="{Binding Rule, Mode=OneWay, StringFormat='REFUSED [{0}] '}" FontWeight="SemiBold" /><Run Text="{Binding Message, Mode=OneWay}" />
+                                                            </TextBlock>
+                                                        </Border>
+                                                    </DataTemplate>
+                                                </ItemsControl.ItemTemplate>
+                                            </ItemsControl>
+                                        </StackPanel>
+                                        <DataTemplate.Triggers>
+                                            <DataTrigger Binding="{Binding Refused}" Value="True">
+                                                <Setter TargetName="H" Property="Foreground" Value="#B91C1C" />
+                                            </DataTrigger>
+                                        </DataTemplate.Triggers>
+                                    </DataTemplate>
+                                </ItemsControl.ItemTemplate>
+                            </ItemsControl>
+                        </ScrollViewer>
+                    </DockPanel>
+                </TabItem>
                 </TabControl>
             </DockPanel>
 
@@ -308,7 +424,7 @@
                         <!-- slot fields -->
                         <TextBlock Style="{StaticResource Section}" Text="{Binding SlotTitle}" />
                         <TextBlock Foreground="#666" FontSize="11" TextWrapping="Wrap"
-                                   Text="Black = stored: type a value and press Enter (Esc reverts). Blue = edited in this project. Grey = can't be edited; the reason is below and in the tooltip." />
+                                   Text="Black = stored: type a value and press Enter (Esc reverts). Amber = typed but not applied yet, red = not a number. Blue = edited in this project. Grey = can't be edited; the reason is below and in the tooltip." />
                         <ItemsControl x:Name="FieldList" ItemsSource="{Binding Fields}" Margin="0,4,0,0">
                             <ItemsControl.ItemTemplate>
                                 <DataTemplate>
@@ -321,7 +437,7 @@
                                         <TextBlock x:Name="P" Text="{Binding ShortPath}" TextTrimming="CharacterEllipsis" VerticalAlignment="Center" />
                                         <TextBlock x:Name="V" Grid.Column="1" Text="{Binding DisplayValue}" TextAlignment="Right" FontWeight="SemiBold" Visibility="Collapsed" />
                                         <TextBox x:Name="E" Grid.Column="1" Text="{Binding DisplayValue, Mode=OneWay}" TextAlignment="Right" FontWeight="SemiBold"
-                                                 Padding="2,0" IsUndoEnabled="False" PreviewKeyDown="OnFieldKeyDown"
+                                                 Padding="2,0" IsUndoEnabled="False" PreviewKeyDown="OnFieldKeyDown" TextChanged="OnFieldTextChanged"
                                                  AutomationProperties.Name="{Binding ShortPath}" AutomationProperties.AutomationId="{Binding ShortPath, StringFormat='Field_{0}'}" />
                                         <TextBlock x:Name="S" Grid.Column="2" Text="{Binding State}" Foreground="#15803D" FontSize="11" TextAlignment="Right" VerticalAlignment="Center" />
                                     </Grid>
@@ -341,6 +457,26 @@
                                             <Setter TargetName="E" Property="Background" Value="#EFF6FF" />
                                             <Setter TargetName="S" Property="Foreground" Value="#1D4ED8" />
                                         </DataTrigger>
+                                        <!-- 6d: typed text that isn't applied (Tag is set by OnFieldTextChanged) -->
+                                        <Trigger SourceName="E" Property="Tag" Value="Pending">
+                                            <Setter TargetName="E" Property="Background" Value="#FEF3C7" />
+                                            <Setter TargetName="E" Property="BorderBrush" Value="#D97706" />
+                                            <Setter TargetName="E" Property="BorderThickness" Value="2" />
+                                            <Setter TargetName="E" Property="Foreground" Value="#92400E" />
+                                            <Setter TargetName="E" Property="FontStyle" Value="Italic" />
+                                            <Setter TargetName="S" Property="Text" Value="Enter ↵" />
+                                            <Setter TargetName="S" Property="Foreground" Value="#B45309" />
+                                            <Setter TargetName="S" Property="FontWeight" Value="SemiBold" />
+                                        </Trigger>
+                                        <Trigger SourceName="E" Property="Tag" Value="Invalid">
+                                            <Setter TargetName="E" Property="Background" Value="#FEE2E2" />
+                                            <Setter TargetName="E" Property="BorderBrush" Value="#DC2626" />
+                                            <Setter TargetName="E" Property="BorderThickness" Value="2" />
+                                            <Setter TargetName="E" Property="Foreground" Value="#991B1B" />
+                                            <Setter TargetName="S" Property="Text" Value="invalid" />
+                                            <Setter TargetName="S" Property="Foreground" Value="#B91C1C" />
+                                            <Setter TargetName="S" Property="FontWeight" Value="SemiBold" />
+                                        </Trigger>
                                     </DataTemplate.Triggers>
                                 </DataTemplate>
                             </ItemsControl.ItemTemplate>
