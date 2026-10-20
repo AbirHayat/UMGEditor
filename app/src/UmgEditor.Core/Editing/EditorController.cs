@@ -43,6 +43,11 @@ public sealed record FieldInspection(string Path, string StockValue, bool Stored
         TypedState.Invalid => $"{EditorController.ParseNumber(text).Refusal} The value is still {DisplayValue}; Esc reverts.",
         _ => null,
     };
+
+    // Identity, not value equality: WPF's item automation peers are keyed by Equals, so an unchanged field of a fresh
+    // inspection (an equal record) was matched to the previous inspection's discarded row and vanished from UI Automation.
+    public bool Equals(FieldInspection? other) => ReferenceEquals(this, other);
+    public override int GetHashCode() => System.Runtime.CompilerServices.RuntimeHelpers.GetHashCode(this);
 }
 
 /// <summary>Everything the inspector shows for a selected widget (read-only data; 6b).</summary>
@@ -283,6 +288,43 @@ public sealed class EditorController
             Changed?.Invoke(this, EventArgs.Empty);
         }
         return new EditOutcome(true, null, null, pending);
+    }
+
+    // ---- 6f: dragging in the preview ----
+
+    /// <summary>The preview's handles for a widget, each with why it can't be used (library and embedded widgets: none).</summary>
+    public DragAvailability DragHandles(WidgetNode node)
+    {
+        if (GamePaths.IsLibrary(node.PackagePath))
+            return DragAvailability.Blocked(SlotEditor.LibraryRefusal(node.PackagePath, _usage.AllUsers(node.PackagePath).Count));
+        return DragAvailability.For(node, Edits);
+    }
+
+    /// <summary>Starts a drag at the preview's viewport; null with the reason when that handle can't be used.</summary>
+    public (SlotDrag? Drag, string? Refusal) BeginDrag(WidgetPackageTree tree, WidgetNode node, DragHandle handle, int viewportWidth, int viewportHeight)
+    {
+        var handles = DragHandles(node);
+        if (!handles.Allows(handle)) return (null, handles.Refusals[handle]);
+        var drag = new SlotDrag(_engine, tree, node, handle, Edits, handles, viewportWidth, viewportHeight);
+        return drag.StartBox == null ? (null, $"{node.Name} isn't laid out in this preview.") : (drag, null);
+    }
+
+    /// <summary>
+    /// Mouse-up: the drag's last step as one ordinary edit (one undo step, the first-edit gate, pending warnings), the
+    /// same SlotEditor edit a typed number makes. A drag that ends where it started changes nothing.
+    /// </summary>
+    public EditOutcome CommitDrag(WidgetPackageTree tree, SlotDrag drag, bool confirmed = false) =>
+        drag.Last is not { } step || step.IsNoOp || step.Units == System.Numerics.Vector2.Zero
+            ? new EditOutcome(false, null, null, [])
+            : Apply(tree, drag.Node, e => drag.EditFor(e, step.Units), confirmed);
+
+    /// <summary>Arrow keys: move by whole units (one undo step per press).</summary>
+    public EditOutcome Nudge(WidgetPackageTree tree, WidgetNode node, double dx, double dy, bool confirmed = false)
+    {
+        var handles = DragHandles(node);
+        if (dx != 0 && !handles.MoveX || dy != 0 && !handles.MoveY)
+            return EditOutcome.Refused(SlotEditor.Move(node, Edits, dx, dy).Reason ?? handles.Refusals[DragHandle.Move] ?? "This widget can't move along that axis.");
+        return Apply(tree, node, e => SlotEditor.Move(node, e, dx, dy), confirmed);
     }
 
     /// <summary>A value typed into the inspector: parsed (invariant, dot decimal) and set through SlotEditor.SetField.</summary>

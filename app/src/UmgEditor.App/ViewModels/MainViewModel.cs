@@ -25,6 +25,7 @@ public sealed class MainViewModel : ObservableObject
     {
         _config = config;
         Preview = new PreviewViewModel(config.WorkDir);
+        Preview.PropertyChanged += (_, e) => { if (e.PropertyName is nameof(PreviewViewModel.IsImpact) or nameof(PreviewViewModel.ShowStock)) UpdateHandles(); };
         _searchDelay = new DispatcherTimer { Interval = TimeSpan.FromMilliseconds(200) };
         _searchDelay.Tick += (_, _) => { _searchDelay.Stop(); ApplyFilter(); };
         RebuildCommand = new RelayCommand(() => _ = LoadAsync(rebuild: true), () => !IsBusy);
@@ -98,6 +99,8 @@ public sealed class MainViewModel : ObservableObject
         set
         {
             if (value == _selected) return;
+            // the search/filter hid the open package (the list's selection turns null): it stays open, this is no switch
+            if (value == null && _selected != null) return;
             // leaving a package with unsaved edits: save, discard or stay (the list goes back to the open package)
             if (_openTree is { } open && _controller?.IsDirty(open.PackagePath) == true
                 && !ResolveUnsaved(open.PackagePath, $"opening {value?.Name ?? "another package"}"))
@@ -134,6 +137,7 @@ public sealed class MainViewModel : ObservableObject
         {
             if (!Set(ref _selectedNode, value)) return;
             Preview.Selected = value?.Node;
+            UpdateHandles();
             OnPropertyChanged(nameof(NodeSource));
             ClearEditMessage();
             _ = InspectAsync();
@@ -206,9 +210,9 @@ public sealed class MainViewModel : ObservableObject
     private bool _editRefused;
     public bool EditRefused { get => _editRefused; private set => Set(ref _editRefused, value); }
 
-    private IReadOnlyList<EditWarning> _editWarnings = [];
+    private IReadOnlyList<WarningView> _editWarnings = [];
     /// <summary>Warnings for the edit just applied (rescale, other widgets moving, leaving a clip area).</summary>
-    public IReadOnlyList<EditWarning> LastEditWarnings { get => _editWarnings; private set => Set(ref _editWarnings, value); }
+    public IReadOnlyList<WarningView> LastEditWarnings { get => _editWarnings; private set => Set(ref _editWarnings, value); }
 
     private void ClearEditMessage()
     {
@@ -222,31 +226,98 @@ public sealed class MainViewModel : ObservableObject
     {
         if (_controller is not { } c || _openTree is not { } tree || SelectedNode?.Node is not { } node) return false;
         if (text.Trim() == field.DisplayValue) return false;
-        var outcome = c.SetValue(tree, node, field.Path, text);
+        return RunEdit(node, field.ShortPath, confirmed => c.SetValue(tree, node, field.Path, text, confirmed),
+            () => $"{node.Name}.{field.ShortPath} = {SlotEditor.Format(SlotEditor.F32(EditorController.ParseNumber(text).Value))}");
+    }
+
+    /// <summary>
+    /// Runs an edit through the first-edit gate (the confirmation once per package) and reports it under the inspector:
+    /// applied (with its pending-edit warnings), refused and why, or not applied. True when applied. Typed values,
+    /// drags and nudges all go through here, so they behave the same.
+    /// </summary>
+    private bool RunEdit(WidgetNode node, string what, Func<bool, EditOutcome> apply, Func<string> applied)
+    {
+        var outcome = apply(false);
         if (outcome.NeedsConfirmation)
         {
             if (Ask(outcome.ConfirmationText + "\n\nApply this edit?", $"First edit of {GamePaths.ShortName(node.PackagePath)}",
                     MessageBoxButton.OKCancel, MessageBoxImage.Warning) != MessageBoxResult.OK)
             {
-                EditMessage = $"{field.ShortPath}: not applied.";
+                EditMessage = $"{what}: not applied.";
                 EditRefused = false;
                 return false;
             }
-            outcome = c.SetValue(tree, node, field.Path, text, confirmed: true);
+            outcome = apply(true);
         }
         if (outcome.Refusal is { } why)
         {
-            EditMessage = $"{field.ShortPath}: refused. {why}";
+            EditMessage = $"{what}: refused. {why}";
             EditRefused = true;
             LastEditWarnings = [];
             return false;
         }
         if (!outcome.Applied) return false;
-        EditMessage = $"{node.Name}.{field.ShortPath} = {SlotEditor.Format(SlotEditor.F32(EditorController.ParseNumber(text).Value))} (unsaved; Ctrl+S saves, Ctrl+Z undoes).";
+        EditMessage = $"{applied()} (unsaved; Ctrl+S saves, Ctrl+Z undoes).";
         EditRefused = false;
-        LastEditWarnings = outcome.PendingWarnings;
+        LastEditWarnings = WarningView.Of(outcome.PendingWarnings);
         return true;
     }
+
+    // ---- 6f: dragging and nudging in the preview ----
+
+    private SlotDrag? _drag;
+
+    /// <summary>The preview's handles for the selected widget (or why there are none).</summary>
+    private void UpdateHandles()
+    {
+        Preview.Handles = _controller is not { } c || SelectedNode?.Node is not { } node || _openTree == null ? null
+            : Preview.IsImpact ? DragAvailability.Blocked($"the preview shows {GamePaths.ShortName(Preview.ImpactPackagePath ?? "")} from the impact panel; press \"Open package\" to drag in {GamePaths.ShortName(_openTree.PackagePath)}.")
+            : Preview.ShowStock ? DragAvailability.Blocked("the preview shows stock (no edits); untick \"Stock (no edits)\" to drag.")
+            : c.DragHandles(node);
+    }
+
+    /// <summary>Mouse-down + move on a handle: starts a drag at the preview's viewport. False (with the reason on the status line) when it can't.</summary>
+    public bool BeginDrag(DragHandle handle)
+    {
+        if (_controller is not { } c || _openTree is not { } tree || SelectedNode?.Node is not { } node || Preview.IsImpact || Preview.ShowStock) return false;
+        var (drag, why) = c.BeginDrag(tree, node, handle, Preview.ViewportWidth, Preview.ViewportHeight);
+        if (drag == null) { SetAction($"Can't drag {node.Name}: {why}"); return false; }
+        _drag = drag;
+        return true;
+    }
+
+    public void DragTo(float dxPx, float dyPx, bool free)
+    {
+        if (_drag is not { } drag) return;
+        var step = drag.Update(dxPx, dyPx, free);
+        Preview.ShowDragStep(step.Layout, step.Text + (free ? "  · free (Ctrl)" : ""), step.Warnings);
+    }
+
+    /// <summary>Mouse-up commits the drag as one edit (asking first for a package's first edit); Esc cancels it.</summary>
+    public void EndDrag(bool commit)
+    {
+        if (_drag is not { } drag || _openTree is not { } tree || _controller is not { } c) return;
+        _drag = null;
+        Preview.EndDrag();
+        if (!commit) { SetAction($"Drag cancelled: {drag.Node.Name} is unchanged."); return; }
+        if (drag.Last is not { } step || step.IsNoOp) return;
+        if (RunEdit(drag.Node, drag.Node.Name, confirmed => c.CommitDrag(tree, drag, confirmed), () => $"{drag.Node.Name}: {step.Text} (drag)"))
+            SetAction($"Dragged {drag.Node.Name}: {step.Text}.");
+    }
+
+    /// <summary>Arrow key in the preview: one unit (one undo step).</summary>
+    public void Nudge(int dx, int dy)
+    {
+        if (_controller is not { } c || _openTree is not { } tree || SelectedNode?.Node is not { } node) return;
+        if (Preview.Handles is { Any: false } blocked) { EditMessage = $"{node.Name}: can't nudge. {blocked.Reason}"; EditRefused = true; return; }
+        var before = c.Edits;
+        if (RunEdit(node, node.Name, confirmed => c.Nudge(tree, node, dx, dy, confirmed), () => $"{node.Name} nudged {Describe(before, c.Edits)}"))
+            SetAction($"Nudged {node.Name} by ({dx}, {dy}) unit.");
+    }
+
+    private static string Describe(EditSet before, EditSet after) =>
+        string.Join(", ", after.Values.Where(kv => !before.TryGet(kv.Key, out var v) || !v.Equals(kv.Value))
+            .Select(kv => $"{kv.Key.Path.Replace("LayoutData.", "")} = {SlotEditor.Format(kv.Value)}"));
 
     private void Undo()
     {
@@ -483,6 +554,7 @@ public sealed class MainViewModel : ObservableObject
     {
         if (_controller == null) return;
         Preview.Edits = _controller.Edits;
+        UpdateHandles();
         OnPropertyChanged(nameof(ProjectInfo));
         OnPropertyChanged(nameof(Title));
         CommandManager.InvalidateRequerySuggested();
@@ -635,7 +707,8 @@ public sealed class MainViewModel : ObservableObject
             .Where(e => kind == null || e.Kind == kind)
             .Where(e => terms.All(t => e.Path.Contains(t, StringComparison.OrdinalIgnoreCase)))
             .ToList();
+        OnPropertyChanged(nameof(Selected)); // the open package's row is highlighted again when the filter shows it
         var total = Visible.Count();
-        Status = $"Showing {Items.Count:N0} of {total:N0} UI packages" + (_includeBulkImages ? "" : $" ({_all.Count - total:N0} thumbnails/emblems hidden)");
+        Status =$"Showing {Items.Count:N0} of {total:N0} UI packages" + (_includeBulkImages ? "" : $" ({_all.Count - total:N0} thumbnails/emblems hidden)");
     }
 }

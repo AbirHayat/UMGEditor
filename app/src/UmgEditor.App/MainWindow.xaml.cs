@@ -20,6 +20,10 @@ public partial class MainWindow : Window
         _vm = new MainViewModel(config);
         DataContext = _vm;
         PreviewCanvas.BoxClicked += box => _vm.SelectFromPreview(box);
+        PreviewCanvas.DragStart = _vm.BeginDrag;
+        PreviewCanvas.DragMove = _vm.DragTo;
+        PreviewCanvas.DragEnd = _vm.EndDrag;
+        PreviewCanvas.Nudge = _vm.Nudge;
         Loaded += async (_, _) =>
         {
             SearchBox.Focus();

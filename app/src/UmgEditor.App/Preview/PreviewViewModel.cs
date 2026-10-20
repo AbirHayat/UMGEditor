@@ -102,6 +102,48 @@ public sealed class PreviewViewModel : ObservableObject
     public bool IsImpact => ImpactLabel != null;
     private IReadOnlySet<string>? _changed;
 
+    // ---- 6f: dragging ----
+
+    private DragAvailability? _handles;
+    /// <summary>The selected widget's handles, or the reason it can't be dragged (null: nothing selected).</summary>
+    public DragAvailability? Handles { get => _handles; set { if (Set(ref _handles, value)) OnPropertyChanged(nameof(DragHint)); } }
+
+    /// <summary>The line under the toggles: how to drag, or why the selected widget can't be.</summary>
+    public string? DragHint => Handles is not { } h ? null
+        : h.Any ? "Drag the selected widget to move it, an edge to resize it (whole design units; hold Ctrl for free movement). Esc cancels a drag; arrow keys nudge 1 unit. Each drag or nudge is one undo step."
+        : "Can't drag " + (Selected?.Name ?? "this widget") + ": " + h.Reason;
+
+    private string? _dragLabel;
+    /// <summary>The change the drag makes now, shown on the canvas and above the warnings.</summary>
+    public string? DragLabel { get => _dragLabel; private set => Set(ref _dragLabel, value); }
+
+    private IReadOnlyList<WarningView> _dragWarnings = [];
+    /// <summary>Warnings for the drag's current position (rescale, leaving a clip area, other widgets moving).</summary>
+    public IReadOnlyList<WarningView> DragWarnings { get => _dragWarnings; private set => Set(ref _dragWarnings, value); }
+
+    private bool _isDragging;
+    public bool IsDragging { get => _isDragging; private set => Set(ref _isDragging, value); }
+
+    /// <summary>Shows one drag step: its layout (already arranged by SlotDrag), its change and its warnings.</summary>
+    public void ShowDragStep(LayoutResult layout, string label, IReadOnlyList<EditWarning> warnings)
+    {
+        ++_arrangeVersion; // a pending arrange must not replace the drag's layout
+        IsDragging = true;
+        Layout = layout;
+        DragLabel = label;
+        DragWarnings = WarningView.Of(warnings);
+        OnPropertyChanged(nameof(SelectedBox));
+    }
+
+    /// <summary>The drag ended (committed or cancelled): back to the project's layout.</summary>
+    public void EndDrag()
+    {
+        IsDragging = false;
+        DragLabel = null;
+        DragWarnings = [];
+        Rearrange();
+    }
+
     private bool _showStock;
     /// <summary>Lay out without the project's edits (stock), to compare with the edited layout.</summary>
     public bool ShowStock { get => _showStock; set { if (Set(ref _showStock, value)) Rearrange(); } }
@@ -169,7 +211,7 @@ public sealed class PreviewViewModel : ObservableObject
     public bool HighlightChanged { get => _highlightChanged; set { if (Set(ref _highlightChanged, value)) OnPropertyChanged(nameof(Options)); } }
 
     private WidgetNode? _selected;
-    public WidgetNode? Selected { get => _selected; set { if (Set(ref _selected, value)) { OnPropertyChanged(nameof(Options)); OnPropertyChanged(nameof(SelectedBox)); } } }
+    public WidgetNode? Selected { get => _selected; set { if (Set(ref _selected, value)) { OnPropertyChanged(nameof(Options)); OnPropertyChanged(nameof(SelectedBox)); OnPropertyChanged(nameof(DragHint)); } } }
 
     public LayoutBox? SelectedBox => Selected == null ? null : Layout?.All().FirstOrDefault(b => ReferenceEquals(b.Node, Selected));
 

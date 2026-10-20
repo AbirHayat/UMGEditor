@@ -15,6 +15,7 @@
         <BooleanToVisibilityConverter x:Key="BoolToVis" />
         <vm:NullToVisibilityConverter x:Key="NullToVis" />
         <vm:InverseBoolToVisibilityConverter x:Key="InverseBoolToVis" />
+        <vm:ZeroToVisibilityConverter x:Key="ZeroToVis" />
         <Style x:Key="Label" TargetType="TextBlock">
             <Setter Property="Foreground" Value="#666" />
             <Setter Property="Margin" Value="0,10,0,2" />
@@ -323,6 +324,9 @@
                                 <CheckBox Margin="0,0,12,0" Content="Clip rects" IsChecked="{Binding ShowClipRects}" />
                                 <CheckBox Content="Hidden widgets" IsChecked="{Binding ShowHidden}" />
                             </WrapPanel>
+                            <!-- 6f: how to drag the selected widget, or why it can't be -->
+                            <TextBlock x:Name="DragHintText" Margin="0,0,0,4" FontSize="11" Foreground="#444" TextWrapping="Wrap" Text="{Binding DragHint}"
+                                       Visibility="{Binding DragHint, Converter={StaticResource NullToVis}}" />
                         </StackPanel>
                         <StackPanel DockPanel.Dock="Bottom" Margin="0,6,0,0">
                             <WrapPanel>
@@ -336,9 +340,22 @@
                             </WrapPanel>
                             <TextBlock Margin="0,4,0,0" Foreground="#444" TextWrapping="Wrap" Text="{Binding Status}" />
                         </StackPanel>
-                        <pv:PreviewCanvas x:Name="PreviewCanvas" ClipToBounds="True" Layout="{Binding Layout}" Renderer="{Binding Renderer}"
-                                          Options="{Binding Options}" Underlay="{Binding Underlay}" UnderlayOpacity="{Binding UnderlayOpacity}"
-                                          UnderlayCrop="{Binding UnderlayCrop}" />
+                        <Grid>
+                            <pv:PreviewCanvas x:Name="PreviewCanvas" ClipToBounds="True" Layout="{Binding Layout}" Renderer="{Binding Renderer}"
+                                              Options="{Binding Options}" Underlay="{Binding Underlay}" UnderlayOpacity="{Binding UnderlayOpacity}"
+                                              UnderlayCrop="{Binding UnderlayCrop}" Handles="{Binding Handles}" DragLabel="{Binding DragLabel}" />
+                            <!-- 6f: live while dragging; an overlay, so the canvas keeps its size (and the widget its place) during the drag -->
+                            <Border x:Name="DragPanel" VerticalAlignment="Bottom" Margin="6" Padding="8,6" MaxWidth="560" HorizontalAlignment="Left"
+                                    Background="#F2FFFFFF" BorderBrush="#D1D5DB" BorderThickness="1" CornerRadius="3" IsHitTestVisible="False"
+                                    Visibility="{Binding IsDragging, Converter={StaticResource BoolToVis}}">
+                                <StackPanel>
+                                    <TextBlock x:Name="DragLabelText" FontWeight="SemiBold" TextWrapping="Wrap" Text="{Binding DragLabel}" />
+                                    <TextBlock Foreground="#666" FontSize="11" Text="No warnings for this position."
+                                               Visibility="{Binding DragWarnings.Count, Converter={StaticResource ZeroToVis}}" />
+                                    <ItemsControl x:Name="DragWarningList" ItemsSource="{Binding DragWarnings}" ItemTemplate="{StaticResource WarningTemplate}" />
+                                </StackPanel>
+                            </Border>
+                        </Grid>
                     </DockPanel>
                 </TabItem>
                 <!-- 6d: bytes to patch (live) -->

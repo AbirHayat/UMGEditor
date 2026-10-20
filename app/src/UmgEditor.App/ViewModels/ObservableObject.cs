@@ -49,3 +49,25 @@ public sealed class InverseBoolToVisibilityConverter : System.Windows.Data.IValu
 
     public object ConvertBack(object? value, Type targetType, object? parameter, System.Globalization.CultureInfo culture) => throw new NotSupportedException();
 }
+
+/// <summary>
+/// A warning as a list row. A reference type on purpose: WPF keys item automation peers by Equals, and EditWarning is a
+/// record, so a list rebuilt with an equal warning (every drag step, every edit) lost its rows in UI Automation.
+/// </summary>
+public sealed class WarningView(UmgEditor.Core.Editing.EditWarning warning)
+{
+    public UmgEditor.Core.Editing.WarningKind Kind => warning.Kind;
+    public UmgEditor.Core.Editing.Severity Severity => warning.Severity;
+    public string Message => warning.Message;
+
+    public static IReadOnlyList<WarningView> Of(IEnumerable<UmgEditor.Core.Editing.EditWarning> warnings) => warnings.Select(w => new WarningView(w)).ToList();
+}
+
+/// <summary>Visible when the bound count is 0.</summary>
+public sealed class ZeroToVisibilityConverter : System.Windows.Data.IValueConverter
+{
+    public object Convert(object? value, Type targetType, object? parameter, System.Globalization.CultureInfo culture) =>
+        value is 0 ? System.Windows.Visibility.Visible : System.Windows.Visibility.Collapsed;
+
+    public object ConvertBack(object? value, Type targetType, object? parameter, System.Globalization.CultureInfo culture) => throw new NotSupportedException();
+}

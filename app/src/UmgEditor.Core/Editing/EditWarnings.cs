@@ -139,6 +139,12 @@ public sealed class EditWarnings(LayoutEngine engine, UsageGraph usage, int view
     {
         var before = engine.Arrange(tree, viewportWidth, viewportHeight, previous);
         var after = engine.Arrange(tree, viewportWidth, viewportHeight, edits);
+        return Between(before, after, node);
+    }
+
+    /// <summary>The same checks between two layouts already arranged (a drag lays out once per step).</summary>
+    public static IReadOnlyList<EditWarning> Between(LayoutResult before, LayoutResult after, WidgetNode node)
+    {
         var editedBox = after.All().FirstOrDefault(b => ReferenceEquals(b.Node, node));
         return Consequences(before, after, editedBox == null ? [] : [editedBox], node.Name);
     }
