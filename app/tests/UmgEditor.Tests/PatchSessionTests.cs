@@ -353,7 +353,8 @@ public class PatchSessionTests
         var mask = Node(MatchTime, "Mask");
         StringAssert.Contains(s.Apply(SlotEditor.SetField(mask, EditSet.Empty, "LayoutData.Offsets.Left", 1)), "belongs to MatchTime");
         var plate = Node(Base, "Img_Plate");
-        var unstored = plate.Slot!.Fields.First(f => !f.Stored && f.Path.StartsWith("LayoutData.Offsets"));
+        // a not-stored Offsets member is addable (branch experiment, InsertEditTests); a value outside a stored struct isn't
+        var unstored = plate.Slot!.Fields.First(f => !f.Stored && TagInserter.Insertable(f.Path) == null && f.Path != "bAutoSize");
         var forged = EditResult.Of([new FieldChange(FieldKey.Of(plate, unstored.Path), 0, 5)]);
         StringAssert.Contains(s.Apply(forged), "not stored");
         StringAssert.Contains(s.Apply(EditResult.Refused("greyed out")), "greyed out");

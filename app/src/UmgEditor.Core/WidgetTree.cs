@@ -103,6 +103,10 @@ public static class WidgetTreeReader
 
     private static readonly HashSet<string> ReferenceProps = ["Slot", "Slots", "Parent", "Content"];
 
+    /// <summary>The class default of a known slot field (what applies when it isn't stored), or null when unknown.</summary>
+    public static string? DefaultOf(string slotClass, string path) =>
+        SlotFieldsByClass.TryGetValue(slotClass, out var known) && known.FirstOrDefault(f => f.Path == path) is { Path: not null } f ? f.Default : null;
+
     public static WidgetPackageTree Build(GameSource source, string packagePath, bool readOnly = false)
     {
         var pkg = source.LoadPackage(packagePath);

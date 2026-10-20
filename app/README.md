@@ -128,6 +128,9 @@ umgmod [--set NAME] predict <package>...
 - `edit` applies one SlotEditor edit to the package's PatchSession and saves it (`work\edits[\NAME]\<package path>`).
   The first edit of a package prints the pre-edit warnings and stops (exit 3); add `--yes` once you've read them.
 - `show` prints the saved edits and the bytes to patch (offset, old/new value, hex, ±32-byte context).
+- Branch `experiment`: `edit … set Offsets.Left 20` also works on an Offsets value that isn't stored (shown as
+  `default`), as long as another value of that Offsets struct is. Saving adds it as a 29-byte tag, so the package
+  grows (`show` lists it as `NEW TAG` with the header values it changes). Device-tested by canary C10.
 - `build` is the export dialog without the window: the same plan (`PlanExport`: the same refusals) and run
   (`RunExport`), so it writes `mod\<container>.{utoc,ucas,pak}`, `predictions\` and `TEST_INSTRUCTIONS.md` under
   `work\out\mods\<modName>`. The packing steps are the same as `work/scripts/make_mod.py` (kept as the reference),

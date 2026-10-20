@@ -19,15 +19,23 @@ public sealed class ZenPackageLayout
 {
     private const int SummarySize = 64; // FMappedName×2, PackageFlags, CookedHeaderSize, 9×int32 offsets/sizes, pad
 
+    public const int ExportMapEntrySize = 72; // CookedSerialOffset @0, CookedSerialSize @8 (uint64 each), …
+
     public IReadOnlyList<string> NameMap { get; }
     public IReadOnlyList<ExportSpan> Exports { get; }
     public int ExportDataStart { get; }
+    /// <summary>Where the export map starts in the chunk (summary @44).</summary>
+    public int ExportMapOffset { get; }
+    /// <summary>Each export's CookedSerialOffset as CUE4Parse read it (by export index).</summary>
+    public IReadOnlyList<ulong> CookedSerialOffsets { get; }
 
-    private ZenPackageLayout(IReadOnlyList<string> names, IReadOnlyList<ExportSpan> exports, int exportDataStart)
+    private ZenPackageLayout(IReadOnlyList<string> names, IReadOnlyList<ExportSpan> exports, int exportDataStart, int exportMapOffset, IReadOnlyList<ulong> cookedOffsets)
     {
         NameMap = names;
         Exports = exports;
         ExportDataStart = exportDataStart;
+        ExportMapOffset = exportMapOffset;
+        CookedSerialOffsets = cookedOffsets;
     }
 
     public static ZenPackageLayout Read(ReadOnlySpan<byte> chunk, IoPackage parsed)
@@ -39,8 +47,8 @@ public sealed class ZenPackageLayout
         // ExportBundlesOffset @48 GraphDataOffset @52 GraphDataSize @56 Pad @60
         int exportMapOffset = I32(chunk, 44), exportBundlesOffset = I32(chunk, 48), graphDataOffset = I32(chunk, 52), graphDataSize = I32(chunk, 56);
         var exportCount = parsed.ExportMap.Length;
-        if ((exportBundlesOffset - exportMapOffset) / 72 != exportCount)
-            throw new InvalidDataException($"export map size mismatch: summary implies {(exportBundlesOffset - exportMapOffset) / 72}, CUE4Parse read {exportCount}");
+        if ((exportBundlesOffset - exportMapOffset) / ExportMapEntrySize != exportCount)
+            throw new InvalidDataException($"export map size mismatch: summary implies {(exportBundlesOffset - exportMapOffset) / ExportMapEntrySize}, CUE4Parse read {exportCount}");
 
         // export bundles: headers (FirstEntryIndex, EntryCount) until the remaining space holds exactly their entries
         var bundles = new List<(uint First, uint Count)>();
@@ -74,11 +82,18 @@ public sealed class ZenPackageLayout
         if (cursor > chunk.Length) throw new InvalidDataException($"export data runs past the chunk end ({cursor} > {chunk.Length})");
 
         var names = parsed.NameMap.Select(n => n.Name ?? "").ToArray();
-        return new ZenPackageLayout(names, spans.OrderBy(s => s.ExportIndex).ToList(), dataStart);
+        return new ZenPackageLayout(names, spans.OrderBy(s => s.ExportIndex).ToList(), dataStart, exportMapOffset,
+            parsed.ExportMap.Select(e => e.CookedSerialOffset).ToArray());
     }
 
     private static int I32(ReadOnlySpan<byte> c, int at) => BinaryPrimitives.ReadInt32LittleEndian(c[at..]);
     private static uint U32(ReadOnlySpan<byte> c, int at) => BinaryPrimitives.ReadUInt32LittleEndian(c[at..]);
+
+    public int NameIndex(string name)
+    {
+        for (int i = 0; i < NameMap.Count; i++) if (NameMap[i] == name) return i;
+        return -1;
+    }
 
     public ExportSpan SpanOf(int exportIndex) =>
         Exports.FirstOrDefault(s => s.ExportIndex == exportIndex) is { Size: > 0 } s ? s : throw new KeyNotFoundException($"export {exportIndex} has no serialized data");

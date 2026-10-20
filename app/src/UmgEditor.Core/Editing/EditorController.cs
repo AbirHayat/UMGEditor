@@ -17,11 +17,16 @@ public sealed record FieldInspection(string Path, string StockValue, bool Stored
 {
     public bool Editable => Grey == GreyReason.None;
     public bool IsEdited => EditedValue != null;
-    public string State => IsEdited ? "edited" : Stored ? "stored" : "default";
+    /// <summary>Not stored but editable: saving adds it as a new 29-byte tag, so the package grows (branch experiment, canary C10).</summary>
+    public bool IsInsertion => Editable && !Stored;
+    public string State => IsEdited ? Stored ? "edited" : "new tag" : Stored ? "stored" : "default";
     public string DisplayValue => EditedValue is { } v ? SlotEditor.Format(v) : StockValue;
     public string ShortPath => Path.Replace("LayoutData.", "");
-    /// <summary>Why it's greyed, or the stock value when edited.</summary>
-    public string? ToolTip => Reason ?? (IsEdited ? $"Stock value {StockValue}. Type it again (or undo) to go back." : null);
+    /// <summary>Why it's greyed, or the stock value when edited, or what editing a value that isn't stored does.</summary>
+    public string? ToolTip => Reason ?? (IsInsertion
+        ? $"Not stored in the file: the engine default {StockValue} applies. {(IsEdited ? "Saving adds" : "Setting it adds")} a 29-byte tag, so the package grows " +
+          "(a size-changing edit; device-tested by canary C10). Type the default again (or undo) to leave it out."
+        : IsEdited ? $"Stock value {StockValue}. Type it again (or undo) to go back." : null);
 
     /// <summary>
     /// Whether typed text differs from the applied value: Applied when Enter would change nothing (same text, or a
@@ -245,7 +250,7 @@ public sealed class EditorController
 
     public static string Explain(GreyReason reason) => reason switch
     {
-        GreyReason.NotStored => "Not stored in the file: the engine default applies. Changing it needs a new property tag, which would change the file size (in-place patches only).",
+        GreyReason.NotStored => "Not stored in the file (the engine default applies), and neither is the rest of its struct. Adding a whole struct or a top-level tag isn't supported yet; only a missing Offsets value can be added.",
         GreyReason.Boolean => "Boolean fields aren't editable in this version.",
         GreyReason.NotLayoutValue => "Not an editable layout value.",
         GreyReason.Library => "Konami library widget: editing is blocked.",
@@ -276,8 +281,9 @@ public sealed class EditorController
             return new EditOutcome(false, null, new EditWarnings(_engine, _usage, _width, _height).ForSelection(tree, node).ConfirmationText, []);
 
         var previous = Edits;
-        var after = previous.With(result.Changes, session.StockValue);
-        var pending = new EditWarnings(_engine, _usage, _width, _height).ForPendingEdit(tree, node, after, previous);
+        var after = previous.With(result.Changes, session.BaseValue);
+        var pending = new EditWarnings(_engine, _usage, _width, _height).ForPendingEdit(tree, node, after, previous).ToList();
+        if (SizeChangeWarning(session, result.Changes) is { } grows) pending.Add(grows);
         var before = session.Current;
         if (session.Apply(result) is { } why) return EditOutcome.Refused(why);
         _gate.Confirm(node.PackagePath);
@@ -288,6 +294,17 @@ public sealed class EditorController
             Changed?.Invoke(this, EventArgs.Empty);
         }
         return new EditOutcome(true, null, null, pending);
+    }
+
+    /// <summary>The pending-edit warning when an edit gives a value that isn't stored (saving adds it as a new tag).</summary>
+    private static EditWarning? SizeChangeWarning(PatchSession session, IReadOnlyList<FieldChange> changes)
+    {
+        var added = changes.Where(c => session.StockValue(c.Key) == null && !c.NewValue.Equals(session.BaseValue(c.Key))).ToList();
+        if (added.Count == 0) return null;
+        var fields = string.Join(", ", added.Select(c => c.Key.Path.Replace("LayoutData.", "")).Distinct());
+        return new EditWarning(WarningKind.SizeChange, Severity.Warning,
+            $"{fields} {(added.Count == 1 ? "isn't" : "aren't")} stored in {GamePaths.ShortName(session.PackagePath)}: saving adds {(added.Count == 1 ? "a 29-byte tag" : "29-byte tags")}, so the package grows " +
+            "and every export after the slot moves. Size-changing edits are device-tested by one canary (C10); test the mod in game.");
     }
 
     // ---- 6f: dragging in the preview ----
@@ -354,8 +371,8 @@ public sealed class EditorController
         foreach (var s in DirtySessions.Where(s => package == null || s.PackagePath.Equals(package, StringComparison.OrdinalIgnoreCase)).ToList())
         {
             var keys = s.Current.Values.Select(kv => kv.Key).Union(s.Saved.Values.Select(kv => kv.Key));
-            var changes = keys.Select(k => new FieldChange(k, s.Current.TryGet(k, out var c) ? c : s.StockValue(k)!.Value,
-                s.Saved.TryGet(k, out var v) ? v : s.StockValue(k)!.Value)).ToList();
+            var changes = keys.Select(k => new FieldChange(k, s.Current.TryGet(k, out var c) ? c : s.BaseValue(k)!.Value,
+                s.Saved.TryGet(k, out var v) ? v : s.BaseValue(k)!.Value)).ToList();
             if (s.Apply(EditResult.Of(changes)) is { } why) throw new InvalidOperationException(why); // keys come from the session itself
             _undo.Push(s.PackagePath);
             any = true;
@@ -428,11 +445,13 @@ public sealed class EditorController
         if (refused.Count > 0) return $"Save refused for {string.Join(", ", refused)}; nothing of {(refused.Count == 1 ? "it" : "them")} was written.";
         var parts = results.Select(r =>
         {
-            int values = r.Result.Plan.Entries.Count, bytes = r.Result.ChangedOffsets.Count;
+            int values = r.Result.Plan.ValueCount, bytes = r.Result.ChangedOffsets.Count, tags = r.Result.Plan.Insertions.Count;
             return values == 0 ? $"{GamePaths.ShortName(r.Package)} (back to stock)"
-                : $"{GamePaths.ShortName(r.Package)} ({values} value{(values == 1 ? "" : "s")}, {bytes} byte{(bytes == 1 ? "" : "s")} differ from stock)";
+                : $"{GamePaths.ShortName(r.Package)} ({values} value{(values == 1 ? "" : "s")}, {bytes} byte{(bytes == 1 ? "" : "s")} differ from stock" +
+                  (tags > 0 ? $", {tags} new tag{(tags == 1 ? "" : "s")}: +{r.Result.Plan.EditedSize - r.Result.Plan.StockSize} bytes)" : ")");
         });
-        return $"Saved {string.Join(", ", parts)}; rebuilt from the stock copy, verified, size unchanged.";
+        var grew = results.Any(r => r.Result.Plan.ChangesSize);
+        return $"Saved {string.Join(", ", parts)}; rebuilt from the stock copy, verified, {(grew ? "re-parsed" : "size unchanged")}.";
     }
 
     // ---- 6d: bytes to patch ----
@@ -517,9 +536,13 @@ public sealed class EditorController
             var (chunk, why) = s.ReadSavedChunk();
             if (chunk == null) { refusals.Add(why!); continue; }
             packages.Add(new ModPackage(s.PackagePath, s.FileKey, s.ChunkIdHex, chunk));
-            saved = saved.With(s.Saved.Values.Select(kv => new FieldChange(kv.Key, s.StockValue(kv.Key) ?? double.NaN, kv.Value)), _ => null);
-            edits.AddRange(s.Plan().Entries.Select(e => new ExportEdit(GamePaths.ShortName(s.PackagePath), WidgetOf(s.PackagePath, e.Key.SlotExport) is { } w ? $"{w} ({e.SlotName})" : e.SlotName,
+            saved = saved.With(s.Saved.Values.Select(kv => new FieldChange(kv.Key, s.BaseValue(kv.Key) ?? double.NaN, kv.Value)), _ => null);
+            string Slot(int export, string slotName) => WidgetOf(s.PackagePath, export) is { } w ? $"{w} ({slotName})" : slotName;
+            var plan = s.Plan();
+            edits.AddRange(plan.Entries.Select(e => new ExportEdit(GamePaths.ShortName(s.PackagePath), Slot(e.Key.SlotExport, e.SlotName),
                 e.Key.Path.Replace("LayoutData.", ""), e.OldValue, e.NewValue, e.OffsetHex, e.OldHex, e.NewHex)));
+            edits.AddRange(plan.Insertions.Select(i => new ExportEdit(GamePaths.ShortName(s.PackagePath), Slot(i.ExportIndex, i.SlotName),
+                i.Path.Replace("LayoutData.", "") + " (new tag)", i.Key is { } k ? s.BaseValue(k) ?? 0 : 0, i.Value, $"{i.InsertAtHex} (inserted before {i.Before}, +{TagInserter.FloatTagSize} bytes)", "(not stored)", i.TagHex)));
         }
         var impactWarnings = saved.Count == 0 ? [] : ExportWarning.From(ExportImpact(saved));
         var unticked = impactWarnings.Where(w => w.IsDanger && !request.IsAcknowledged(w)).ToList();

@@ -9,7 +9,8 @@ namespace UmgEditor.Core.Patching;
 public sealed record SaveResult(bool Saved, BytePlan Plan, IReadOnlyList<PatchRefusal> Refusals, string? OutputPath, string? Sha256, IReadOnlyList<int> ChangedOffsets)
 {
     public string Summary => Saved
-        ? $"saved {Plan.Entries.Count} value{(Plan.Entries.Count == 1 ? "" : "s")}, {ChangedOffsets.Count} byte{(ChangedOffsets.Count == 1 ? "" : "s")} differ from stock, size {Plan.StockSize} unchanged"
+        ? $"saved {Plan.ValueCount} value{(Plan.ValueCount == 1 ? "" : "s")}{(Plan.ChangesSize ? $" ({Plan.Insertions.Count} as new tag{(Plan.Insertions.Count == 1 ? "" : "s")})" : "")}, " +
+          $"{ChangedOffsets.Count} byte{(ChangedOffsets.Count == 1 ? "" : "s")} differ from stock{(Plan.ChangesSize ? " besides the inserted tags" : "")}, {Plan.SizeText}"
         : "refused: " + string.Join(" | ", Refusals.Select(r => $"[{r.Rule}] {r.Message}"));
 }
 
@@ -28,6 +29,8 @@ public sealed class PatchSession
     private readonly IoPackage _stockPackage;
     private readonly ZenPackageLayout _layout;
     private readonly Dictionary<int, Dictionary<string, string>> _stockValues = [];
+    private readonly Dictionary<int, Dictionary<string, string>> _stockFlat = [];
+    private readonly Dictionary<FieldKey, string?> _insertRefusals = [];
     private readonly Stack<EditSet> _undo = new(), _redo = new();
 
     public string PackagePath { get; }
@@ -124,6 +127,38 @@ public sealed class PatchSession
         return values.TryGetValue(key.Path, out var text) && TryParse(text, out var v) ? v : null;
     }
 
+    /// <summary>The engine default of a slot field that isn't stored (the slot class's default), null when stored or unknown.</summary>
+    public double? DefaultValue(FieldKey key)
+    {
+        if (StockValue(key) != null || !key.Package.Equals(PackagePath, StringComparison.OrdinalIgnoreCase) || key.SlotExport < 0 || key.SlotExport >= _stockPackage.ExportsLazy.Length) return null;
+        return WidgetTreeReader.DefaultOf(_stockPackage.ExportsLazy[key.SlotExport].Value.ExportType, key.Path) is { } text && TryParse(text, out var v) ? v : null;
+    }
+
+    /// <summary>What the field holds without edits: the stored value, or the engine default when it isn't stored.</summary>
+    public double? BaseValue(FieldKey key) => StockValue(key) ?? DefaultValue(key);
+
+    /// <summary>
+    /// Why a value that isn't stored can't be added as a new tag in this package, or null when it can (branch experiment,
+    /// canary C10): only a missing Offsets member of a stored Offsets struct, with its name already in the name map and a
+    /// unique ±32-byte stock context at the insertion point.
+    /// </summary>
+    public string? InsertRefusal(FieldKey key)
+    {
+        if (_insertRefusals.TryGetValue(key, out var cached)) return cached;
+        string? why;
+        if (TagInserter.Insertable(key.Path) is not { } at)
+            why = $"{SlotName(key.SlotExport)}.{key.Path} is not stored in {GamePaths.ShortName(PackagePath)}; only a missing Offsets value can be added as a new tag.";
+        else
+        {
+            var (ins, refusal) = TagInserter.PlanFloat(_stock, _layout, key.SlotExport, at.StructPath, at.Field, 0f, at.Order);
+            why = ins == null ? $"{SlotName(key.SlotExport)}.{key.Path} is not stored in {GamePaths.ShortName(PackagePath)} and can't be added: {refusal}"
+                : ins.ContextMatches != 1 ? $"{SlotName(key.SlotExport)}.{key.Path} can't be added: the ±{BytePlanner.Context}-byte stock context at its insertion point matches {ins.ContextMatches} times"
+                : null;
+        }
+        _insertRefusals[key] = why;
+        return why;
+    }
+
     public string SlotName(int exportIndex) =>
         exportIndex >= 0 && exportIndex < _stockPackage.ExportsLazy.Length ? _stockPackage.ExportsLazy[exportIndex].Value.Name : $"export {exportIndex}";
 
@@ -137,10 +172,10 @@ public sealed class PatchSession
         {
             if (!c.Key.Package.Equals(PackagePath, StringComparison.OrdinalIgnoreCase))
                 return $"{c.Key.Path} belongs to {GamePaths.ShortName(c.Key.Package)}, not {GamePaths.ShortName(PackagePath)}; open that package to edit it.";
-            if (StockValue(c.Key) == null)
-                return $"{SlotName(c.Key.SlotExport)}.{c.Key.Path} is not stored in {GamePaths.ShortName(PackagePath)}; only stored values can be patched.";
+            if (StockValue(c.Key) == null && InsertRefusal(c.Key) is { } why)
+                return why;
         }
-        var next = Current.With(edit.Changes, StockValue);
+        var next = Current.With(edit.Changes, BaseValue);
         if (next.ContentEquals(Current)) return null;
         _undo.Push(Current);
         _redo.Clear();
@@ -209,7 +244,7 @@ public sealed class PatchSession
             return Refused(plan, refusals);
         }
 
-        var changed = BytePlanner.Diff(stock, reloaded);
+        var changed = BytePlanner.ChangedOffsets(stock, reloaded, plan);
         var sha = Sha256(reloaded);
         _guard.Move(tmp, EditedPath);
         WriteManifest(plan, sha, changed);
@@ -243,7 +278,9 @@ public sealed class PatchSession
 
     /// <summary>
     /// Re-parses the written bytes with CUE4Parse and walks them again: in every edited slot export each stored value is
-    /// unchanged from stock except the edited ones, which read back as the new values.
+    /// unchanged from stock except the edited ones, which read back as the new values, and every value sits where stock
+    /// had it (moved by the tags inserted before it). With inserted tags every export of the package is also compared
+    /// with stock: only the edited values may differ.
     /// </summary>
     private IEnumerable<PatchRefusal> ReparseCheck(byte[] written, BytePlan plan)
     {
@@ -262,13 +299,16 @@ public sealed class PatchSession
         }
         var walker = new TaggedPropertyWalker(layout.NameMap);
         var stockWalker = new TaggedPropertyWalker(_layout.NameMap);
-        foreach (var slot in plan.Entries.GroupBy(e => e.Key.SlotExport))
+        var values = plan.Entries.Select(e => (Export: e.Key.SlotExport, e.Key.Path, Value: e.NewValue))
+            .Concat(plan.Insertions.Select(i => (Export: i.ExportIndex, i.Path, Value: (double) i.Value))).ToList();
+        foreach (var slot in values.GroupBy(v => v.Export))
         {
-            var edited = slot.ToDictionary(e => e.Key.Path, e => e.NewValue);
+            var edited = slot.ToDictionary(v => v.Path, v => v.Value);
+            var inserted = plan.Insertions.Where(i => i.ExportIndex == slot.Key).ToDictionary(i => i.Path);
             var stockParsed = WidgetTreeReader.StoredValues(_stockPackage.ExportsLazy[slot.Key].Value);
             var nowParsed = WidgetTreeReader.StoredValues(reparsed.ExportsLazy[slot.Key].Value);
-            if (!stockParsed.Keys.ToHashSet().SetEquals(nowParsed.Keys))
-                refusals.Add(new PatchRefusal(RefusalRule.ReloadMismatch, $"{SlotName(slot.Key)}: the stored properties changed after reload"));
+            if (!stockParsed.Keys.Concat(inserted.Keys).ToHashSet().SetEquals(nowParsed.Keys))
+                refusals.Add(new PatchRefusal(RefusalRule.ReloadMismatch, $"{SlotName(slot.Key)}: the stored properties changed after reload ({string.Join(", ", nowParsed.Keys.Except(stockParsed.Keys).Except(inserted.Keys).Concat(stockParsed.Keys.Concat(inserted.Keys).Except(nowParsed.Keys)))})"));
             foreach (var (path, text) in nowParsed)
             {
                 if (edited.TryGetValue(path, out var want))
@@ -281,22 +321,45 @@ public sealed class PatchSession
             }
 
             var stockWalk = stockWalker.Walk(_stock, _layout.SpanOf(slot.Key)).ToDictionary(f => f.Path);
-            foreach (var f in walker.Walk(written, layout.SpanOf(slot.Key)))
+            var walked = walker.Walk(written, layout.SpanOf(slot.Key));
+            foreach (var f in walked)
             {
                 var want = edited.TryGetValue(f.Path, out var v) ? v : stockWalk.TryGetValue(f.Path, out var s) ? s.Value : double.NaN;
-                if (f.Value != want || !stockWalk.TryGetValue(f.Path, out var sf) || sf.Offset != f.Offset)
-                    refusals.Add(new PatchRefusal(RefusalRule.ReloadMismatch, $"{SlotName(slot.Key)}.{f.Path} at 0x{f.Offset:X} walks as {f.Value}, expected {want}"));
+                int? where = stockWalk.TryGetValue(f.Path, out var sf) ? TagInserter.Shifted(plan.Insertions, sf.Offset)
+                    : inserted.TryGetValue(f.Path, out var ins) ? TagInserter.NewTagOffset(plan.Insertions, ins) + TagInserter.FloatTagSize - 4 : null;
+                if (f.Value != want || where != f.Offset)
+                    refusals.Add(new PatchRefusal(RefusalRule.ReloadMismatch, $"{SlotName(slot.Key)}.{f.Path} at 0x{f.Offset:X} walks as {f.Value}, expected {want}{(where is { } w ? $" at 0x{w:X}" : " (not in stock and not inserted)")}"));
             }
+            foreach (var missing in inserted.Keys.Where(p => walked.All(f => f.Path != p)))
+                refusals.Add(new PatchRefusal(RefusalRule.ReloadMismatch, $"{SlotName(slot.Key)}.{missing} was inserted but isn't found by the walk"));
+        }
+
+        if (plan.ChangesSize)
+        {
+            var byKey = values.ToDictionary(v => (v.Export, "Properties." + v.Path), v => v.Value);
+            var (_, problems, _) = TagInserter.ReparseDiff(_source, FileKey, _stockPackage, written, StockFlat, (export, key, _, now) =>
+                byKey.TryGetValue((export, key), out var want) && now != null && TryParse(now, out var got) && (float) got == (float) want);
+            refusals.AddRange(problems.Select(p => new PatchRefusal(RefusalRule.ReloadMismatch, p)));
         }
         return refusals;
     }
 
+    private Dictionary<string, string> StockFlat(int export)
+    {
+        if (!_stockFlat.TryGetValue(export, out var flat)) _stockFlat[export] = flat = TagInserter.Flatten(_stockPackage.ExportsLazy[export].Value);
+        return flat;
+    }
+
     // ---- manifest ----
 
-    private sealed record ManifestEdit(int SlotExport, string Slot, string Path, double Stock, double Value);
+    /// <param name="Stock">The stored value, or the engine default when Inserted (not stored: saving adds it as a new tag)</param>
+    private sealed record ManifestEdit(int SlotExport, string Slot, string Path, double Stock, double Value, bool Inserted = false);
     private sealed record ManifestEntry(string Slot, string Path, int Offset, string OffsetHex, string Type, double Old, double New, string OldHex, string NewHex, string ContextHex, int ContextMatches);
+    /// <param name="InsertAt">Stock offset the 29-byte tag goes in front of</param>
+    private sealed record ManifestInsertion(string Slot, string Path, int InsertAt, string InsertAtHex, string Before, float Value, string TagHex, int ContextMatches);
+    /// <param name="ChangedOffsets">Stock offsets that differ, with any inserted tags cut out</param>
     private sealed record Manifest(string Package, string FileKey, string ChunkId, int StockSize, string StockSha256, string EditedSha256, DateTime SavedUtc,
-        List<ManifestEdit> Edits, List<ManifestEntry> Plan, List<int> ChangedOffsets);
+        List<ManifestEdit> Edits, List<ManifestEntry> Plan, List<int> ChangedOffsets, int EditedSize = 0, List<ManifestInsertion>? Insertions = null);
 
     private static readonly JsonSerializerOptions JsonOptions = new() { WriteIndented = true };
 
@@ -304,9 +367,10 @@ public sealed class PatchSession
     {
         var manifest = new Manifest(PackagePath, FileKey, ChunkIdHex, StockSize, StockSha256, editedSha, DateTime.UtcNow,
             Current.Values.OrderBy(kv => kv.Key.SlotExport).ThenBy(kv => kv.Key.Path, StringComparer.Ordinal)
-                .Select(kv => new ManifestEdit(kv.Key.SlotExport, SlotName(kv.Key.SlotExport), kv.Key.Path, StockValue(kv.Key) ?? double.NaN, kv.Value)).ToList(),
+                .Select(kv => new ManifestEdit(kv.Key.SlotExport, SlotName(kv.Key.SlotExport), kv.Key.Path, BaseValue(kv.Key) ?? 0, kv.Value, StockValue(kv.Key) == null)).ToList(),
             plan.Entries.Select(e => new ManifestEntry(e.SlotName, e.Key.Path, e.Offset, e.OffsetHex, e.Type.ToString(), e.OldValue, e.NewValue, e.OldHex, e.NewHex, e.ContextHex, e.ContextMatches)).ToList(),
-            changed.ToList());
+            changed.ToList(), plan.EditedSize,
+            plan.Insertions.Select(i => new ManifestInsertion(i.SlotName, i.Path, i.InsertAt, i.InsertAtHex, i.Before, i.Value, i.TagHex, i.ContextMatches)).ToList());
         var tmp = ManifestPath + ".tmp";
         _guard.WriteAllText(tmp, JsonSerializer.Serialize(manifest, JsonOptions));
         _guard.Move(tmp, ManifestPath);
@@ -324,7 +388,7 @@ public sealed class PatchSession
             OpenNote = $"{ManifestPath} belongs to another package or stock version; starting without saved edits.";
             return;
         }
-        var edits = EditSet.Empty.With(m.Edits.Select(e => new FieldChange(new FieldKey(PackagePath, e.SlotExport, e.Path), e.Stock, e.Value)), StockValue);
+        var edits = EditSet.Empty.With(m.Edits.Select(e => new FieldChange(new FieldKey(PackagePath, e.SlotExport, e.Path), e.Stock, e.Value)), BaseValue);
         Current = edits;
         if (File.Exists(EditedPath) && Sha256(File.ReadAllBytes(EditedPath)) == m.EditedSha256) Saved = edits;
         else OpenNote = $"{EditedPath} doesn't match its manifest; the edits are restored but unsaved.";

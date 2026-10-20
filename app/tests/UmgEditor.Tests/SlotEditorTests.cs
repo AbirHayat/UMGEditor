@@ -153,13 +153,14 @@ public class SlotEditorTests
     }
 
     [TestMethod]
-    public void Resize_WithAlignment_RefusedWhenLeftNotStored_Window()
+    public void Resize_WithAlignment_NotStoredLeft_IsAddedAsANewValue_Window()
     {
         var tree = MatchTime; var window = tree.Find("Window")!;
         Assert.AreEqual(0.5, Value(window, "LayoutData.Alignment.X"));
+        Assert.IsTrue(SlotEditor.IsInsertion(window, "LayoutData.Offsets.Left"));
         var r = SlotEditor.ResizeEdge(window, EditSet.Empty, Edge.Right, 10);
-        Assert.IsFalse(r.Allowed);
-        StringAssert.Contains(r.Reason, "Offsets.Left is not stored");
+        Assert.IsTrue(r.Allowed, r.Reason);
+        Assert.AreEqual(5.0, r.Changes.Single(c => c.Key.Path == "LayoutData.Offsets.Left").NewValue, "default 0 + 10·0.5");
     }
 
     // ---- stretched axis ----
@@ -199,12 +200,12 @@ public class SlotEditorTests
     }
 
     [TestMethod]
-    public void Move_Stretched_RefusedWhenAMarginIsNotStored_ScaleBox()
+    public void Move_Stretched_NotStoredMargin_IsAddedAsANewValue_ScaleBox()
     {
         var scaleBox = MatchTime.Find("ScaleBox_0")!;
         var r = SlotEditor.Move(scaleBox, EditSet.Empty, 10, 0);
-        Assert.IsFalse(r.Allowed);
-        StringAssert.Contains(r.Reason, "Offsets.Left is not stored");
+        Assert.IsTrue(r.Allowed, r.Reason);
+        CollectionAssert.AreEquivalent(new[] { "LayoutData.Offsets.Left", "LayoutData.Offsets.Right" }, r.Changes.Select(c => c.Key.Path).ToArray());
     }
 
     // ---- alignment and anchors (numeric only) ----
@@ -219,13 +220,12 @@ public class SlotEditorTests
     }
 
     [TestMethod]
-    public void Alignment_KeepPosition_RefusedWhenLeftNotStored_Window()
+    public void Alignment_KeepPosition_NotStoredLeft_IsAddedAsANewValue_Window()
     {
         var window = MatchTime.Find("Window")!;
         var r = SlotEditor.SetAlignment(window, EditSet.Empty, Axis.X, 0.45, keepPosition: true);
-        Assert.IsFalse(r.Allowed);
-        StringAssert.Contains(r.Reason, "Can't keep the position");
-        StringAssert.Contains(r.Reason, "Offsets.Left is not stored");
+        Assert.IsTrue(r.Allowed, r.Reason);
+        Assert.IsTrue(r.Changes.Any(c => c.Key.Path == "LayoutData.Offsets.Left"));
     }
 
     [TestMethod]
@@ -243,15 +243,16 @@ public class SlotEditorTests
     // ---- greyed-out reasons ----
 
     [TestMethod]
-    public void Greyed_NonStoredField_SaysNotStoredAndFileSize()
+    public void NonStoredOffsetsMember_IsEditable_AsANewTag()
     {
         var node = MatchTime.Find("Text_Score_Home")!; // Left/Top not stored, Right/Bottom stored
-        var reason = SlotEditor.FieldRefusal(node, "LayoutData.Offsets.Left");
-        StringAssert.Contains(reason, "Offsets.Left is not stored in the file (engine default 0)");
-        StringAssert.Contains(reason, "would change the file size");
-        Assert.IsNull(SlotEditor.FieldRefusal(node, "LayoutData.Offsets.Right"), "a stored field on the same slot stays editable");
-        Assert.IsFalse(SlotEditor.SetField(node, EditSet.Empty, "LayoutData.Offsets.Left", 5).Allowed);
-        Assert.IsFalse(SlotEditor.Move(node, EditSet.Empty, 5, 0).Allowed, "moving along X needs Left");
+        Assert.IsNull(SlotEditor.FieldRefusal(node, "LayoutData.Offsets.Left"));
+        Assert.IsTrue(SlotEditor.IsInsertion(node, "LayoutData.Offsets.Left"));
+        Assert.IsFalse(SlotEditor.IsInsertion(node, "LayoutData.Offsets.Right"), "stored: patched in place");
+        var set = SlotEditor.SetField(node, EditSet.Empty, "LayoutData.Offsets.Left", 5);
+        Assert.IsTrue(set.Allowed);
+        Assert.AreEqual(0.0, set.Changes.Single().OldValue, "the engine default");
+        Assert.IsTrue(SlotEditor.Move(node, EditSet.Empty, 5, 0).Allowed, "moving along X sets Left");
     }
 
     [TestMethod]

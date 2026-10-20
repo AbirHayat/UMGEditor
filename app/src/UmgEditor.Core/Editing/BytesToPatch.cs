@@ -90,15 +90,69 @@ public sealed record PatchRow(PatchEntry Entry, string Widget)
     }
 }
 
+/// <summary>
+/// A value that isn't stored, added as a new 29-byte FloatProperty tag (branch experiment, canary C10): where it goes in
+/// the stock chunk, the tag's bytes and the ±32-byte stock context around the insertion point.
+/// </summary>
+public sealed record InsertRow(TagInsertion Insertion, string Widget, double Default)
+{
+    public string Slot => Widget == Insertion.SlotName ? Widget : $"{Widget} ({Insertion.SlotName})";
+    public string Field => Insertion.Path.Replace("LayoutData.", "");
+    public string ValueText => $"default {SlotEditor.Format(Default)} → {SlotEditor.Format(Insertion.Value)}";
+    public string WhereText => $"{Insertion.InsertAtHex} (stock offset), in front of the {Insertion.Before} tag";
+    public const string TagLayoutText = "Name, Type FloatProperty, Size 4, ArrayIndex 0, no property GUID, then the float";
+    public string MatchText =>
+        $"±{BytePlanner.Context}-byte stock context around the insertion point found {Insertion.ContextMatches} time{(Insertion.ContextMatches == 1 ? "" : "s")} in the chunk (must be exactly 1)";
+
+    /// <summary>The ±32-byte stock window as 16-byte rows; the tag goes in at the "|".</summary>
+    public IReadOnlyList<string> Context
+    {
+        get
+        {
+            var i = Insertion;
+            int from = i.InsertAt - i.ContextBefore.Length, to = i.InsertAt + i.ContextAfter.Length;
+            byte[] window = [.. i.ContextBefore, .. i.ContextAfter];
+            var rows = new List<string>();
+            for (int row = from / PatchRow.RowBytes * PatchRow.RowBytes; row < to; row += PatchRow.RowBytes)
+            {
+                var sb = new StringBuilder($"0x{row:X6} ");
+                for (int o = row; o < row + PatchRow.RowBytes; o++)
+                    sb.Append(o == i.InsertAt ? '|' : ' ').Append(o < from || o >= to ? "  " : window[o - from].ToString("X2"));
+                rows.Add(sb.ToString().TrimEnd());
+            }
+            return rows;
+        }
+    }
+
+    public string ToText()
+    {
+        var sb = new StringBuilder();
+        sb.AppendLine($"  {Slot} · {Field} · new float tag ({TagInserter.FloatTagSize} bytes)");
+        sb.AppendLine($"    insert   {WhereText}");
+        sb.AppendLine($"    value    {ValueText}");
+        sb.AppendLine($"    tag hex  {Insertion.TagHex}   ({TagLayoutText})");
+        sb.AppendLine($"    context  {MatchText}; the tag goes in at |");
+        foreach (var r in Context) sb.AppendLine("      " + r);
+        return sb.ToString();
+    }
+}
+
 /// <summary>The bytes to patch for one package of the project, or why its save would be refused.</summary>
 public sealed record PackageBytes(string Package, string FileKey, int StockSize, bool Dirty, IReadOnlyList<PatchRow> Rows, IReadOnlyList<PatchRefusal> Refusals)
 {
+    public IReadOnlyList<InsertRow> Insertions { get; init; } = [];
+    /// <summary>The header values the inserted tags change, as one line (null without insertions).</summary>
+    public string? HeaderChanges { get; init; }
+
+    public int EditedSize => StockSize + TagInserter.FloatTagSize * Insertions.Count;
     public string Name => GamePaths.ShortName(Package);
     public bool Refused => Refusals.Count > 0;
     public string StateText => (Dirty ? "unsaved" : "saved") + (Refused ? " · save would be refused" : "");
-    public string Header => $"{Name} · {StateText} · {StockSize:N0} bytes, size unchanged";
+    public string Header => Insertions.Count == 0
+        ? $"{Name} · {StateText} · {StockSize:N0} bytes, size unchanged"
+        : $"{Name} · {StateText} · {StockSize:N0} → {EditedSize:N0} bytes (+{EditedSize - StockSize}: {Insertions.Count} new tag{(Insertions.Count == 1 ? "" : "s")})";
     /// <summary>Shown when the package has no value left to patch (every edit undone back to stock).</summary>
-    public string? EmptyText => Rows.Count == 0 && !Refused ? "No values to patch: saving writes the stock bytes back." : null;
+    public string? EmptyText => Rows.Count == 0 && Insertions.Count == 0 && !Refused ? "No values to patch: saving writes the stock bytes back." : null;
 
     public string ToText()
     {
@@ -107,15 +161,30 @@ public sealed record PackageBytes(string Package, string FileKey, int StockSize,
         sb.AppendLine($"  {FileKey}");
         if (EmptyText != null) sb.AppendLine("  " + EmptyText);
         foreach (var r in Rows) sb.Append(r.ToText());
+        foreach (var r in Insertions) sb.Append(r.ToText());
+        if (HeaderChanges != null) sb.AppendLine("  " + HeaderChanges);
         foreach (var r in Refusals) sb.AppendLine($"  REFUSED [{r.Rule}] {r.Message}");
         return sb.ToString();
+    }
+
+    /// <summary>"Header values the new tags change: struct Size @0x… 66 → 95, …; export 11 CookedSerialSize 271 → 300; 1,461 later exports' CookedSerialOffset +29."</summary>
+    public static string? HeaderChangesOf(BytePlan plan)
+    {
+        if (!plan.ChangesSize) return null;
+        var sizes = plan.Derived.Where(d => d.Kind != DerivedKind.ExportOffset)
+            .Select(d => d.Kind == DerivedKind.StructSize ? $"struct Size @0x{d.Offset:X} {d.Old} → {d.New}" : $"export {d.ExportIndex} CookedSerialSize {d.Old} → {d.New}");
+        var moved = plan.Derived.Where(d => d.Kind == DerivedKind.ExportOffset).ToList();
+        var by = moved.Select(d => d.New - d.Old).Distinct().Order().ToList();
+        return $"Header values the new tags change (stock offsets): {string.Join("; ", sizes)}; {moved.Count:N0} later exports' CookedSerialOffset " +
+               (by.Count == 1 ? $"+{by[0]}." : $"+{by.FirstOrDefault()}…+{by.LastOrDefault()}.");
     }
 }
 
 /// <summary>What the bytes-to-patch panel shows: every package of the project with edits, as planned on its stock copy.</summary>
 public sealed record BytesReport(string Project, IReadOnlyList<PackageBytes> Packages)
 {
-    public int ValueCount => Packages.Sum(p => p.Rows.Count);
+    public int ValueCount => Packages.Sum(p => p.Rows.Count + p.Insertions.Count);
+    public int InsertionCount => Packages.Sum(p => p.Insertions.Count);
     public int RefusalCount => Packages.Sum(p => p.Refusals.Count);
     public bool IsEmpty => Packages.Count == 0;
 
@@ -123,7 +192,10 @@ public sealed record BytesReport(string Project, IReadOnlyList<PackageBytes> Pac
         ? $"No edits in project {Project}: nothing to patch."
         : $"{ValueCount} value{(ValueCount == 1 ? "" : "s")} in {Packages.Count} package{(Packages.Count == 1 ? "" : "s")} (project {Project})"
           + (RefusalCount > 0 ? $" · {RefusalCount} refusal{(RefusalCount == 1 ? "" : "s")}" : "")
-          + ". Every value is written in place over the stock bytes; nothing moves and no size changes.";
+          + (InsertionCount == 0
+              ? ". Every value is written in place over the stock bytes; nothing moves and no size changes."
+              : $". Stored values are written in place; {(InsertionCount == 1 ? "1 value that isn't stored is added as a new 29-byte tag" : $"{InsertionCount} values that aren't stored are added as new 29-byte tags")}, " +
+                $"so {(Packages.Count(p => p.Insertions.Count > 0) == 1 ? "that package grows" : "those packages grow")} and everything after each tag moves.");
 
     public string ToText() =>
         $"Bytes to patch: {Summary}\n\n" + string.Join("\n", Packages.Select(p => p.ToText()));
@@ -138,7 +210,9 @@ public sealed record BytesReport(string Project, IReadOnlyList<PackageBytes> Pac
             {
                 var plan = s.Plan();
                 var rows = plan.Entries.Select(e => new PatchRow(e, widgetOf(s.PackagePath, e.Key.SlotExport) ?? e.SlotName)).ToList();
-                return new PackageBytes(s.PackagePath, s.FileKey, plan.StockSize, s.IsDirty, rows, plan.Refusals);
+                var inserts = plan.Insertions.Select(i => new InsertRow(i, widgetOf(s.PackagePath, i.ExportIndex) ?? i.SlotName, i.Key is { } k ? s.BaseValue(k) ?? 0 : 0)).ToList();
+                return new PackageBytes(s.PackagePath, s.FileKey, plan.StockSize, s.IsDirty, rows, plan.Refusals)
+                    { Insertions = inserts, HeaderChanges = PackageBytes.HeaderChangesOf(plan) };
             }).ToList();
         return new BytesReport(project, packages);
     }

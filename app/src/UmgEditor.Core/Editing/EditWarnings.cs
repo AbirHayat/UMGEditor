@@ -23,6 +23,8 @@ public enum WarningKind
     Rescale,
     /// <summary>The edit moves widgets outside the edited branch (layout feedback).</summary>
     OthersMove,
+    /// <summary>The edit gives a value that isn't stored: saving adds a new tag and the package grows (branch experiment).</summary>
+    SizeChange,
 }
 
 public enum Severity { Info, Warning, Danger }

@@ -69,6 +69,9 @@ void PrintPlan(PatchSession s)
     var plan = s.Plan();
     foreach (var e in plan.Entries)
         Console.WriteLine($"  {e.SlotName}.{e.Key.Path}  @ {e.OffsetHex}  {Num(e.OldValue)} -> {Num(e.NewValue)}  [{e.OldHex}] -> [{e.NewHex}]\n      context x{e.ContextMatches}: {e.ContextHex}");
+    foreach (var i in plan.Insertions)
+        Console.WriteLine($"  {i.SlotName}.{i.Path}  NEW TAG before {i.Before} @ {i.InsertAtHex}  {Num(i.Key is { } k ? s.BaseValue(k) ?? 0 : 0)} (default) -> {Num(i.Value)}  [{i.TagHex}]\n      context x{i.ContextMatches}");
+    if (plan.ChangesSize) Console.WriteLine($"  {plan.SizeText}; {PackageBytes.HeaderChangesOf(plan)}");
     foreach (var r in plan.Refusals) Console.WriteLine($"  REFUSED [{r.Rule}] {r.Message}");
 }
 
@@ -109,9 +112,11 @@ try
 
             var warnings = new EditWarnings(NewEngine(), new UsageGraph(index), W, H);
             var report = warnings.ForSelection(tree, node);
-            var pending = warnings.ForPendingEdit(tree, node, session.Current.With(edit.Changes, session.StockValue), session.Current);
+            var pending = warnings.ForPendingEdit(tree, node, session.Current.With(edit.Changes, session.BaseValue), session.Current);
             Console.WriteLine(report.ConfirmationText);
             foreach (var w in pending) Console.WriteLine($"  [{w.Severity}] {w.Message}");
+            foreach (var c in edit.Changes.Where(c => session.StockValue(c.Key) == null && !c.NewValue.Equals(session.BaseValue(c.Key))))
+                Console.WriteLine($"  [Warning] {c.Key.Path} isn't stored in {GamePaths.ShortName(package)}: saving adds a 29-byte tag, so the package grows (size-changing edit, device-tested by canary C10).");
             if (session.Saved.Count == 0 && !session.IsDirty && !yes)
             {
                 Console.WriteLine($"First edit of {GamePaths.ShortName(package)}{(editSet != null ? $" in set {editSet}" : "")}: read the above, then re-run with --yes.");
@@ -130,7 +135,7 @@ try
         case "reset":
         {
             var session = OpenSession(ResolvePackage(argv[1]));
-            var back = session.Current.Values.Select(kv => new FieldChange(kv.Key, kv.Value, session.StockValue(kv.Key) ?? kv.Value)).ToList();
+            var back = session.Current.Values.Select(kv => new FieldChange(kv.Key, kv.Value, session.BaseValue(kv.Key) ?? kv.Value)).ToList();
             session.Apply(EditResult.Of(back));
             var saved = session.Save();
             Console.WriteLine(saved.Summary);
@@ -152,9 +157,9 @@ try
             {
                 var session = OpenSession(ResolvePackage(arg));
                 if (session.IsDirty) Console.WriteLine($"warning: {GamePaths.ShortName(session.PackagePath)} has unsaved edits; predicting the saved ones");
-                changes.AddRange(session.Saved.Values.Select(kv => new FieldChange(kv.Key, session.StockValue(kv.Key) ?? double.NaN, kv.Value)));
+                changes.AddRange(session.Saved.Values.Select(kv => new FieldChange(kv.Key, session.BaseValue(kv.Key) ?? double.NaN, kv.Value)));
                 foreach (var kv in session.Saved.Values)
-                    Console.WriteLine($"edit: {GamePaths.ShortName(kv.Key.Package)} {session.SlotName(kv.Key.SlotExport)}.{kv.Key.Path} {Num(session.StockValue(kv.Key) ?? double.NaN)} -> {Num(kv.Value)}");
+                    Console.WriteLine($"edit: {GamePaths.ShortName(kv.Key.Package)} {session.SlotName(kv.Key.SlotExport)}.{kv.Key.Path} {Num(session.BaseValue(kv.Key) ?? double.NaN)}{(session.StockValue(kv.Key) == null ? " (default, new tag)" : "")} -> {Num(kv.Value)}");
             }
             var edits = EditSet.Empty.With(changes, _ => null);
             if (edits.Count == 0) { Console.Error.WriteLine("refused: no saved edits to predict"); return 2; }

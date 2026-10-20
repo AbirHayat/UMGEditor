@@ -229,22 +229,19 @@ public class SlotDragTests
     // ---- handles and the reasons instead of them ----
 
     [TestMethod]
-    public void Handles_StretchedPlate_OnlyStoredEdges()
+    public void Handles_StretchedPlate_NotStoredEdgesToo()
     {
         var c = Controller();
+        // branch experiment: Left/Top aren't stored but the Offsets struct is, so they can be added as new tags
         var h = c.DragHandles(Find(Base, "Img_Plate").Node);
-        Assert.IsTrue(h.Any && h.Allows(DragHandle.Right) && h.Allows(DragHandle.Bottom));
-        Assert.IsFalse(h.Allows(DragHandle.Move) || h.Allows(DragHandle.Left) || h.Allows(DragHandle.Top));
-        StringAssert.Contains(h.Refusals[DragHandle.Move], "Offsets.Left is not stored");
-        StringAssert.Contains(h.Refusals[DragHandle.Left], "Offsets.Left is not stored");
+        Assert.IsTrue(h.MoveX && h.MoveY && Enum.GetValues<DragHandle>().All(h.Allows));
 
         var box = c.DragHandles(Find(MatchTime, "Img_MatchTimeBg_1").Node);
         Assert.IsTrue(box.MoveX && box.MoveY && Enum.GetValues<DragHandle>().All(box.Allows));
 
-        // non-stretched X with alignment 0.5: both X edges also move Left, which isn't stored; Y is stretched with both margins stored
+        // non-stretched X with alignment 0.5: both X edges also move Left, which isn't stored (added as a new tag)
         var fill = c.DragHandles(Find(PackageNamed("CodeList"), "Window_Fill").Node);
-        Assert.IsFalse(fill.MoveX || fill.Allows(DragHandle.Left) || fill.Allows(DragHandle.Right));
-        Assert.IsTrue(fill.MoveY && fill.Allows(DragHandle.Top) && fill.Allows(DragHandle.Bottom));
+        Assert.IsTrue(fill.MoveX && fill.MoveY && Enum.GetValues<DragHandle>().All(fill.Allows));
     }
 
     [TestMethod]
@@ -267,7 +264,7 @@ public class SlotDragTests
     // ---- arrow keys ----
 
     [TestMethod]
-    public void Nudge_OneUnitPerPress_OneUndoStepEach_RefusedAxisSaysWhy()
+    public void Nudge_OneUnitPerPress_OneUndoStepEach_NotStoredLeftToo()
     {
         var c = Controller();
         var (tree, node) = Find(MatchTime, "Img_MatchTimeBg_1");
@@ -280,6 +277,6 @@ public class SlotDragTests
         Assert.AreEqual(3, UndoSteps(c));
 
         var (baseTree, plate) = Find(Base, "Img_Plate");
-        StringAssert.Contains(c.Nudge(baseTree, plate, 1, 0).Refusal, "Offsets.Left is not stored");
+        Assert.IsTrue(c.Nudge(baseTree, plate, 1, 0).NeedsConfirmation, "Left isn't stored: added as a new tag (the first edit of MatchTimeBase asks first)");
     }
 }

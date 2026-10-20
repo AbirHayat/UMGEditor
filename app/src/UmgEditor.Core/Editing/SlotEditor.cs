@@ -20,7 +20,8 @@ public sealed record EditResult(bool Allowed, string? Reason, IReadOnlyList<Fiel
 /// non-stretched axis (anchor min == max): Left/Top = position from the anchor point, Right/Bottom = size,
 ///   left edge = anchor·parent + Left − alignment·size;
 /// stretched axis (min != max): Left/Right (Top/Bottom) are margins, alignment is not used.
-/// Only values stored in the file can change (in place, same size); everything else is refused with a reason.
+/// Values stored in the file change in place (same size). Branch experiment: an Offsets member that isn't stored, in a
+/// stored Offsets struct, can change too; saving adds it as a new tag (see IsInsertion). Everything else is refused with a reason.
 /// All amounts are in the parent canvas's local units (design units inside the scoreboard canvas).
 /// </summary>
 public static class SlotEditor
@@ -64,10 +65,31 @@ public static class SlotEditor
         if (f == null) return $"{path} isn't a {node.Slot.ClassName} field.";
         if (path == "bAutoSize") return "bAutoSize is a boolean; boolean fields aren't editable in this version.";
         if (!Numeric.Contains(path)) return $"{path} isn't an editable layout value.";
-        if (!f.Stored)
-            return $"{Short(path)} is not stored in the file (engine default {f.Value}); changing it needs a new property tag, which would change the file size.";
+        if (!f.Stored) return InsertRefusal(node, f);
         return null;
     }
+
+    /// <summary>
+    /// A value that isn't stored and that saving adds as a new 29-byte tag (branch experiment, canary C10): the package
+    /// grows. Only an Offsets member whose Offsets struct is stored (another member of it is); the session checks the rest
+    /// (name map, unique context) when the edit is applied.
+    /// </summary>
+    public static bool IsInsertion(WidgetNode node, string path) =>
+        node.Slot?.Fields.FirstOrDefault(x => x.Path == path) is { Stored: false } && FieldRefusal(node, path) == null;
+
+    private static string? InsertRefusal(WidgetNode node, SlotField f)
+    {
+        var head = $"{Short(f.Path)} is not stored in the file (engine default {f.Value})";
+        if (Patching.TagInserter.Insertable(f.Path) is not { } at)
+            return f.Path == "ZOrder"
+                ? $"{head}; adding it needs a new top-level tag, which isn't supported yet (only a missing Offsets value can be added)."
+                : $"{head}, and neither is the rest of its {StructOf(f.Path)} struct; adding a whole struct isn't supported yet (only a missing Offsets value can be added).";
+        if (!node.Slot!.Fields.Any(x => x.Stored && x.Path.StartsWith(at.StructPath + ".", StringComparison.Ordinal)))
+            return $"{head}, and neither is any other Offsets value; adding the whole Offsets struct isn't supported yet.";
+        return null;
+    }
+
+    private static string StructOf(string path) => Short(path[..path.LastIndexOf('.')]);
 
     public static bool IsStretched(WidgetNode node, Axis axis, EditSet edits) => axis == Axis.X
         ? edits.Effective(node, "LayoutData.Anchors.Minimum.X") != edits.Effective(node, "LayoutData.Anchors.Maximum.X")
@@ -194,7 +216,7 @@ public static class SlotEditor
         ? ("LayoutData.Offsets.Left", "LayoutData.Offsets.Right")
         : ("LayoutData.Offsets.Top", "LayoutData.Offsets.Bottom");
 
-    /// <summary>Reason the first of these fields can't change, or null when all are stored.</summary>
+    /// <summary>Reason the first of these fields can't change, or null when all can.</summary>
     private static string? Need(WidgetNode node, params string[] paths) =>
         paths.Select(p => FieldRefusal(node, p)).FirstOrDefault(r => r != null);
 

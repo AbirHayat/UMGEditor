@@ -92,12 +92,12 @@ public class EditorControllerTests
         var right = i.Fields.Single(f => f.Path == Right);
         Assert.IsTrue(right.Editable && right.Stored && !right.IsEdited);
         Assert.AreEqual("stored", right.State);
+        // branch experiment: Left isn't stored, but the Offsets struct is, so it can be added as a new tag
         var left = i.Fields.Single(f => f.Path == "LayoutData.Offsets.Left");
-        Assert.AreEqual(GreyReason.NotStored, left.Grey);
-        StringAssert.Contains(left.Reason, "not stored");
-        var notStored = i.GreyGroups.Single(g => g.Reason == GreyReason.NotStored);
-        CollectionAssert.Contains(notStored.Fields.ToList(), "Offsets.Left");
-        StringAssert.Contains(notStored.Text, "file size");
+        Assert.IsTrue(left.Editable && left.IsInsertion && !left.Stored);
+        Assert.AreEqual("default", left.State);
+        StringAssert.Contains(left.ToolTip, "29-byte tag");
+        Assert.IsFalse(i.GreyGroups.Any(g => g.Fields.Contains("Offsets.Left")));
         Assert.AreEqual(GreyReason.Boolean, i.Fields.Single(f => f.Path == "bAutoSize").Grey);
 
         CollectionAssert.AreEquivalent(new[] { "MatchTime", "MatchTimeCard", "MatchTimeGoal", "MatchTimeMemberChange" }, i.EmbeddedByOffline.Select(a => a.Name).ToArray());
@@ -228,7 +228,6 @@ public class EditorControllerTests
         Assert.AreEqual(100.0, c.Inspect(tree, plate).Fields.Single(f => f.Path == Right).EditedValue);
         StringAssert.Contains(c.Inspect(tree, plate).Fields.Single(f => f.Path == Right).ToolTip, "Stock value");
 
-        StringAssert.Contains(c.SetValue(tree, plate, "LayoutData.Offsets.Left", "5").Refusal, "not stored");
         StringAssert.Contains(c.SetValue(tree, plate, "bAutoSize", "1").Refusal, "boolean");
         var again = c.SetValue(tree, plate, Right, "100.0");
         Assert.IsFalse(again.Applied || again.NeedsConfirmation || again.Refusal != null, "the same value again is a no-op");
