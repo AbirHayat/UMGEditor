@@ -31,6 +31,7 @@ switch (args.FirstOrDefault())
     case "compare": return Compare();
     case "anim-dump": return AnimDump();
     case "anim-keys": return AnimKeys();
+    case "anim-report": return AnimReportCommand();
     case "mod-diff": return RunModDiff();
     case "canary-goal-slide": return CanaryGoalSlide();
     case "canary-insert": return CanaryInsert();
@@ -126,6 +127,24 @@ int CanaryInsert()
     Console.WriteLine($"stock Text_Score_Home box at 1786x1000: {stockBox}; +{NewLeft} units = +{NewLeft * ppu:0.0} px → x {stockBox.X + NewLeft * ppu:0.0}..{stockBox.Right + NewLeft * ppu:0.0} (screenshot: +50/+32)");
     Console.WriteLine(failures == 0 ? "ALL PASSED" : $"{failures} FAILED");
     return failures == 0 ? 0 : 1;
+}
+
+// Step 4b/4c: the scoreboard family's animations on mobile, PC stock and PC + the UCL mod, side by side.
+int AnimReportCommand()
+{
+    var modDir = Opt("--mod") ?? @"E:\n3tron\patch\pc_mods\3RD_PARTY\PesConsole\Content\Paks\~mods\UCL_theme_by_eFootball.cz";
+    var outDir = Opt("--out") ?? Path.Combine(config.WorkDir, "out", "experiment", "anim");
+    using var mobile = GameSource.Open(config);
+    using var pc = GameSource.Open(pcConfig);
+    using var ucl = GameSource.Open(pcConfig with { ExtraPaksDirs = [modDir] });
+    var packages = UiAssetIndex.LoadOrBuild(mobile).Where(e => e.Kind == UiAssetKind.Widget).Select(e => GamePaths.ToPackagePath(e.Path))
+        .Where(p => p.StartsWith(Tv + "MatchTime/", StringComparison.OrdinalIgnoreCase)).Distinct().Order(StringComparer.Ordinal).ToList();
+    var report = AnimReport.Build(packages, [new("mobile", mobile), new("PC", pc), new("UCL", ucl)], new Progress<string>(p => Console.WriteLine("  " + p)));
+    Directory.CreateDirectory(outDir);
+    var file = Path.Combine(outDir, "REPORT.md");
+    File.WriteAllText(file, report);
+    Console.WriteLine($"{packages.Count} packages -> {file}");
+    return 0;
 }
 
 int RunModDiff()

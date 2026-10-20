@@ -6,6 +6,7 @@
 //   umgmod [--set NAME] reset <package>
 //   umgmod [--set NAME] build <modName> <package>... [--container pc9999_mobile_and_P] [--ack-danger]
 //   umgmod [--set NAME] predict <package>...
+//   umgmod show-anim <package> [--anim REGEX] [--widget NAME] [--bytes]
 // <package> is a /Game/... path or a unique suffix such as MatchTime/MatchTimeBase. Edits are saved PatchSessions in
 // work\edits[\NAME]\<package path>; build packs their saved chunks into work\out\mods\<modName>\mod (the export
 // dialog's plan and run: predictions\ and TEST_INSTRUCTIONS.md next to it). Exit 0 = done, 2 = refused, 3 = needs
@@ -37,6 +38,9 @@ var editSet = Option("--set");
 var container = Option("--container") ?? "pc9999_mobile_and_P";
 var yes = Flag("--yes");
 var ackDanger = Flag(BuildCommand.AckFlag);
+var animFilter = Option("--anim") is { } re ? new System.Text.RegularExpressions.Regex(re) : null;
+var widgetFilter = Option("--widget");
+var withBytes = Flag("--bytes");
 if (argv.Count < 2) return Usage();
 
 var config = GameConfig.LoadOrDefault(Path.Combine(AppContext.BaseDirectory, "umgeditor.json"));
@@ -192,6 +196,30 @@ try
             Console.WriteLine($"{report.WarningCount} warning{(report.WarningCount == 1 ? "" : "s")}{(dangers > 0 ? $", {dangers} danger (the export dialog asks to acknowledge each)" : "")}");
             return 0;
         }
+        case "show-anim":
+        {
+            // every animation of the package, what each track does, and with --bytes every key with its byte locations
+            var package = ResolvePackage(argv[1]);
+            var anims = UmgEditor.Core.Animation.AnimationReader.Read(source, package, animFilter == null ? null : n => animFilter.IsMatch(n));
+            Console.WriteLine($"{GamePaths.ShortName(package)}: {anims.Count} animation{(anims.Count == 1 ? "" : "s")}{(animFilter != null ? $" matching {animFilter}" : "")}");
+            foreach (var a in anims)
+            {
+                var tracks = a.Tracks.Where(t => widgetFilter == null || t.Widget.Equals(widgetFilter, StringComparison.OrdinalIgnoreCase)).ToList();
+                if (tracks.Count == 0) continue;
+                Console.WriteLine($"== {a.Name}  playback {UmgEditor.Core.Animation.AnimationText.S(a.Seconds(a.Start))}–{UmgEditor.Core.Animation.AnimationText.S(a.Seconds(a.End))}");
+                foreach (var t in tracks)
+                {
+                    var does = UmgEditor.Core.Animation.AnimationText.Describe(t);
+                    if (does.Count == 0 && !withBytes) continue;
+                    Console.WriteLine($"  {UmgEditor.Core.Animation.AnimationText.Target(t)}  {t.Track} {t.Property}  section {UmgEditor.Core.Animation.AnimationText.S(a.Seconds(t.SectionStart))}–{UmgEditor.Core.Animation.AnimationText.S(a.Seconds(t.SectionEnd))}  {t.CompletionMode}  (export {t.SectionExport})");
+                    if (withBytes)
+                        foreach (var c in t.Channels) Console.WriteLine(UmgEditor.Core.Animation.AnimationText.KeysWithBytes(t, c, "    "));
+                    else
+                        foreach (var d in does) Console.WriteLine($"    {d.Name}: {d.Text}");
+                }
+            }
+            return 0;
+        }
         default:
             return Usage();
     }
@@ -221,6 +249,7 @@ static int Usage()
           umgmod [--set NAME] reset <package>
           umgmod [--set NAME] build <modName> <package>... [--container pc9999_mobile_and_P] [--ack-danger]
           umgmod [--set NAME] predict <package>...
+          umgmod show-anim <package> [--anim REGEX] [--widget NAME] [--bytes]
         <package>: /Game/... path or a unique suffix (MatchTime/MatchTimeBase); <field>: e.g. Offsets.Right
         """);
     return 1;

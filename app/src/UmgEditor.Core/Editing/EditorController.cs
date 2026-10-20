@@ -60,6 +60,12 @@ public sealed record NodeInspection(WidgetNode Node, string? SlotReason, GreyRea
 {
     private const int MaxListed = 30;
 
+    /// <summary>Every animation track bound to this widget (or its slot), with what it does and its keys' bytes (step 4a).</summary>
+    public IReadOnlyList<Animation.WidgetAnimationTrack> Animations { get; init; } = [];
+    public string AnimationsHeader => Animations.Count == 0 ? "Not animated."
+        : $"{Animations.Count} track{(Animations.Count == 1 ? "" : "s")} in {Animations.Select(a => a.Animation).Distinct().Count()} animation{(Animations.Select(a => a.Animation).Distinct().Count() == 1 ? "" : "s")}; " +
+          $"{Animations.Count(a => a.Does.Count > 0)} change something.";
+
     public IReadOnlyList<AffectedPackage> EmbeddedByOffline => Report.EmbeddedBy.Where(a => !a.IsOnline).ToList();
     public IReadOnlyList<AffectedPackage> EmbeddedByOnline => Report.EmbeddedBy.Where(a => a.IsOnline).ToList();
 
@@ -232,8 +238,25 @@ public sealed class EditorController
             double? edited = edits.TryGet(FieldKey.Of(node, f.Path), out var v) ? v : null;
             return new FieldInspection(f.Path, f.Value, f.Stored, edited, grey, reason);
         }).ToList();
-        return new NodeInspection(node, slotReason, slotGrey, fields, report);
+        return new NodeInspection(node, slotReason, slotGrey, fields, report) { Animations = AnimationsOf(node) };
     }
+
+    private readonly Dictionary<string, IReadOnlyList<Animation.AnimationInfo>> _animations = new(StringComparer.OrdinalIgnoreCase);
+
+    /// <summary>Every animation of a package down to its keys and their bytes (cached; Inspect runs in the background).</summary>
+    public IReadOnlyList<Animation.AnimationInfo> Animations(string package)
+    {
+        lock (_animations)
+        {
+            if (!_animations.TryGetValue(package, out var list))
+                _animations[package] = list = Animation.AnimationReader.Read(_source, package);
+            return list;
+        }
+    }
+
+    /// <summary>The tracks bound to a widget (its own or its slot's), in animation order.</summary>
+    public IReadOnlyList<Animation.WidgetAnimationTrack> AnimationsOf(WidgetNode node) =>
+        Animations(node.PackagePath).SelectMany(a => a.Tracks.Where(t => t.Widget == node.Name).Select(t => new Animation.WidgetAnimationTrack(a, t))).ToList();
 
     private (GreyReason, string?) SlotGreyOf(WidgetNode node, PreEditReport report)
     {

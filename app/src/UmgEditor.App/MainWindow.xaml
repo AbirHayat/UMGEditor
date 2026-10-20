@@ -768,18 +768,27 @@
                     </StackPanel>
 
                     <!-- animations -->
+                    <!-- step 4a: every track of this widget, what it does, and its keys with their bytes -->
                     <TextBlock Style="{StaticResource Section}" Text="Animations" />
-                    <TextBlock Foreground="#888" Text="Not animated."
-                               Visibility="{Binding SelectedNode.IsNotAnimated, Converter={StaticResource BoolToVis}, FallbackValue=Collapsed}" />
-                    <ItemsControl ItemsSource="{Binding SelectedNode.Node.Animations}">
+                    <TextBlock x:Name="AnimationsHeaderText" Foreground="#666" TextWrapping="Wrap" Text="{Binding Inspection.AnimationsHeader}" />
+                    <ItemsControl x:Name="AnimationList" ItemsSource="{Binding Inspection.Animations}">
                         <ItemsControl.ItemTemplate>
                             <DataTemplate>
-                                <TextBlock TextWrapping="Wrap" Margin="0,1">
-                                    <Run Text="{Binding Animation, Mode=OneWay}" FontWeight="SemiBold" />
-                                    <Run Text="{Binding Target, Mode=OneWay, StringFormat='— {0}'}" Foreground="#888" />
-                                    <LineBreak /><Run Foreground="#555" Text="{Binding Tracks.Count, Mode=OneWay, StringFormat='{}{0} track(s): '}" />
-                                    <Run Foreground="#555" Text="{Binding TracksText, Mode=OneWay}" />
-                                </TextBlock>
+                                <StackPanel Margin="0,3,0,3">
+                                    <TextBlock TextWrapping="Wrap">
+                                        <Run Text="{Binding Animation, Mode=OneWay}" FontWeight="SemiBold" /><Run Text="{Binding TrackText, Mode=OneWay, StringFormat='  {0}'}" Foreground="#888" /><Run Text="{Binding Playback, Mode=OneWay, StringFormat='  ·  {0}'}" Foreground="#888" />
+                                    </TextBlock>
+                                    <TextBlock x:Name="D" Margin="10,0,0,0" TextWrapping="Wrap" Foreground="#1F2937" Text="{Binding DoesText}" />
+                                    <Expander Margin="10,0,0,0" Header="keys and bytes" FontSize="11" Foreground="#666">
+                                        <TextBox Style="{StaticResource Value}" FontFamily="Consolas" FontSize="11" TextWrapping="NoWrap"
+                                                 HorizontalScrollBarVisibility="Auto" Text="{Binding KeysText, Mode=OneWay}" />
+                                    </Expander>
+                                </StackPanel>
+                                <DataTemplate.Triggers>
+                                    <DataTrigger Binding="{Binding Does.Count}" Value="0">
+                                        <Setter TargetName="D" Property="Foreground" Value="#A0A0A0" />
+                                    </DataTrigger>
+                                </DataTemplate.Triggers>
                             </DataTemplate>
                         </ItemsControl.ItemTemplate>
                     </ItemsControl>
