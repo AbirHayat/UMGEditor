@@ -9,6 +9,8 @@ public sealed record GameConfig
     public string PaksDir { get; init; } = @"E:\n3tron\patch\obb\mobile\org\all\PesMobile\Content\Paks";
     public string AesKey { get; init; } = "0x4552D45005DFE94964893F4925EC747D3D591401E060ED8B3D58BE5721C81295";
     public string WorkDir { get; init; } = @"E:\n3tron\ai_tools\scoreboard\work";
+    /// <summary>Folders mounted on top of PaksDir (read-only), e.g. a mod's ~mods folder; empty = stock only.</summary>
+    public IReadOnlyList<string> ExtraPaksDirs { get; init; } = [];
 
     /// <summary>retoc used to pack mods (pack-raw, verify); see app/README.md for the tested build.</summary>
     public string RetocPath { get; init; } = @"E:\n3tron\patch\Tools\retoc-x86_64-pc-windows-msvc\retoc.exe";

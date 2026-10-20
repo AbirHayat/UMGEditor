@@ -37,10 +37,16 @@ public sealed class GameSource : IDisposable
 
         // GAME_eFootball: CUE4Parse knows eFootball's non-standard package store entries.
         // Ordinal paths: the game ships both ui/library/core and ui/library/Core.
-        var provider = new DefaultFileProvider(config.PaksDir, SearchOption.TopDirectoryOnly, new VersionContainer(EGame.GAME_eFootball), StringComparer.Ordinal);
+        foreach (var extra in config.ExtraPaksDirs)
+            if (!Directory.Exists(extra)) throw new DirectoryNotFoundException($"extra Paks folder not found: {extra}");
+        var provider = new DefaultFileProvider(new DirectoryInfo(config.PaksDir), config.ExtraPaksDirs.Select(d => new DirectoryInfo(d)).ToArray(),
+            SearchOption.TopDirectoryOnly, new VersionContainer(EGame.GAME_eFootball), StringComparer.Ordinal);
         provider.Initialize();
         provider.SubmitKey(new FGuid(), new FAesKey(config.AesKey)); // stock containers use the zero key GUID
-        return new GameSource(config, provider, ComputeFingerprint(config.PaksDir));
+        var fingerprint = config.ExtraPaksDirs.Count == 0
+            ? ComputeFingerprint(config.PaksDir)
+            : ComputeFingerprint(config.PaksDir)[..8] + string.Concat(config.ExtraPaksDirs.Select(ComputeFingerprint))[..8];
+        return new GameSource(config, provider, fingerprint);
     }
 
     private Dictionary<string, string>? _caseInsensitiveKeys;

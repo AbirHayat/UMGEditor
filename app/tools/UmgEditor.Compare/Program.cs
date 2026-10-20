@@ -26,9 +26,77 @@ switch (args.FirstOrDefault())
 {
     case "check-pc": return CheckPc();
     case "compare": return Compare();
+    case "anim-dump": return AnimDump();
+    case "anim-keys": return AnimKeys();
+    case "mod-diff": return RunModDiff();
     default:
+        Console.WriteLine("       umgcompare mod-diff --mod DIR [--out DIR]   what a PC mod folder changes against PC stock");
         Console.WriteLine("usage: umgcompare check-pc|compare [--pc-paks DIR] [--focus SUBSTR] [--out DIR]");
+        Console.WriteLine("       umgcompare anim-keys <packagePath> [--anim REGEX] [--widget NAME] [--pc]   keys of every channel, checked against the compiled copy");
+        Console.WriteLine("       umgcompare anim-dump <packagePath> <out.json> [--pc]   every MovieScene/WidgetAnimation export as JSON");
         return 2;
+}
+
+int RunModDiff()
+{
+    var modDir = Opt("--mod") ?? throw new ArgumentException("--mod DIR is required");
+    var outDir = Opt("--out") ?? Path.Combine(config.WorkDir, "out", "experiment", "moddiff");
+    var sw = Stopwatch.StartNew();
+    using var stock = Side.Open(pcConfig);
+    using var modded = Side.Open(pcConfig with { ExtraPaksDirs = [modDir] });
+    Console.WriteLine($"opened PC stock and PC + mod in {sw.ElapsedMilliseconds} ms (fingerprints {stock.Source.Fingerprint} / {modded.Source.Fingerprint})");
+    var r = ModDiff.Run(stock, modded, modDir, new Progress<string>(Console.WriteLine));
+    Directory.CreateDirectory(outDir);
+    File.WriteAllText(Path.Combine(outDir, "moddiff.json"), JsonSerializer.Serialize(r, new JsonSerializerOptions { WriteIndented = true }));
+    File.WriteAllText(Path.Combine(outDir, "REPORT.md"), ModDiff.Report(r));
+    Console.WriteLine($"widgets {r.Widgets.Count}, anim-key changes in {r.AnimationKeys.Count}, textures {r.Textures.Count}, other {r.OtherPackages.Count}, new {r.NewPackages.Count}, loose {r.LooseFiles.Count}, errors {r.Errors.Count}, {sw.ElapsedMilliseconds} ms");
+    Console.WriteLine($"-> {outDir}");
+    return r.Errors.Count == 0 ? 0 : 1;
+}
+
+int AnimKeys()
+{
+    using var source = GameSource.Open(args.Contains("--pc") ? pcConfig : config);
+    var animFilter = Opt("--anim") is { } re ? new System.Text.RegularExpressions.Regex(re) : null;
+    var widget = Opt("--widget");
+    var anims = UmgEditor.Core.Animation.AnimationReader.Read(source, args[1], animFilter == null ? null : n => animFilter.IsMatch(n));
+    Console.WriteLine($"{source.Platform.Name} {args[1]}: {anims.Count} animations");
+    var mismatches = 0;
+    foreach (var a in anims)
+    {
+        var tracks = a.Tracks.Where(t => widget == null || t.Widget == widget).ToList();
+        if (tracks.Count == 0) continue;
+        Console.WriteLine($"== {a.Name}  playback {a.Seconds(a.Start):0.###}s..{a.Seconds(a.End):0.###}s");
+        foreach (var t in tracks)
+        {
+            Console.WriteLine($"  {t.Widget}{(t.OnSlot ? " [slot]" : "")}  {t.Track} {t.Property}  section {a.Seconds(t.SectionStart):0.###}..{a.Seconds(t.SectionEnd):0.###}s  {t.CompletionMode}  (export {t.SectionExport})");
+            foreach (var c in t.Channels.Where(c => c.Keys.Count > 0 || c.Default != null))
+            {
+                var keys = string.Join("  ", c.Keys.Select(k => $"{k.Seconds:0.###}s={k.Value}"));
+                Console.WriteLine($"    {c.Path,-22} {keys}{(c.Default != null ? $"  default={c.Default}" : "")}{(c.Compiled == "same" ? "" : "  !! " + c.Compiled)}");
+                if (c.Compiled != "same") mismatches++;
+            }
+        }
+    }
+    Console.WriteLine(mismatches == 0 ? "compiled copies: all same" : $"compiled copies: {mismatches} channel(s) differ or missing");
+    return 0;
+}
+
+int AnimDump()
+{
+    using var source = GameSource.Open(args.Contains("--pc") ? pcConfig : config);
+    var pkg = source.LoadPackage(args[1]);
+    var dump = new List<object>();
+    foreach (var e in pkg.GetExports())
+    {
+        if (!e.ExportType.Contains("MovieScene") && e.ExportType != "WidgetAnimation") continue;
+        var outer = new List<string>();
+        for (var o = e.Outer; o != null; o = o.Outer) outer.Add(o.Name.Text);
+        dump.Add(new { e.Name, e.ExportType, Outer = string.Join(" < ", outer), Json = Newtonsoft.Json.Linq.JToken.FromObject(e).ToString() });
+    }
+    File.WriteAllText(args[2], Newtonsoft.Json.JsonConvert.SerializeObject(dump, Newtonsoft.Json.Formatting.Indented));
+    Console.WriteLine($"{dump.Count} exports -> {args[2]}");
+    return 0;
 }
 
 int CheckPc()
