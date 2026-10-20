@@ -470,6 +470,104 @@ public sealed class EditorController
     public ImpactReport ImpactOf(EditSet edits) =>
         ImpactReport.Build(Project, _width, _height, new EditImpact(_engine, _usage, _width, _height).Predict(edits, _loadTree));
 
+    // ---- 6g: export ----
+
+    /// <summary>The project's packages with saved edits (what the export dialog lists).</summary>
+    public IReadOnlyList<ExportCandidate> ExportCandidates() =>
+        _sessions.Values.Where(s => s.Saved.Count > 0 || s.IsDirty)
+            .OrderBy(s => GamePaths.ShortName(s.PackagePath), StringComparer.OrdinalIgnoreCase)
+            .Select(s => new ExportCandidate(s.PackagePath, s.Saved.Count, s.IsDirty)).ToList();
+
+    /// <summary>
+    /// Checks an export and reads what it ships (call on the editor's thread). Refused while anything in the project is
+    /// unsaved, for a bad mod or container name (it must end in _P), no package, the same package twice, a package
+    /// without saved edits (or whose saved file no longer matches its edits), or a missing retoc or .pak stub.
+    /// </summary>
+    public ExportPlan PlanExport(ExportRequest request)
+    {
+        var refusals = new List<string>();
+        var warnings = new List<string>();
+        var mods = WriteGuard.ForMods(_source.Config);
+        var name = request.ModName.Trim();
+        var outDir = Path.Combine(mods.Root, name);
+        var retoc = RetocInfo.Of(request.RetocPath);
+
+        if (AnyDirty) refusals.Add($"Project {Project} has unsaved edits in {UnsavedPackagesText}. Save (or undo) them first: a mod is built from the saved files.");
+        if (ModBuilder.ModNameRefusal(name) is { } badName) refusals.Add(badName);
+        else if (mods.Refusal(outDir) is { } outside) refusals.Add(outside);
+        if (ModBuilder.ContainerNameRefusal(request.ContainerName.Trim()) is { } badContainer) refusals.Add(badContainer);
+        if (!retoc.Exists) refusals.Add($"retoc not found at \"{request.RetocPath}\" (set the retoc path).");
+        else if (!retoc.IsTested) warnings.Add($"This retoc (sha256 {retoc.Sha256[..16]}…) is not the tested build {ModBuilder.TestedRetocSha256[..16]}… (app/README.md); the mod is still verified after packing.");
+        if (!File.Exists(_source.Config.ModStubPath)) refusals.Add($"The .pak stub {_source.Config.ModStubPath} doesn't exist (setting ModStubPak).");
+        if (request.Packages.Count == 0) refusals.Add("Pick at least one package with saved edits.");
+        foreach (var dup in request.Packages.GroupBy(p => p, StringComparer.OrdinalIgnoreCase).Where(g => g.Count() > 1))
+            refusals.Add($"{GamePaths.ShortName(dup.Key)} is picked {dup.Count()} times: a mod carries one edit of a package (its saved edits are already all in one file).");
+
+        var packages = new List<ModPackage>();
+        var edits = new List<ExportEdit>();
+        var saved = EditSet.Empty;
+        foreach (var path in request.Packages.Distinct(StringComparer.OrdinalIgnoreCase))
+        {
+            if (!_sessions.TryGetValue(path, out var s) || s.Saved.Count == 0)
+            {
+                refusals.Add($"{GamePaths.ShortName(path)} has no saved edits in project {Project}.");
+                continue;
+            }
+            if (AnyDirty) continue; // refused above: a refused plan carries nothing to ship
+            var (chunk, why) = s.ReadSavedChunk();
+            if (chunk == null) { refusals.Add(why!); continue; }
+            packages.Add(new ModPackage(s.PackagePath, s.FileKey, s.ChunkIdHex, chunk));
+            saved = saved.With(s.Saved.Values.Select(kv => new FieldChange(kv.Key, s.StockValue(kv.Key) ?? double.NaN, kv.Value)), _ => null);
+            edits.AddRange(s.Plan().Entries.Select(e => new ExportEdit(GamePaths.ShortName(s.PackagePath), WidgetOf(s.PackagePath, e.Key.SlotExport) is { } w ? $"{w} ({e.SlotName})" : e.SlotName,
+                e.Key.Path.Replace("LayoutData.", ""), e.OldValue, e.NewValue, e.OffsetHex, e.OldHex, e.NewHex)));
+        }
+        if (refusals.Count == 0 && Directory.Exists(outDir))
+            warnings.Add($"{outDir} exists and will be replaced.");
+        return new ExportPlan(request with { ModName = name, ContainerName = request.ContainerName.Trim() }, Project, outDir, retoc, refusals, warnings, packages, saved, edits);
+    }
+
+    /// <summary>
+    /// Builds a checked plan (no session access, so it may run in the background): ModBuilder packs and verifies the
+    /// container (a failed retoc verify or read-back aborts and removes mod\), then the stock vs edited layouts of every
+    /// package the saved edits reach go to predictions\ and the test instructions next to mod\. Writes only under
+    /// work\out\mods\&lt;name&gt;.
+    /// </summary>
+    public ExportResult RunExport(ExportPlan plan, IRetoc retoc, IProgress<string>? log = null)
+    {
+        if (!plan.Ok) return new ExportResult(false, plan.Refusals, plan.OutDir, [], "", null, [], null);
+        log?.Report($"Building {plan.Request.ModName} ({plan.Request.ContainerName}) from {plan.Packages.Count} package{(plan.Packages.Count == 1 ? "" : "s")}: {string.Join(", ", plan.Packages.Select(p => GamePaths.ShortName(p.PackagePath)))}");
+        var build = new ModBuilder(_source, new LoggingRetoc(retoc, log)).Build(plan.Request.ModName, plan.Request.ContainerName, plan.Packages);
+        if (!build.Built)
+        {
+            log?.Report("FAILED: " + string.Join(" | ", build.Refusals));
+            log?.Report(Directory.Exists(build.ModDir) ? $"{build.ModDir} is still there" : $"{build.ModDir} removed; see FAILED.txt");
+            return new ExportResult(false, build.Refusals, build.OutDir, [], build.Log, null, [], null);
+        }
+        foreach (var f in build.Files) log?.Report($"  {f.Name}  {f.Size:N0} bytes  sha256 {f.Sha256}");
+
+        log?.Report("Laying out every package the saved edits reach (stock vs edited)…");
+        var mods = WriteGuard.ForMods(_source.Config);
+        var impacts = new EditImpact(_engine, _usage, _width, _height).Predict(plan.SavedEdits, _loadTree);
+        var predictions = Path.Combine(plan.OutDir, "predictions");
+        var files = new List<string>();
+        foreach (var i in impacts.Where(i => i.Error == null))
+        {
+            foreach (var (suffix, layout) in new[] { (".stock.json", i.Stock), (".json", i.Edited) })
+            {
+                var file = Path.Combine(predictions, i.Package.Name + suffix);
+                mods.WriteAllText(file, LayoutExport.ToJson(layout, i.Package.PackagePath));
+                files.Add(file);
+            }
+        }
+        var report = ImpactReport.Build(Project, _width, _height, impacts);
+        var instructions = Path.Combine(plan.OutDir, ModInstructions.FileName);
+        mods.WriteAllText(instructions, ModInstructions.Build(plan, build, report, p => _usage.DirectUsers(p).Count == 0, DateTime.Now));
+        log?.Report($"{files.Count} prediction files in {predictions}");
+        log?.Report($"Test instructions: {instructions}");
+        log?.Report($"Done. Copy the {build.Files.Count} files in {build.ModDir} to the device. {ModInstructions.OnlineWarning}.");
+        return new ExportResult(true, [], plan.OutDir, build.Files, build.Log, instructions, files, report);
+    }
+
     /// <summary>Packs the saved edits of every package in the project. Refused while anything is unsaved.</summary>
     public ModResult BuildMod(string modName, string containerName, IRetoc retoc)
     {

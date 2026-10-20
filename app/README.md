@@ -17,9 +17,30 @@ used in `work/out/mods/<name>/build.json`.
 | Size / date | 5,598,208 bytes, 2025-08-21 |
 | Used for | canaries 1 and 2 (proven in game), the make_mod.py equivalence test, canaries C1–C3 |
 
+The export dialog (below) shows the sha256 of the configured retoc next to its path, green when it is this build and
+amber ("NOT the tested build", a warning, not a refusal) otherwise. The path is a setting: the dialog saves it to
+`umgeditor.json` next to the exe when a build starts. Every export records the retoc path and sha256 it used in
+`build.json` and in `TEST_INSTRUCTIONS.md`.
+
 ### Mod stub
 `ModStubPak` (default `pc0100_mobile_and.pak`, a 365-byte stock mount stub in PaksDir) is copied as
 `<container>.pak`. It is only read.
+
+## Exporting a mod from the editor ("Export mod…")
+Packs the project's **saved** edits into one container under `work\out\mods\<name>` (nothing else is written):
+
+- Inputs: mod name (a plain folder name), container name (must end in `_P`, default `pc9999_mobile_and_P`), the
+  packages with saved edits (ticked), the retoc path (see above).
+- Refused (Build stays disabled, the reasons in red) while anything in the project is unsaved, for a bad mod or
+  container name, no package, the same package twice, a package without saved edits, or a missing retoc / .pak stub.
+- The build runs in the background with a live log (each retoc command and its output), then lists the files for the
+  device with their sizes and sha256. `ModBuilder` does the packing (same steps as `umgmod build`); a failed
+  `retoc verify` or CUE4Parse read-back aborts, removes `mod\` and writes `FAILED.txt`.
+- On success the folder holds `mod\` (only the 3 files for the device), `predictions\` (stock and edited layout JSON
+  of every package the edits reach, for `validate_layout.py`), `build.json`, and `TEST_INSTRUCTIONS.md` (like
+  `work/out/mods/CANARY_C6.md`): the files and hashes, the edits and their bytes, the steps, every affected screen
+  (online ones marked "predicted only"), the predicted rects, the checking commands, and the warning to remove the
+  mod before playing online.
 
 ## Making a mod without the UI: `umgmod`
 `app/tools/UmgEditor.ModCli/bin/Release/net10.0/umgmod.exe`:

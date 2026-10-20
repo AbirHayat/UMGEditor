@@ -16,8 +16,8 @@ public partial class MainWindow : Window
     public MainWindow()
     {
         InitializeComponent();
-        var config = GameConfig.LoadOrDefault(Path.Combine(AppContext.BaseDirectory, "umgeditor.json"));
-        _vm = new MainViewModel(config);
+        var configPath = Path.Combine(AppContext.BaseDirectory, "umgeditor.json");
+        _vm = new MainViewModel(GameConfig.LoadOrDefault(configPath), configPath);
         DataContext = _vm;
         PreviewCanvas.BoxClicked += box => _vm.SelectFromPreview(box);
         PreviewCanvas.DragStart = _vm.BeginDrag;
@@ -82,6 +82,12 @@ public partial class MainWindow : Window
         if (sender is not FrameworkElement { DataContext: ImpactPackage package }) return;
         e.Handled = true;
         _ = _vm.PreviewImpactAsync(package);
+    }
+
+    // 6g: the export dialog (modal; the build inside it runs in the background)
+    private void OnExport(object sender, RoutedEventArgs e)
+    {
+        if (_vm.CreateExport() is { } export) new ExportWindow(export) { Owner = this }.ShowDialog();
     }
 
     // TreeView.SelectedItem is read-only, so selection is forwarded here

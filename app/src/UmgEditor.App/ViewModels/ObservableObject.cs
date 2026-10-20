@@ -71,3 +71,11 @@ public sealed class ZeroToVisibilityConverter : System.Windows.Data.IValueConver
 
     public object ConvertBack(object? value, Type targetType, object? parameter, System.Globalization.CultureInfo culture) => throw new NotSupportedException();
 }
+
+/// <summary>true → false and back (e.g. IsEnabled from IsBuilding).</summary>
+public sealed class InverseBoolConverter : System.Windows.Data.IValueConverter
+{
+    public object Convert(object? value, Type targetType, object? parameter, System.Globalization.CultureInfo culture) => value is not true;
+
+    public object ConvertBack(object? value, Type targetType, object? parameter, System.Globalization.CultureInfo culture) => value is not true;
+}

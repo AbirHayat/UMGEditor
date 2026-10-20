@@ -44,6 +44,14 @@ public sealed class ModBuilder(GameSource source, IRetoc retoc)
     private static readonly Regex SimpleName = new("^[A-Za-z0-9][A-Za-z0-9_.-]*$");
     private static readonly Regex ContainerName = new("^[A-Za-z0-9]+(_[A-Za-z0-9]+)*_P$");
 
+    /// <summary>Why a mod name can't be used as its folder under work\out\mods, or null.</summary>
+    public static string? ModNameRefusal(string modName) =>
+        !SimpleName.IsMatch(modName) || modName.Contains("..") ? $"mod name \"{modName}\" must be a plain folder name (letters, digits, _ . -)" : null;
+
+    /// <summary>Why a container name can't be used (it must end in _P, the patch suffix the game mounts last), or null.</summary>
+    public static string? ContainerNameRefusal(string containerName) =>
+        !ContainerName.IsMatch(containerName) ? $"container name \"{containerName}\" must look like pc9999_mobile_and_P (letters/digits/underscores, ending in _P)" : null;
+
     public ModResult Build(string modName, string containerName, IReadOnlyList<ModPackage> packages)
     {
         var guard = WriteGuard.ForMods(source.Config);
@@ -53,8 +61,8 @@ public sealed class ModBuilder(GameSource source, IRetoc retoc)
         ModResult Fail(params string[] why) { refusals.AddRange(why); return new ModResult(false, refusals, outDir, [], log.ToString()); }
 
         // ---- checks that need no writes ----
-        if (!SimpleName.IsMatch(modName) || modName.Contains("..")) return Fail($"mod name \"{modName}\" must be a plain folder name (letters, digits, _ . -)");
-        if (!ContainerName.IsMatch(containerName)) return Fail($"container name \"{containerName}\" must look like pc9999_mobile_and_P (letters/digits/underscores, ending in _P)");
+        if (ModNameRefusal(modName) is { } badName) return Fail(badName);
+        if (ContainerNameRefusal(containerName) is { } badContainer) return Fail(badContainer);
         if (guard.Refusal(outDir) is { } bad) return Fail(bad);
         if (packages.Count == 0) return Fail("no packages to pack");
         foreach (var dup in packages.GroupBy(p => p.FileKey, StringComparer.OrdinalIgnoreCase).Where(g => g.Count() > 1))

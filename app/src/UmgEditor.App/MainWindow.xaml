@@ -151,6 +151,8 @@
                     <Button x:Name="RedoButton" Content="Redo" Padding="8,1" Margin="4,0,0,0" Command="{Binding RedoCommand}" ToolTip="Ctrl+Y" />
                     <Button x:Name="SaveButton" Content="Save" Padding="10,1" Margin="4,0,0,0" FontWeight="SemiBold" Command="{Binding SaveCommand}"
                             ToolTip="Ctrl+S: save every package with unsaved edits (rebuilt from the stock copy, checked, then written under work\edits)" />
+                    <Button x:Name="ExportButton" Content="Export mod…" Padding="10,1" Margin="12,0,0,0" Click="OnExport"
+                            ToolTip="Pack the project's saved edits into a mod under work\out\mods\NAME, with predictions and test instructions" />
                 </StackPanel>
                 <StackPanel DockPanel.Dock="Right" Orientation="Horizontal" Margin="0,0,16,0">
                     <TextBlock Text="Project " Foreground="#666" VerticalAlignment="Center" />

@@ -16,14 +16,16 @@ public sealed class MainViewModel : ObservableObject
     public const string AllGroups = "(all groups)";
     public const string AllKinds = "(all kinds)";
 
-    private readonly GameConfig _config;
+    private GameConfig _config;
+    private readonly string? _configPath;
     private readonly DispatcherTimer _searchDelay;
     private GameSource? _source;
     private IReadOnlyList<UiAssetEntry> _all = [];
 
-    public MainViewModel(GameConfig config)
+    public MainViewModel(GameConfig config, string? configPath = null)
     {
         _config = config;
+        _configPath = configPath;
         Preview = new PreviewViewModel(config.WorkDir);
         Preview.PropertyChanged += (_, e) => { if (e.PropertyName is nameof(PreviewViewModel.IsImpact) or nameof(PreviewViewModel.ShowStock)) UpdateHandles(); };
         _searchDelay = new DispatcherTimer { Interval = TimeSpan.FromMilliseconds(200) };
@@ -390,6 +392,28 @@ public sealed class MainViewModel : ObservableObject
         OnPropertyChanged(nameof(Title));
         NewProjectName = "";
         SetAction($"Created project {c.Project} ({c.ProjectFolder}).");
+    }
+
+    // ---- 6g: export ----
+
+    /// <summary>The export dialog's model for the current project (null until the containers are open).</summary>
+    public ExportViewModel? CreateExport() => _controller is { } c ? new ExportViewModel(c, _config.RetocPath, SaveRetocPath) : null;
+
+    /// <summary>The retoc path is a setting: remembered in umgeditor.json (next to the exe) when an export starts.</summary>
+    private void SaveRetocPath(string path)
+    {
+        if (path == _config.RetocPath) return;
+        _config = _config with { RetocPath = path };
+        if (_configPath == null) return;
+        try
+        {
+            _config.Save(_configPath);
+            SetAction($"retoc path saved to {_configPath}: {path}");
+        }
+        catch (Exception e) when (e is IOException or UnauthorizedAccessException)
+        {
+            SetAction($"Couldn't save the retoc path to {_configPath}: {e.Message}");
+        }
     }
 
     // ---- 6e: impact ----
