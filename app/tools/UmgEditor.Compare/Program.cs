@@ -33,6 +33,7 @@ switch (args.FirstOrDefault())
     case "anim-keys": return AnimKeys();
     case "mod-diff": return RunModDiff();
     case "canary-goal-slide": return CanaryGoalSlide();
+    case "canary-insert": return CanaryInsert();
     default:
         Console.WriteLine("       umgcompare mod-diff --mod DIR [--out DIR]   what a PC mod folder changes against PC stock");
         Console.WriteLine("usage: umgcompare check-pc|compare [--pc-paks DIR] [--focus SUBSTR] [--out DIR]");
@@ -83,6 +84,46 @@ int CanaryGoalSlide()
     foreach (var r in result.Refusals) Console.WriteLine("  REFUSED " + r);
     Check("mod built, retoc verify + read-back passed", result.Built, result.ModDir);
     foreach (var f in result.Files) Console.WriteLine($"  {f.Name}  {f.Size:N0} B  {f.Sha256}");
+    Console.WriteLine(failures == 0 ? "ALL PASSED" : $"{failures} FAILED");
+    return failures == 0 ? 0 : 1;
+}
+
+// C10: the first size-changing edit on mobile. Text_Score_Home's slot in MatchTime doesn't store Offsets.Left (default 0);
+// insert it as 20 (the home score digit moves 20 units right inside the score box). Always on screen, unanimated slot.
+int CanaryInsert()
+{
+    var modName = args.Length > 1 && !args[1].StartsWith("--") ? args[1] : "C10";
+    const string MatchTime = Tv + "MatchTime/MatchTime";
+    const float NewLeft = 20f;
+    using var source = GameSource.Open(config);
+    var tree = WidgetTreeReader.Build(source, MatchTime);
+    var node = tree.Find("Text_Score_Home");
+    var left = node?.Slot?.Fields.FirstOrDefault(f => f.Path == "LayoutData.Offsets.Left");
+    Check("Text_Score_Home slot found, Offsets.Left not stored", node?.Slot != null && left is { Stored: false, Value: "0" }, $"{node?.Slot?.Name} export {node?.Slot?.ExportIndex}, Left {(left?.Stored == true ? "stored " : "default ")}{left?.Value}");
+    Check("Text_Score_Home slot isn't animated", node is { IsSlotAnimated: false });
+    if (failures > 0) return 1;
+
+    var ins = new UmgEditor.Core.Patching.TagInserter(source, MatchTime);
+    ins.InsertFloat(node!.Slot!.ExportIndex, "LayoutData.Offsets", "Left", NewLeft, ["Left", "Top", "Right", "Bottom"]);
+    var problems = ins.Verify();
+    foreach (var l in ins.Log) Console.WriteLine("  " + l);
+    foreach (var p in problems) Console.WriteLine("  PROBLEM " + p);
+    Check("insertion verified by re-parse (only the new field differs)", problems.Count == 0, $"{problems.Count} problems");
+    if (failures > 0) return 1;
+
+    var result = new UmgEditor.Core.Modding.ModBuilder(source, new UmgEditor.Core.Modding.RetocProcess(config.RetocPath))
+        .Build(modName, "pc9999_mobile_and_P", [new UmgEditor.Core.Modding.ModPackage(MatchTime, ins.FileKey, source.ChunkIdHex(ins.FileKey), ins.Bytes)]);
+    Console.WriteLine(result.Log);
+    foreach (var r in result.Refusals) Console.WriteLine("  REFUSED " + r);
+    Check("mod built, retoc verify + read-back passed", result.Built, result.ModDir);
+    foreach (var f in result.Files) Console.WriteLine($"  {f.Name}  {f.Size:N0} B  {f.Sha256}");
+
+    // predicted box: same tree with the field stored as 20 (layout reads Value whether stored or not)
+    var layoutEngine = new LayoutEngine(UiScaleSettings.Load(source),
+        p => { try { return WidgetTreeReader.Build(source, p, readOnly: true); } catch { return null; } }, _ => null);
+    var stockBox = layoutEngine.Arrange(tree, 1786, 1000).Find("Text_Score_Home")!.Bounds;
+    var ppu = layoutEngine.Arrange(tree, 1786, 1000).Find("Text_Score_Home")!.PixelsPerUnit;
+    Console.WriteLine($"stock Text_Score_Home box at 1786x1000: {stockBox}; +{NewLeft} units = +{NewLeft * ppu:0.0} px → x {stockBox.X + NewLeft * ppu:0.0}..{stockBox.Right + NewLeft * ppu:0.0} (screenshot: +50/+32)");
     Console.WriteLine(failures == 0 ? "ALL PASSED" : $"{failures} FAILED");
     return failures == 0 ? 0 : 1;
 }
