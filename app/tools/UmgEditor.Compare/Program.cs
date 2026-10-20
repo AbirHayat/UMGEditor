@@ -15,6 +15,9 @@ var pcConfig = config with { PaksDir = Opt("--pc-paks") ?? @"F:\SteamLibrary\ste
 const string WidgetRoot = "/Game/Assets/ui/Data/Widget/";
 const string Tv = WidgetRoot + "TVGraphics/SwitchAssets_Original/";
 
+/// <summary>--pc = PC stock; --mod DIR = PC stock with that mod folder on top; otherwise mobile.</summary>
+GameConfig SourceConfig() => Opt("--mod") is { } mod ? pcConfig with { ExtraPaksDirs = [mod] } : args.Contains("--pc") ? pcConfig : config;
+
 var failures = 0;
 void Check(string what, bool ok, string detail = "")
 {
@@ -29,12 +32,59 @@ switch (args.FirstOrDefault())
     case "anim-dump": return AnimDump();
     case "anim-keys": return AnimKeys();
     case "mod-diff": return RunModDiff();
+    case "canary-goal-slide": return CanaryGoalSlide();
     default:
         Console.WriteLine("       umgcompare mod-diff --mod DIR [--out DIR]   what a PC mod folder changes against PC stock");
         Console.WriteLine("usage: umgcompare check-pc|compare [--pc-paks DIR] [--focus SUBSTR] [--out DIR]");
         Console.WriteLine("       umgcompare anim-keys <packagePath> [--anim REGEX] [--widget NAME] [--pc]   keys of every channel, checked against the compiled copy");
         Console.WriteLine("       umgcompare anim-dump <packagePath> <out.json> [--pc]   every MovieScene/WidgetAnimation export as JSON");
         return 2;
+}
+
+// C9: the UCL mod's goal-banner motion on mobile MatchTimeGoal, same-size only (keys, playback/section/compiled ranges).
+// Stock: Show drops the banner from -96 to 0 by 0.4s (0.8s long); Hide raises it back to -96.
+// C9:    Show holds it behind the board (-96) until 0.4s, then slides it out linearly to 0 at 1.8s (2.2s long);
+//        Hide carries on downwards to +90 instead of going back up. The mod's section/compiled ranges, not the tracks' EvaluationField.
+int CanaryGoalSlide()
+{
+    var modName = args.Length > 1 && !args[1].StartsWith("--") ? args[1] : "C9";
+    const string Goal = Tv + "MatchTime/MatchTimeGoal";
+    const int OldEnd = 48000, NewEnd = 132000, Hold = 24000, SlideEnd = 108000;
+    using var source = GameSource.Open(config);
+    var anims = UmgEditor.Core.Animation.AnimationReader.Read(source, Goal).ToDictionary(a => a.Name);
+    UmgEditor.Core.Animation.AnimTrack GoalY(string anim) =>
+        anims[anim].Tracks.Single(t => t.Widget == "Goal" && t.Track == "2DTransformTrack" && t.Channels.Any(c => c.Path == "Translation[1]" && c.Keys.Count > 0));
+    string Keys(UmgEditor.Core.Animation.AnimTrack t) => string.Join(" ", t.Channels.Single(c => c.Path == "Translation[1]").Keys.Select(k => $"{k.Frame}={k.Value}"));
+
+    var show = GoalY("Show");
+    var hide = GoalY("Hide");
+    Check("stock Show Goal Y = 0:-96, 24000:0, 48000:0", Keys(show) == "0=-96.0 24000=0.0 48000=0.0", Keys(show));
+    Check("stock Hide Goal Y = 24000:0, 48000:-96", Keys(hide) == "24000=0.0 48000=-96.0", Keys(hide));
+    Check("stock Show playback 0..48001", anims["Show"].Start == 0 && anims["Show"].End == OldEnd + 1, $"{anims["Show"].Start}..{anims["Show"].End}");
+    if (failures > 0) return 1;
+
+    var patch = new UmgEditor.Core.Animation.AnimationPatch(source, Goal);
+    patch.SetKeys(show.SectionExport, "Translation[1]", [new(1, Value: -96f, InterpMode: 1), new(2, Frame: SlideEnd, Value: 0f)]);
+    patch.SetKeys(hide.SectionExport, "Translation[1]", [new(1, Value: 90f)]);
+    foreach (var (i, name, type, _) in patch.ExportsOf("Show").ToList())
+    {
+        if (type == "MovieScene") patch.MoveRangeBounds(i, OldEnd + 1, NewEnd + 1);
+        else if (type.EndsWith("Section") || type == "MovieSceneCompiledData") patch.MoveRangeBounds(i, OldEnd, NewEnd);
+    }
+    var problems = patch.Verify();
+    foreach (var l in patch.Log) Console.WriteLine("  " + l);
+    foreach (var p in problems) Console.WriteLine("  PROBLEM " + p);
+    Check("patch verified by re-parse (only intended values changed)", problems.Count == 0, $"{problems.Count} problems");
+    if (failures > 0) return 1;
+
+    var result = new UmgEditor.Core.Modding.ModBuilder(source, new UmgEditor.Core.Modding.RetocProcess(config.RetocPath))
+        .Build(modName, "pc9999_mobile_and_P", [new UmgEditor.Core.Modding.ModPackage(Goal, patch.FileKey, source.ChunkIdHex(patch.FileKey), patch.Bytes)]);
+    Console.WriteLine(result.Log);
+    foreach (var r in result.Refusals) Console.WriteLine("  REFUSED " + r);
+    Check("mod built, retoc verify + read-back passed", result.Built, result.ModDir);
+    foreach (var f in result.Files) Console.WriteLine($"  {f.Name}  {f.Size:N0} B  {f.Sha256}");
+    Console.WriteLine(failures == 0 ? "ALL PASSED" : $"{failures} FAILED");
+    return failures == 0 ? 0 : 1;
 }
 
 int RunModDiff()
@@ -56,7 +106,7 @@ int RunModDiff()
 
 int AnimKeys()
 {
-    using var source = GameSource.Open(args.Contains("--pc") ? pcConfig : config);
+    using var source = GameSource.Open(SourceConfig());
     var animFilter = Opt("--anim") is { } re ? new System.Text.RegularExpressions.Regex(re) : null;
     var widget = Opt("--widget");
     var anims = UmgEditor.Core.Animation.AnimationReader.Read(source, args[1], animFilter == null ? null : n => animFilter.IsMatch(n));
@@ -84,7 +134,7 @@ int AnimKeys()
 
 int AnimDump()
 {
-    using var source = GameSource.Open(args.Contains("--pc") ? pcConfig : config);
+    using var source = GameSource.Open(SourceConfig());
     var pkg = source.LoadPackage(args[1]);
     var dump = new List<object>();
     foreach (var e in pkg.GetExports())
