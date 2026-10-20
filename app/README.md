@@ -57,17 +57,20 @@ umgmod [--set NAME] edit  <package> <widget> move <dx> <dy> [--yes]
 umgmod [--set NAME] edit  <package> <widget> resize <Left|Top|Right|Bottom> <d> [--yes]
 umgmod [--set NAME] show  <package>
 umgmod [--set NAME] reset <package>
-umgmod [--set NAME] build <modName> <package>... [--container pc9999_mobile_and_P]
+umgmod [--set NAME] build <modName> <package>... [--container pc9999_mobile_and_P] [--ack-danger]
 umgmod [--set NAME] predict <package>...
 ```
 
 - `edit` applies one SlotEditor edit to the package's PatchSession and saves it (`work\edits[\NAME]\<package path>`).
   The first edit of a package prints the pre-edit warnings and stops (exit 3); add `--yes` once you've read them.
 - `show` prints the saved edits and the bytes to patch (offset, old/new value, hex, ±32-byte context).
-- `build` packs the saved chunks of the given packages into `work\out\mods\<modName>\mod\<container>.{utoc,ucas,pak}`.
-  The steps are the same as `work/scripts/make_mod.py` (kept as the reference), followed by `retoc verify` and a
-  CUE4Parse read-back. A failed step removes `mod\` and writes `FAILED.txt`. Nothing under PaksDir is written or
-  deleted.
+- `build` is the export dialog without the window: the same plan (`PlanExport`: the same refusals) and run
+  (`RunExport`), so it writes `mod\<container>.{utoc,ucas,pak}`, `predictions\` and `TEST_INSTRUCTIONS.md` under
+  `work\out\mods\<modName>`. The packing steps are the same as `work/scripts/make_mod.py` (kept as the reference),
+  followed by `retoc verify` and a CUE4Parse read-back; a failed step removes `mod\` and writes `FAILED.txt`. It
+  prints the layout warnings first. A **Danger** one stops the build (exit 3, nothing written) until you rerun with
+  `--ack-danger`, the dialog's tick boxes: it acknowledges every Danger warning listed. Any other refusal is exit 2
+  (the flag doesn't get past it). Nothing under PaksDir is written or deleted.
 - `predict` arranges, stock vs edited at 1786×1000, every package the saved edits reach: the edited packages plus
   every package that embeds them (e.g. MatchTimeBase → the goal/card/substitution pop-ups and the online board). It
   prints the Impact panel's warnings per package (`[Danger]` / `[Warning]`), every box that changes (cut-off boxes

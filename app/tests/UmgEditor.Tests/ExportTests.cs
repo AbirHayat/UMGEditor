@@ -206,7 +206,7 @@ public class ExportTests
         Assert.AreEqual("MatchTime", danger.Package);
         StringAssert.Contains(danger.Text, "[Danger] MatchTime: Time_Timer ends up almost completely outside Normal_Display");
         Assert.IsFalse(plan.Ok, "an unticked Danger warning blocks the build");
-        StringAssert.StartsWith(plan.Refusals.Single(), "Tick the danger warning below");
+        StringAssert.StartsWith(plan.Refusals.Single(), "A danger warning is not acknowledged (tick it below; umgmod build: --ack-danger): MatchTime: Time_Timer");
         CollectionAssert.AreEqual(new[] { danger }, plan.Unacknowledged.ToArray());
 
         var ticked = c.PlanExport(Request(MatchTime) with { Acknowledged = [danger.Key] });
@@ -255,7 +255,7 @@ public class ExportTests
         var md = File.ReadAllText(result.InstructionsPath!);
         Console.WriteLine(md);
         StringAssert.Contains(md, "## Warnings (Impact panel)\n- **Danger** · MatchTime: Time_Timer ends up almost completely outside Normal_Display");
-        StringAssert.Contains(md, "*Acknowledged in the export dialog before the build.*");
+        StringAssert.Contains(md, "*Acknowledged before the build (export dialog tick or umgmod build --ack-danger).*");
         StringAssert.Contains(md, "| `…/Normal/Normal_Display/Time_Timer` **cut off by Normal_Display: 0.9×57.4 of 118.5×59.3 px visible, practically gone** |");
         StringAssert.Contains(md, "`…/Timer/Plate_MatchTimeBg/CanvasPanel_0` **outside Normal_Display: not visible**");
         StringAssert.Contains(md, "A box marked *cut off* / *outside* loses more to a clipping ancestor than in stock");
@@ -263,6 +263,65 @@ public class ExportTests
         var check = md.Split('\n').Where(l => l.StartsWith("python ")).ToList();
         Assert.IsTrue(check.All(l => !l.Contains("Time_Timer") && !l.Contains("Timer/")), string.Join("\n", check));
         StringAssert.Contains(md, "# MatchTime: not checked at all: `…/Normal/Normal_Display/Time_Timer` is cut off by Normal_Display");
+    }
+
+    // ---- umgmod build (BuildCommand): the same plan, the Danger tick is --ack-danger ----
+
+    private (int Exit, string Out, string Err) Cli(EditorController c, bool ackDanger, params string[] packages)
+    {
+        var (output, error) = (new StringWriter(), new StringWriter());
+        var exit = BuildCommand.Run(c, Request(packages), ackDanger, new RetocProcess(Source.Config.RetocPath), output, error);
+        return (exit, output.ToString(), error.ToString());
+    }
+
+    [TestMethod]
+    public void Cli_DangerWarning_NeedsAckDanger_ThenBuilds()
+    {
+        var c = TimerOut();
+        var (exit, output, error) = Cli(c, false, MatchTime);
+        Console.WriteLine(output + error);
+        Assert.AreEqual(BuildCommand.NeedsAck, exit);
+        StringAssert.Contains(output, "[Danger] MatchTime: Time_Timer ends up almost completely outside Normal_Display");
+        StringAssert.Contains(output, "(NOT acknowledged)");
+        StringAssert.Contains(error, "refused: A danger warning is not acknowledged");
+        StringAssert.Contains(error, "rerun with --ack-danger");
+        Assert.IsFalse(Directory.Exists(Path.Combine(Mods.Root, ModName)), "refused: nothing written");
+
+        (exit, output, error) = Cli(c, true, MatchTime);
+        Console.WriteLine(output + error);
+        Assert.AreEqual(BuildCommand.Done, exit, error);
+        StringAssert.Contains(output, "(acknowledged by --ack-danger)");
+        StringAssert.Contains(output, "retoc verify");
+        StringAssert.Contains(output, $"OK: copy these 3 files from {Path.Combine(Mods.Root, ModName, "mod")}");
+        var md = File.ReadAllText(Path.Combine(Mods.Root, ModName, ModInstructions.FileName));
+        StringAssert.Contains(md, "*Acknowledged before the build (export dialog tick or umgmod build --ack-danger).*");
+    }
+
+    [TestMethod]
+    public void Cli_NoDanger_BuildsC6WithoutTheFlag_OtherRefusalsAreExit2()
+    {
+        var c = C6();
+        var (exit, output, error) = Cli(c, false, Base, MatchTime);
+        Assert.AreEqual(BuildCommand.Done, exit, output + error);
+        StringAssert.Contains(output, "layout warnings: none");
+        foreach (var sha in new[] { "cdb2945a84c73359118fe9b8f51418364c9ecf35a2ac95529bba661d4bb8546d", "56ad50b6ce2183964a35f9c1b8571c3fb70e945d687fbec3f05d1a24a089409b" })
+            StringAssert.Contains(output, sha, "byte-identical to canary C6, as before");
+        Assert.IsTrue(File.Exists(Path.Combine(Mods.Root, ModName, ModInstructions.FileName)), "the CLI writes the test instructions too");
+
+        // a refusal that isn't about acknowledging: 2, and --ack-danger doesn't get past it
+        (exit, _, error) = Cli(c, true, Tv + "MatchTime/MatchTimeGoal");
+        Assert.AreEqual(BuildCommand.Refused, exit);
+        StringAssert.Contains(error, "MatchTimeGoal has no saved edits");
+    }
+
+    [TestMethod]
+    public void Cli_DangerPlusAnotherRefusal_IsExit2()
+    {
+        var c = TimerOut();
+        var (output, error) = (new StringWriter(), new StringWriter());
+        var exit = BuildCommand.Run(c, Request(MatchTime) with { ContainerName = "no_suffix" }, false, new RetocProcess(Source.Config.RetocPath), output, error);
+        Assert.AreEqual(BuildCommand.Refused, exit, "the flag alone wouldn't help, so not 'needs --ack-danger'");
+        StringAssert.Contains(error.ToString(), "ending in _P");
     }
 
     [TestMethod]

@@ -291,7 +291,7 @@ try {
     "refusals: $(DText 'ExportRefusals')"
     Check 'the timer Danger warning is listed' ($iw -like '*`[Danger`] MatchTime: Time_Timer ends up almost completely outside Normal_Display*`[tick to acknowledge`]*')
     Check 'warning row shown' ((DText 'ExportImpactWarning_0') -like '`[Danger`] MatchTime: Time_Timer*')
-    Check 'refused until ticked, Build disabled' ((DText 'ExportRefusals') -like '*Tick the danger warning below*' -and -not (DialogEl 'ExportBuildButton').Current.IsEnabled)
+    Check 'refused until ticked, Build disabled' ((DText 'ExportRefusals') -like '*A danger warning is not acknowledged (tick it below*' -and -not (DialogEl 'ExportBuildButton').Current.IsEnabled)
     Check 'tick box unticked' ((Toggled 'ExportAck_0') -eq 'Off')
     ShotOf $script:dlg '5_danger_unticked'
     (DialogEl 'ExportAck_0').GetCurrentPattern([System.Windows.Automation.TogglePattern]::Pattern).Toggle(); Start-Sleep -Milliseconds 700

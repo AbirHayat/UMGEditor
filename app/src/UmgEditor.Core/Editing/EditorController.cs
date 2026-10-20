@@ -524,8 +524,8 @@ public sealed class EditorController
         var impactWarnings = saved.Count == 0 ? [] : ExportWarning.From(ExportImpact(saved));
         var unticked = impactWarnings.Where(w => w.IsDanger && !request.IsAcknowledged(w)).ToList();
         if (unticked.Count > 0)
-            refusals.Add($"Tick {(unticked.Count == 1 ? "the danger warning" : $"each of the {unticked.Count} danger warnings")} below to acknowledge " +
-                         $"{(unticked.Count == 1 ? "it" : "them")}: {string.Join("; ", unticked.Select(w => w.Package + ": " + w.Warning.Message))}");
+            refusals.Add($"{(unticked.Count == 1 ? "A danger warning is" : $"{unticked.Count} danger warnings are")} not acknowledged " +
+                         $"({(unticked.Count == 1 ? "tick it below" : "tick each below")}; umgmod build: --ack-danger): {string.Join("; ", unticked.Select(w => w.Package + ": " + w.Warning.Message))}");
         if (refusals.Count == 0 && Directory.Exists(outDir))
             warnings.Add($"{outDir} exists and will be replaced.");
         return new ExportPlan(request with { ModName = name, ContainerName = request.ContainerName.Trim() }, Project, outDir, retoc, refusals, warnings, packages, saved, edits, impactWarnings);

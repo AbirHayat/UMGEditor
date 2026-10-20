@@ -128,7 +128,7 @@ public static class ModInstructions
         if (warnings.Count == 0) L("None: no rescale, no widget pushed out of a clip, nothing outside the edited widgets moves.");
         foreach (var w in warnings)
             L($"- **{w.Warning.Severity}** · {w.Package}{(w.Online ? " (online)" : "")}: {w.Warning.Message}" +
-              (w.IsDanger ? plan.Request.IsAcknowledged(w) ? " *Acknowledged in the export dialog before the build.*" : " *Not acknowledged.*" : ""));
+              (w.IsDanger ? plan.Request.IsAcknowledged(w) ? " *Acknowledged before the build (export dialog tick or umgmod build --ack-danger).*" : " *Not acknowledged.*" : ""));
         L();
         L("## Files to copy");
         L("| File | Size | sha256 |");

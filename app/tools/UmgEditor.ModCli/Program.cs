@@ -4,11 +4,12 @@
 //   umgmod [--set NAME] edit  <package> <widget> resize <Left|Top|Right|Bottom> <d> [--yes]
 //   umgmod [--set NAME] show  <package>
 //   umgmod [--set NAME] reset <package>
-//   umgmod [--set NAME] build <modName> <package>... [--container pc9999_mobile_and_P]
+//   umgmod [--set NAME] build <modName> <package>... [--container pc9999_mobile_and_P] [--ack-danger]
 //   umgmod [--set NAME] predict <package>...
 // <package> is a /Game/... path or a unique suffix such as MatchTime/MatchTimeBase. Edits are saved PatchSessions in
-// work\edits[\NAME]\<package path>; build packs their saved chunks into work\out\mods\<modName>\mod. Exit 0 = done,
-// 2 = refused, 3 = needs --yes (first edit of a package: read the warnings first).
+// work\edits[\NAME]\<package path>; build packs their saved chunks into work\out\mods\<modName>\mod (the export
+// dialog's plan and run: predictions\ and TEST_INSTRUCTIONS.md next to it). Exit 0 = done, 2 = refused, 3 = needs
+// --yes (first edit of a package: read the warnings first) or --ack-danger (build: a Danger layout warning).
 using System.Globalization;
 using UmgEditor.Core;
 using UmgEditor.Core.Editing;
@@ -35,6 +36,7 @@ bool Flag(string name) => argv.Remove(name);
 var editSet = Option("--set");
 var container = Option("--container") ?? "pc9999_mobile_and_P";
 var yes = Flag("--yes");
+var ackDanger = Flag(BuildCommand.AckFlag);
 if (argv.Count < 2) return Usage();
 
 var config = GameConfig.LoadOrDefault(Path.Combine(AppContext.BaseDirectory, "umgeditor.json"));
@@ -136,27 +138,11 @@ try
         }
         case "build" when argv.Count >= 3:
         {
-            var packages = new List<ModPackage>();
-            var problems = new List<string>();
-            foreach (var arg in argv.Skip(2))
-            {
-                var session = OpenSession(ResolvePackage(arg));
-                var (chunk, why) = session.ReadSavedChunk();
-                if (chunk == null) problems.Add(why!);
-                else packages.Add(new ModPackage(session.PackagePath, session.FileKey, session.ChunkIdHex, chunk));
-            }
-            if (problems.Count > 0) { foreach (var p in problems) Console.Error.WriteLine($"refused: {p}"); return 2; }
-
-            var retocSha = RetocProcess.Sha256Of(config.RetocPath);
-            if (retocSha != ModBuilder.TestedRetocSha256)
-                Console.WriteLine($"warning: retoc at {config.RetocPath} has sha256 {(retocSha.Length == 0 ? "(missing)" : retocSha)}, not the tested build {ModBuilder.TestedRetocSha256} (app/README.md)");
-            var result = new ModBuilder(source, new RetocProcess(config.RetocPath)).Build(argv[1], container, packages);
-            Console.Write(result.Log);
-            foreach (var r in result.Refusals) Console.Error.WriteLine($"refused: {r}");
-            if (!result.Built) return 2;
-            Console.WriteLine($"OK: copy these {result.Files.Count} files from {result.ModDir} next to the stock containers on the device:");
-            foreach (var f in result.Files) Console.WriteLine($"  {f.Name}  {f.Size} bytes  sha256 {f.Sha256}");
-            return 0;
+            // the export dialog's checks (unsaved edits, names, the Impact panel's Danger warnings, ...) and outputs
+            var controller = new EditorController(source, new UsageGraph(index), NewEngine(), p => WidgetTreeReader.Build(source, p), W, H,
+                editSet ?? EditorController.DefaultProject);
+            var request = new ExportRequest(argv[1], container, argv.Skip(2).Select(ResolvePackage).ToList(), config.RetocPath);
+            return BuildCommand.Run(controller, request, ackDanger, new RetocProcess(config.RetocPath), Console.Out, Console.Error);
         }
         case "predict" when argv.Count >= 2:
         {
@@ -228,7 +214,7 @@ static int Usage()
           umgmod [--set NAME] edit  <package> <widget> resize <Left|Top|Right|Bottom> <d> [--yes]
           umgmod [--set NAME] show  <package>
           umgmod [--set NAME] reset <package>
-          umgmod [--set NAME] build <modName> <package>... [--container pc9999_mobile_and_P]
+          umgmod [--set NAME] build <modName> <package>... [--container pc9999_mobile_and_P] [--ack-danger]
           umgmod [--set NAME] predict <package>...
         <package>: /Game/... path or a unique suffix (MatchTime/MatchTimeBase); <field>: e.g. Offsets.Right
         """);
