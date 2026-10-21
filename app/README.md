@@ -142,8 +142,8 @@ umgmod [--set NAME] anim-flatten <package> <anim,anim...> [--parts width,visibil
   plan. `--parts` picks the tracks: `width` (slot margin tracks), `visibility` (visibility byte tracks), `positions`
   (2D transform and opacity tracks). Only key values change, at the same size, in the section copy **and** the
   compiled copy (`MovieSceneCompiledData`) when there is one. It is saved like any edit (first edit: exit 3 until
-  `--yes`), and `show`/`build` list every write. Canary C11 and its variants C11a/b/c were made this way
-  (`work/out/mods/CANARY_C11.md`).
+  `--yes`), and `show`/`build` list every write. Canary C11 was made this way and passed in game
+  (both copies are read; `work/out/mods/CANARY_C11.md`).
 - Animation keys have their own location rule. Key blocks repeat across widgets, and a key's two copies are
   byte-identical, so the ±32-byte window often isn't unique. Instead, each write records the smallest window around
   it, computed on the stock bytes, that occurs exactly once in the chunk (±32 in 16-byte steps). Beyond ±512 it is
