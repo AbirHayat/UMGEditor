@@ -19,6 +19,8 @@ public class AnimFrameRangeEditTests
     private const string Goal = Tv + "MatchTime/MatchTimeGoal";
     /// <summary>sha256 of C9's patched MatchTimeGoal chunk (work\out\mods\C9\build.json, device-tested 2026-10-20).</summary>
     private const string C9ChunkSha256 = "e31086c0db9ffbb7124ef1baa95d7fe6bbd41b207e95c91f948c79ccb4ab03b0";
+    /// <summary>sha256 of C12's MatchTimeGoal chunk (work\out\mods\C12\build.json, device-tested 2026-10-21).</summary>
+    private const string C12ChunkSha256 = "eb5d1b0804f3dc704dabfff293bdcd5299c3f59cea7cc1a4a5fea53e123251e7";
 
     private static WriteGuard Guard => new(Source.Config);
     private string _folder = null!;
@@ -147,6 +149,8 @@ public class AnimFrameRangeEditTests
         var saved = s.Save();
         Assert.IsTrue(saved.Saved, saved.Summary);
         StringAssert.Contains(saved.Summary, "109803 → 109861");
+        Assert.AreEqual(C12ChunkSha256, Convert.ToHexString(SHA256.HashData(File.ReadAllBytes(s.EditedPath))).ToLowerInvariant(),
+            "C12 must equal the device-tested chunk");
     }
 
     // ---- negative tests ----
