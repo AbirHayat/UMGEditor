@@ -94,6 +94,61 @@ public class AnimFrameRangeEditTests
         Assert.AreEqual(132001, after["Show"].End);
     }
 
+    /// <summary>
+    /// C12 (goal banner on the board's row, UCL two-row step, 60-unit rows): 23 layout values, 2 inserted tags, 5 key edits
+    /// and 8 range edits plan and save. Exactly three proofs need more than ±32 (rule since C12): both plates' Bottom (±48)
+    /// and the yellow plate's Top insertion point (±64).
+    /// </summary>
+    [TestMethod]
+    public void C12_GoalBannerOnTheBoardRow_PlansAndSaves()
+    {
+        var s = Open();
+        var tree = WidgetTreeReader.Build(Source, Goal);
+        (string Widget, string Field, double Value)[] layout =
+        [
+            ("MatchTime", "Top", 27), ("MatchTime", "Right", 372), ("MatchTime", "Bottom", 60),
+            ("Goal", "Right", 372), ("Goal", "Bottom", 60),
+            ("MatchTimeBase_1", "Top", -60), ("MatchTimeBase_1", "Right", 372), ("MatchTimeBase_1", "Bottom", 60),
+            ("Plate_MatchTimeBg", "Left", 60), ("Plate_MatchTimeBg", "Top", 0), ("Plate_MatchTimeBg", "Right", 312), ("Plate_MatchTimeBg", "Bottom", 60),
+            ("MatchTimeBase_2", "Left", 0), ("MatchTimeBase_2", "Right", 60), ("MatchTimeBase_2", "Bottom", 60),
+            ("Emblem_Team", "Left", 6), ("Emblem_Team", "Top", 6), ("Emblem_Team", "Right", 48), ("Emblem_Team", "Bottom", 48),
+            ("Text_Item", "Left", 3000), ("Text_PlayerNumber", "Left", 3000),
+            ("Text_PlayerName", "Left", 12), ("Text_PlayerName", "Top", -58), ("Text_PlayerName", "Right", 354),
+            ("Plate_MatchTimeBg_3", "Bottom", 0),
+        ];
+        foreach (var (widget, field, value) in layout)
+            Assert.IsNull(s.Apply(SlotEditor.SetField(tree.All().Single(n => n.Name == widget), s.Current, "LayoutData.Offsets." + field, value)), $"{widget}.{field}");
+        var keys = new List<FieldChange>
+        {
+            new(Key(s, "Show", 1, AnimKeyField.Interp), 2, 1),
+            new(Key(s, "Show", 2, AnimKeyField.Frame), 48000, 108000),
+            new(Key(s, "Show", 2), 0, 60),
+            new(Key(s, "Hide", 0), 0, 60),
+            new(Key(s, "Hide", 1), -96, 180),
+        };
+        keys.AddRange(s.AnimationEndChanges("Show", 48000, 132000));
+        Assert.IsNull(s.Apply(EditResult.Of(keys)));
+
+        var plan = s.Plan();
+        Assert.IsTrue(plan.Ok, string.Join("\n", plan.Refusals.Select(r => r.Message)));
+        Assert.AreEqual(23, plan.Entries.Count);
+        Assert.AreEqual(2, plan.Insertions.Count);
+        Assert.AreEqual(109803 + 58, plan.EditedSize);
+        var wide = plan.Entries.Where(e => e.Window > BytePlanner.Context).Select(e => $"{e.SlotName}.{e.Key.Path}=±{e.Window}")
+            .Concat(plan.Insertions.Where(i => i.Window > BytePlanner.Context).Select(i => $"{i.SlotName}.{i.Path} insert=±{i.Window}")).Order().ToList();
+        CollectionAssert.AreEqual(new[]
+        {
+            "CanvasPanelSlot_11.LayoutData.Offsets.Bottom=±48",
+            "CanvasPanelSlot_20.LayoutData.Offsets.Bottom=±48",
+            "CanvasPanelSlot_20.LayoutData.Offsets.Top insert=±64",
+        }, wide, string.Join(", ", wide));
+        Assert.IsTrue(plan.Entries.Where(e => e.Window > BytePlanner.Context).All(e => e.ContextMatches == 2));
+
+        var saved = s.Save();
+        Assert.IsTrue(saved.Saved, saved.Summary);
+        StringAssert.Contains(saved.Summary, "109803 → 109861");
+    }
+
     // ---- negative tests ----
 
     [TestMethod]
