@@ -126,6 +126,8 @@ umgmod [--set NAME] build <modName> <package>... [--container pc9999_mobile_and_
 umgmod [--set NAME] predict <package>...
 umgmod show-anim <package> [--anim REGEX] [--widget NAME] [--bytes]
 umgmod [--set NAME] anim-flatten <package> <anim,anim...> [--parts width,visibility,positions] [--normal-from Info_Hide] [--check Show] [--yes]
+umgmod [--set NAME] anim-key <package> <anim> <widget> <channel> <key#> <value|frame|interp> <new> [--yes]
+umgmod [--set NAME] anim-end <package> <anim> <oldEndTicks> <newEndTicks> [--yes]
 ```
 
 - `edit` applies one SlotEditor edit to the package's PatchSession and saves it (`work\edits[\NAME]\<package path>`).
@@ -150,6 +152,12 @@ umgmod [--set NAME] anim-flatten <package> <anim,anim...> [--parts width,visibil
   refused. The location must also follow from the section's own tags, the compiled copy must be inside the
   animation's compiled export with the same stock bytes, and the stock bytes must decode to the parsed value. The
   exact byte diff and the full re-parse of every export stay hard refusals. Layout values keep the ±32 rule.
+- Branch `experiment`: `anim-key` sets one key's `value`, `frame` (ticks, 60000 per second) or `interp` (0 Linear,
+  1 Constant = stepped, 2 Cubic; float keys only), in both copies when the key has a compiled one. `anim-end` moves
+  every range bound of an animation at `oldEnd` to `newEnd`: section and compiled ranges, plus the MovieScene's
+  playback end (+1). This is how C9 lengthened Show from 0.8 s to 2.2 s. Range bounds use the same location rule as
+  keys, and the re-parse requires exactly those bounds to change. Canary C9 rebuilt this way is byte-identical to
+  the device-tested chunk.
 - `build` is the export dialog without the window: the same plan (`PlanExport`: the same refusals) and run
   (`RunExport`), so it writes `mod\<container>.{utoc,ucas,pak}`, `predictions\` and `TEST_INSTRUCTIONS.md` under
   `work\out\mods\<modName>`. The packing steps are the same as `work/scripts/make_mod.py` (kept as the reference),
