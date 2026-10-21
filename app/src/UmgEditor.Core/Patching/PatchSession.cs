@@ -135,10 +135,53 @@ public sealed class PatchSession
         return AnimKeyTransform != null ? AnimKeyTransform(found) : found;
     }
 
-    /// <summary>The stock value of a stored field (or animation key) as CUE4Parse parsed it, or null when the field isn't stored.</summary>
+    private readonly Dictionary<FieldKey, (AnimRangeRef? Ref, string? Why)> _ranges = [];
+
+    /// <summary>Test seam: transforms a range edit's located bounds before planning (simulates a wrong lookup).</summary>
+    internal Func<AnimRangeRef?, AnimRangeRef?>? AnimRangeTransform { get; set; }
+
+    /// <summary>Where a range edit writes (every closed bound of its export at its stock frame), or why it can't.</summary>
+    public (AnimRangeRef? Ref, string? Why) AnimRange(FieldKey key)
+    {
+        if (!AnimRangePath.Is(key) || !key.Package.Equals(PackagePath, StringComparison.OrdinalIgnoreCase)) return (null, $"{key.Path} is not a range edit of {GamePaths.ShortName(PackagePath)}");
+        if (!_ranges.TryGetValue(key, out var found))
+        {
+            if (key.SlotExport < 0 || key.SlotExport >= _stockPackage.ExportsLazy.Length) found = (null, $"export {key.SlotExport} doesn't exist");
+            else
+            {
+                var json = Newtonsoft.Json.Linq.JObject.Parse(Newtonsoft.Json.JsonConvert.SerializeObject(_stockPackage.ExportsLazy[key.SlotExport].Value));
+                var r = AnimRanges.Locate(_stock, _layout, key.SlotExport, SlotName(key.SlotExport), json, AnimRangePath.Parse(key.Path), out var why);
+                found = (r, why);
+            }
+            _ranges[key] = found;
+        }
+        return AnimRangeTransform != null ? (AnimRangeTransform(found.Ref), found.Why) : found;
+    }
+
+    /// <summary>
+    /// C9's range edit of one animation as edits: in every export of the animation (MovieScene, sections, compiled data),
+    /// every closed range bound at <paramref name="oldEnd"/> moves to <paramref name="newEnd"/>, and the MovieScene's
+    /// playback bound at oldEnd + 1 (its exclusive end) to newEnd + 1. Exports without such a bound are left out.
+    /// </summary>
+    public IReadOnlyList<FieldChange> AnimationEndChanges(string animation, int oldEnd, int newEnd)
+    {
+        var changes = new List<FieldChange>();
+        foreach (var (i, type) in AnimRanges.ExportsOf(_stockPackage, animation))
+        {
+            var (from, to) = type == "MovieScene" ? (oldEnd + 1, newEnd + 1)
+                : type.EndsWith("Section", StringComparison.Ordinal) || type == "MovieSceneCompiledData" ? (oldEnd, newEnd) : (int.MinValue, 0);
+            if (from == int.MinValue) continue;
+            var key = new FieldKey(PackagePath, i, AnimRangePath.Make(from));
+            if (AnimRange(key).Ref != null) changes.Add(new FieldChange(key, from, to));
+        }
+        return changes;
+    }
+
+    /// <summary>The stock value of a stored field (or animation key / range bound) as CUE4Parse parsed it, or null when the field isn't stored.</summary>
     public double? StockValue(FieldKey key)
     {
-        if (AnimKeyPath.Is(key)) return key.Package.Equals(PackagePath, StringComparison.OrdinalIgnoreCase) && AnimKeys.Find(key) is { } a ? AnimKeyIndex.Parse(a.StockValue) : null;
+        if (AnimKeyPath.Is(key)) return key.Package.Equals(PackagePath, StringComparison.OrdinalIgnoreCase) && AnimKeys.Find(key) is { } a ? a.Stock(AnimKeyPath.Parse(key.Path).Field) : null;
+        if (AnimRangePath.Is(key)) return AnimRange(key).Ref != null ? AnimRangePath.Parse(key.Path) : null;
         if (!key.Package.Equals(PackagePath, StringComparison.OrdinalIgnoreCase) || key.SlotExport < 0 || key.SlotExport >= _stockPackage.ExportsLazy.Length) return null;
         if (!_stockValues.TryGetValue(key.SlotExport, out var values))
             _stockValues[key.SlotExport] = values = WidgetTreeReader.StoredValues(_stockPackage.ExportsLazy[key.SlotExport].Value);
@@ -192,7 +235,13 @@ public sealed class PatchSession
                 return $"{c.Key.Path} belongs to {GamePaths.ShortName(c.Key.Package)}, not {GamePaths.ShortName(PackagePath)}; open that package to edit it.";
             if (AnimKeyPath.Is(c.Key))
             {
-                if (AnimKeys.Find(c.Key) == null) return $"{c.Key.Path} (section export {c.Key.SlotExport}) is not an animation key of {GamePaths.ShortName(PackagePath)}.";
+                if (AnimKeys.Find(c.Key) is not { } k) return $"{c.Key.Path} (section export {c.Key.SlotExport}) is not an animation key of {GamePaths.ShortName(PackagePath)}.";
+                if (k.Stock(AnimKeyPath.Parse(c.Key.Path).Field) == null) return $"{c.Key.Path}: a {k.Kind} key has no interp mode.";
+                continue;
+            }
+            if (AnimRangePath.Is(c.Key))
+            {
+                if (AnimRange(c.Key) is { Ref: null, Why: var rangeWhy }) return rangeWhy;
                 continue;
             }
             if (StockValue(c.Key) == null && InsertRefusal(c.Key) is { } why)
@@ -228,7 +277,7 @@ public sealed class PatchSession
     // ---- bytes ----
 
     /// <summary>The "bytes to patch" for the current edits (offset, old/new value, hex, context), or why they'd be refused.</summary>
-    public BytePlan Plan() => BytePlanner.Plan(_stock, _layout, PackagePath, Current, StockValue, SlotName, AnimKey);
+    public BytePlan Plan() => BytePlanner.Plan(_stock, _layout, PackagePath, Current, StockValue, SlotName, AnimKey, AnimRange);
 
     /// <summary>Rebuilds the edited chunk from the stock copy + the full current EditSet and writes it if every check passes.</summary>
     public SaveResult Save()
@@ -244,7 +293,7 @@ public sealed class PatchSession
         if (Sha256(stock) != StockSha256)
             refusals.Add(new PatchRefusal(RefusalRule.StockCopyChanged, $"the stock copy {StockCopyPath} no longer hashes to the game's file ({Sha256(stock)[..16]}… vs {StockSha256[..16]}…)"));
 
-        var plan = BytePlanner.Plan(stock, _layout, PackagePath, Current, StockValue, SlotName, AnimKey);
+        var plan = BytePlanner.Plan(stock, _layout, PackagePath, Current, StockValue, SlotName, AnimKey, AnimRange);
         refusals.AddRange(plan.Refusals);
         if (refusals.Count > 0) return Refused(plan, refusals);
 
@@ -290,7 +339,7 @@ public sealed class PatchSession
         if (Saved.Count == 0 || !File.Exists(EditedPath)) return (null, $"{name} has no saved edits in {Folder}.");
         var stock = File.ReadAllBytes(StockCopyPath);
         if (Sha256(stock) != StockSha256) return (null, $"{StockCopyPath} no longer matches the game's file.");
-        var plan = BytePlanner.Plan(stock, _layout, PackagePath, Saved, StockValue, SlotName, AnimKey);
+        var plan = BytePlanner.Plan(stock, _layout, PackagePath, Saved, StockValue, SlotName, AnimKey, AnimRange);
         if (!plan.Ok) return (null, $"{name}: the saved edits no longer plan: {string.Join(" | ", plan.Refusals.Select(r => r.Message))}");
         var rebuilt = BytePlanner.Apply(stock, plan);
         if (BytePlanner.Verify(stock, rebuilt, plan) is { Count: > 0 } bad) return (null, $"{name}: {string.Join(" | ", bad.Select(r => r.Message))}");
@@ -362,25 +411,37 @@ public sealed class PatchSession
             // every export compared with stock: only the edited values may differ; for animation keys, exactly the key's
             // value in its own section and in the compiled template that points back at that section
             var byKey = values.ToDictionary(v => (v.Export, "Properties." + v.Path), v => v.Value);
-            var anim = plan.AnimWrites.Select(w => (w, Ref: AnimKey(w.Key))).Where(x => x.Ref != null).ToList();
-            var seen = new HashSet<(int Export, FieldKey Key)>();
+            // (frame: its Times entry; interp: its InterpMode); for range edits, exactly the planned bound paths
+            var anim = plan.AnimWrites.Select(w => (w, Ref: AnimKeyPath.Is(w.Key) ? AnimKey(w.Key) : null)).Where(x => x.Ref != null || x.w.ReparsePath != null).ToList();
+            var seen = new HashSet<AnimWrite>();
             bool AnimAllowed(int export, string key, string? now)
             {
                 foreach (var (w, r) in anim)
                 {
                     if (w.Export != export) continue;
-                    var suffix = $"{r!.Channel}.Values[{r.KeyIndex}]{(r.Kind == Animation.ChannelKind.Float ? ".Value" : "")}";
-                    bool match;
-                    if (w.Copy == "section") match = key == "Properties." + suffix;
+                    bool match, isFloat;
+                    if (r == null) { match = key == w.ReparsePath; isFloat = false; }
                     else
                     {
-                        match = key.EndsWith(".Data." + suffix, StringComparison.Ordinal)
-                                && StockFlat(export).GetValueOrDefault(key[..^suffix.Length] + "SourceSectionPtr.ObjectPath") is { } source
-                                && source.Trim('"').EndsWith("." + w.Key.SlotExport, StringComparison.Ordinal);
+                        var field = AnimKeyPath.Parse(w.Key.Path).Field;
+                        isFloat = field == AnimKeyField.Value && r.Kind == Animation.ChannelKind.Float;
+                        var suffix = field switch
+                        {
+                            AnimKeyField.Frame => $"{r.Channel}.Times[{r.KeyIndex}].Value",
+                            AnimKeyField.Interp => $"{r.Channel}.Values[{r.KeyIndex}].InterpMode",
+                            _ => $"{r.Channel}.Values[{r.KeyIndex}]{(r.Kind == Animation.ChannelKind.Float ? ".Value" : "")}",
+                        };
+                        if (w.Copy == "section") match = key == "Properties." + suffix;
+                        else
+                        {
+                            match = key.EndsWith(".Data." + suffix, StringComparison.Ordinal)
+                                    && StockFlat(export).GetValueOrDefault(key[..^suffix.Length] + "SourceSectionPtr.ObjectPath") is { } source
+                                    && source.Trim('"').EndsWith("." + w.Key.SlotExport, StringComparison.Ordinal);
+                        }
                     }
                     if (!match) continue;
-                    var ok = now != null && TryParse(now.Trim('"'), out var got) && (r.Kind == Animation.ChannelKind.Float ? (float) got == (float) w.NewValue : got == w.NewValue);
-                    if (ok) seen.Add((export, w.Key));
+                    var ok = now != null && TryParse(now.Trim('"'), out var got) && (isFloat ? (float) got == (float) w.NewValue : got == w.NewValue);
+                    if (ok) seen.Add(w);
                     return ok;
                 }
                 return false;
@@ -388,10 +449,10 @@ public sealed class PatchSession
             var (_, problems, _) = TagInserter.ReparseDiff(_source, FileKey, _stockPackage, written, StockFlat, (export, key, _, now) =>
                 byKey.TryGetValue((export, key), out var want) ? now != null && TryParse(now, out var got) && (float) got == (float) want : AnimAllowed(export, key, now));
             refusals.AddRange(problems.Select(p => new PatchRefusal(RefusalRule.ReloadMismatch, p)));
-            foreach (var (w, _) in anim.Where(x => !seen.Contains((x.w.Export, x.w.Key))))
+            foreach (var (w, _) in anim.Where(x => !seen.Contains(x.w)))
                 refusals.Add(new PatchRefusal(RefusalRule.ReloadMismatch, $"{w.Description} ({w.Copy} copy, export {w.Export}) doesn't re-parse as {w.NewValue}", w.Key));
-            foreach (var w in plan.AnimWrites.Where(w => AnimKey(w.Key) == null))
-                refusals.Add(new PatchRefusal(RefusalRule.NotLocated, $"{w.Key.Path}: no longer an animation key of the package", w.Key));
+            foreach (var w in plan.AnimWrites.Where(w => AnimKeyPath.Is(w.Key) ? AnimKey(w.Key) == null : w.ReparsePath == null))
+                refusals.Add(new PatchRefusal(RefusalRule.NotLocated, $"{w.Key.Path}: no longer an animation key or range of the package", w.Key));
         }
         return refusals;
     }

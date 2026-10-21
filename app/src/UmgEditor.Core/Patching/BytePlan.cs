@@ -68,6 +68,8 @@ public sealed record AnimWrite(FieldKey Key, string Description, string Copy, in
     public IEnumerable<int> ChangedOffsets => Enumerable.Range(0, OldBytes.Length).Where(i => OldBytes[i] != NewBytes[i]).Select(i => Offset + i);
     /// <summary>"unique stock window ±240 (±32 occurs 66×)"</summary>
     public string WindowText => $"unique stock window ±{Window}" + (Context32Matches == 1 ? "" : $" (±32 occurs {Context32Matches}×)");
+    /// <summary>Range bounds: the bound's path in the export's flattened parse (the re-parse must show exactly it changed).</summary>
+    public string? ReparsePath { get; init; }
 }
 
 /// <summary>
@@ -124,8 +126,10 @@ public static class BytePlanner
     /// <param name="stock">The stock chunk the plan is built on (always the untouched stock copy)</param>
     /// <param name="expectedStock">Stock value of a field from an independent parse (CUE4Parse), null when unknown</param>
     /// <param name="animKey">Where an animation key is (AnimKeyIndex.Find); required for animation key edits</param>
+    /// <param name="animRange">Where an export's range bounds at a frame are, or why not (AnimRanges.Locate); required for range edits</param>
     public static BytePlan Plan(ReadOnlySpan<byte> stock, ZenPackageLayout layout, string packagePath, EditSet edits,
-        Func<FieldKey, double?> expectedStock, Func<int, string>? slotName = null, Func<FieldKey, AnimKeyRef?>? animKey = null)
+        Func<FieldKey, double?> expectedStock, Func<int, string>? slotName = null, Func<FieldKey, AnimKeyRef?>? animKey = null,
+        Func<FieldKey, (AnimRangeRef? Ref, string? Why)>? animRange = null)
     {
         var walker = new TaggedPropertyWalker(layout.NameMap);
         var walked = new Dictionary<int, List<FieldLocation>>();
@@ -142,6 +146,11 @@ public static class BytePlanner
             if (AnimKeyPath.Is(key))
             {
                 PlanAnimKey(stock, layout, key, newValue, animKey?.Invoke(key), expectedStock(key), animWrites, Refuse);
+                continue;
+            }
+            if (AnimRangePath.Is(key))
+            {
+                PlanAnimRange(stock, key, newValue, animRange?.Invoke(key) ?? (null, "no range lookup"), animWrites, Refuse);
                 continue;
             }
             if (!walked.TryGetValue(key.SlotExport, out var fields))
@@ -203,73 +212,130 @@ public static class BytePlanner
     }
 
     /// <summary>
-    /// One animation key edit → its writes (section copy, and the compiled copy when there is one), or refusals:
-    /// the lookup must match the key, the section's own tags must put the key exactly there (re-derived here), the
-    /// compiled copy must sit inside the animation's compiled export and hold the same stock bytes, the stock bytes must
-    /// decode to the parsed value, the new value must be representable, and each write needs a unique stock window
-    /// within ±<see cref="MaxAnimWindow"/>.
+    /// One animation key edit (its value, frame or interp mode) → its writes (section copy, and the compiled copy when there
+    /// is one), or refusals: the lookup must match the key, the section's own tags must put the key exactly there
+    /// (re-derived here), the compiled copy must sit inside the animation's compiled export and hold the same stock bytes,
+    /// the stock bytes must decode to the parsed value, the new value must be representable, and each write needs a
+    /// unique stock window within ±<see cref="MaxAnimWindow"/>.
     /// </summary>
     private static void PlanAnimKey(ReadOnlySpan<byte> stock, ZenPackageLayout layout, FieldKey key, double newValue, AnimKeyRef? r, double? expected,
         List<AnimWrite> writes, Action<RefusalRule, string> refuse)
     {
         if (r == null) { refuse(RefusalRule.NotLocated, "no such animation key in the package"); return; }
-        var (channel, k) = AnimKeyPath.Parse(key.Path);
+        var (channel, k, field) = AnimKeyPath.Parse(key.Path);
         if (r.SectionExport != key.SlotExport || r.Channel != channel || r.KeyIndex != k) { refuse(RefusalRule.NotLocated, $"the key lookup returned {r.Description}"); return; }
+        if (field == AnimKeyField.Interp && r.Kind != ChannelKind.Float) { refuse(RefusalRule.UnsupportedType, $"only float keys have an interp mode ({channel} is {r.Kind})"); return; }
 
-        // 1. structure: the section's own tags put this key at r.ValueAt
+        // 1. structure: the section's own tags put this key's frame and value at r.FrameAt / r.ValueAt
         ChannelBytes? own;
         try { own = AnimationBytes.Locate(stock, layout, key.SlotExport).GetValueOrDefault(channel); }
         catch (KeyNotFoundException e) { refuse(RefusalRule.NotLocated, e.Message); return; }
-        if (own == null || k >= own.ValuesAt.Count || own.Kind != r.Kind || own.ValuesAt[k] != r.ValueAt)
+        if (own == null || k >= own.ValuesAt.Count || own.Kind != r.Kind || own.ValuesAt[k] != r.ValueAt || (field == AnimKeyField.Frame && own.FramesAt[k] != r.FrameAt))
         {
-            refuse(RefusalRule.NotLocated, $"the section's own tags (export {key.SlotExport}) put key {k} of {channel} at {(own != null && k < own.ValuesAt.Count ? $"0x{own.ValuesAt[k]:X}" : "nowhere")}, not 0x{r.ValueAt:X}");
+            var (ownAt, refAt) = field == AnimKeyField.Frame
+                ? (own != null && k < own.FramesAt.Count ? own.FramesAt[k] : -1, r.FrameAt)
+                : (own != null && k < own.ValuesAt.Count ? own.ValuesAt[k] : -1, r.ValueAt);
+            refuse(RefusalRule.NotLocated, $"the section's own tags (export {key.SlotExport}) put key {k} of {channel} at {(ownAt >= 0 ? $"0x{ownAt:X}" : "nowhere")}, not 0x{refAt:X}");
             return;
         }
-        var size = r.ValueSize;
-        var oldBytes = stock.Slice(r.ValueAt, size).ToArray();
-        var copies = new List<(string Copy, int Export, int At)> { ("section", key.SlotExport, r.ValueAt) };
+        var (at, size, compiledAt) = field switch
+        {
+            AnimKeyField.Frame => (r.FrameAt, 4, r.HasCompiledCopy ? r.CompiledFrameAt : -1),
+            AnimKeyField.Interp => (r.ValueAt + 24, 1, r.HasCompiledCopy ? r.CompiledValueAt + 24 : -1),
+            _ => (r.ValueAt, r.ValueSize, r.HasCompiledCopy ? r.CompiledValueAt : -1),
+        };
+        if (r.HasCompiledCopy && compiledAt < 0) { refuse(RefusalRule.NotLocated, $"the compiled copy's frame of key {k} wasn't located"); return; }
+        var oldBytes = stock.Slice(at, size).ToArray();
+        var copies = new List<(string Copy, int Export, int At)> { ("section", key.SlotExport, at) };
         if (r.HasCompiledCopy)
         {
             ExportSpan span;
             try { span = layout.SpanOf(r.CompiledExport); }
             catch (KeyNotFoundException e) { refuse(RefusalRule.NotLocated, e.Message); return; }
-            if (r.CompiledValueAt < span.Start || r.CompiledValueAt + size > span.End) { refuse(RefusalRule.NotLocated, $"compiled copy 0x{r.CompiledValueAt:X} is outside its compiled export {r.CompiledExport}"); return; }
-            if (!stock.Slice(r.CompiledValueAt, size).SequenceEqual(oldBytes)) { refuse(RefusalRule.StockBytesMismatch, $"the compiled copy at 0x{r.CompiledValueAt:X} holds {PatchEntry.Hex(stock.Slice(r.CompiledValueAt, size).ToArray())}, the section {PatchEntry.Hex(oldBytes)}"); return; }
-            copies.Add(("compiled", r.CompiledExport, r.CompiledValueAt));
+            if (compiledAt < span.Start || compiledAt + size > span.End) { refuse(RefusalRule.NotLocated, $"compiled copy 0x{compiledAt:X} is outside its compiled export {r.CompiledExport}"); return; }
+            if (!stock.Slice(compiledAt, size).SequenceEqual(oldBytes)) { refuse(RefusalRule.StockBytesMismatch, $"the compiled copy at 0x{compiledAt:X} holds {PatchEntry.Hex(stock.Slice(compiledAt, size).ToArray())}, the section {PatchEntry.Hex(oldBytes)}"); return; }
+            copies.Add(("compiled", r.CompiledExport, compiledAt));
         }
 
         // 2. the stock bytes decode to the parsed value; the new value fits the type
-        double old = r.Kind switch
+        double old = field switch
         {
-            ChannelKind.Float => BinaryPrimitives.ReadSingleLittleEndian(oldBytes),
-            ChannelKind.Integer => BinaryPrimitives.ReadInt32LittleEndian(oldBytes),
-            _ => oldBytes[0],
+            AnimKeyField.Frame => BinaryPrimitives.ReadInt32LittleEndian(oldBytes),
+            AnimKeyField.Interp => oldBytes[0],
+            _ => r.Kind switch
+            {
+                ChannelKind.Float => BinaryPrimitives.ReadSingleLittleEndian(oldBytes),
+                ChannelKind.Integer => BinaryPrimitives.ReadInt32LittleEndian(oldBytes),
+                _ => oldBytes[0],
+            },
         };
-        if (expected is not { } ev || (r.Kind == ChannelKind.Float ? (float) ev != (float) old : ev != old))
+        if (expected is not { } ev || (field == AnimKeyField.Value && r.Kind == ChannelKind.Float ? (float) ev != (float) old : ev != old))
         {
-            refuse(RefusalRule.StockBytesMismatch, $"stock bytes at 0x{r.ValueAt:X} are {PatchEntry.Hex(oldBytes)} ({old}), the parse says {expected?.ToString() ?? "unknown"}");
+            refuse(RefusalRule.StockBytesMismatch, $"stock bytes at 0x{at:X} are {PatchEntry.Hex(oldBytes)} ({old}), the parse says {expected?.ToString() ?? "unknown"}");
             return;
         }
-        byte[]? newBytes = r.Kind switch
+        byte[]? newBytes = field switch
         {
-            ChannelKind.Float => Encode(FieldType.Float, newValue),
-            ChannelKind.Integer => Encode(FieldType.Int32, newValue),
-            ChannelKind.Bool => newValue is 0 or 1 ? [(byte) newValue] : null,
-            _ => newValue == Math.Round(newValue) && newValue is >= 0 and <= 255 ? [(byte) newValue] : null,
+            AnimKeyField.Frame => Encode(FieldType.Int32, newValue),
+            AnimKeyField.Interp => newValue is 0 or 1 or 2 ? [(byte) newValue] : null,
+            _ => r.Kind switch
+            {
+                ChannelKind.Float => Encode(FieldType.Float, newValue),
+                ChannelKind.Integer => Encode(FieldType.Int32, newValue),
+                ChannelKind.Bool => newValue is 0 or 1 ? [(byte) newValue] : null,
+                _ => newValue == Math.Round(newValue) && newValue is >= 0 and <= 255 ? [(byte) newValue] : null,
+            },
         };
-        if (newBytes == null) { refuse(RefusalRule.NotRepresentable, $"{newValue} can't be stored exactly as a {r.Kind} key"); return; }
+        var what = field switch { AnimKeyField.Frame => "a key frame (int32 ticks)", AnimKeyField.Interp => "an interp mode (0 Linear, 1 Constant, 2 Cubic)", _ => $"a {r.Kind} key" };
+        if (newBytes == null) { refuse(RefusalRule.NotRepresentable, $"{newValue} can't be stored exactly as {what}"); return; }
 
         // 3. location proof: the smallest unique stock window
-        foreach (var (copy, export, at) in copies)
+        var description = r.Description + field switch { AnimKeyField.Frame => " · frame", AnimKeyField.Interp => " · interp", _ => "" };
+        foreach (var (copy, export, offset) in copies)
         {
-            if (UniqueWindow(stock, at, size, MaxAnimWindow) is not { } w)
+            if (UniqueWindow(stock, offset, size, MaxAnimWindow) is not { } w)
             {
-                refuse(RefusalRule.ContextNotUnique, $"{copy} copy at 0x{at:X}: no window up to ±{MaxAnimWindow} bytes occurs only once in the chunk");
+                refuse(RefusalRule.ContextNotUnique, $"{copy} copy at 0x{offset:X}: no window up to ±{MaxAnimWindow} bytes occurs only once in the chunk");
                 return;
             }
-            int from = Math.Max(0, at - Context), to = Math.Min(stock.Length, at + size + Context);
-            writes.Add(new AnimWrite(key, r.Description, copy, export, at, stock.Slice(at, size).ToArray(), newBytes, old, newValue, w, CountOccurrences(stock, stock[from..to])));
+            int from = Math.Max(0, offset - Context), to = Math.Min(stock.Length, offset + size + Context);
+            writes.Add(new AnimWrite(key, description, copy, export, offset, stock.Slice(offset, size).ToArray(), newBytes, old, newValue, w, CountOccurrences(stock, stock[from..to])));
         }
+    }
+
+    /// <summary>
+    /// One range edit (every closed bound of an export at a stock frame → a new frame) → one write per bound, or refusals:
+    /// the bounds must be located (AnimRanges.Locate: as often in the bytes as in the parse), each must hold the old
+    /// frame in the stock bytes, the new frame must be an int32, and each write needs a unique stock window within
+    /// ±<see cref="MaxAnimWindow"/>. The re-parse (PatchSession) then requires exactly those bound paths to change.
+    /// </summary>
+    private static void PlanAnimRange(ReadOnlySpan<byte> stock, FieldKey key, double newValue, (AnimRangeRef? Ref, string? Why) found,
+        List<AnimWrite> writes, Action<RefusalRule, string> refuse)
+    {
+        var frame = AnimRangePath.Parse(key.Path);
+        if (found.Ref is not { } r) { refuse(RefusalRule.NotLocated, found.Why ?? $"no range bound at frame {frame}"); return; }
+        if (r.Export != key.SlotExport || r.Frame != frame) { refuse(RefusalRule.NotLocated, $"the range lookup returned {r.Description}"); return; }
+        if (Encode(FieldType.Int32, newValue) is not { } newBytes) { refuse(RefusalRule.NotRepresentable, $"{newValue} can't be stored exactly as a frame (int32 ticks)"); return; }
+        var oldBytes = new byte[4];
+        BinaryPrimitives.WriteInt32LittleEndian(oldBytes, frame);
+        var planned = new List<AnimWrite>();
+        foreach (var b in r.Bounds)
+        {
+            if (b.Offset < 0 || b.Offset + 4 > stock.Length || !stock.Slice(b.Offset, 4).SequenceEqual(oldBytes))
+            {
+                refuse(RefusalRule.StockBytesMismatch, $"{b.Path} at 0x{b.Offset:X} doesn't hold frame {frame} in the stock bytes");
+                return;
+            }
+            if (UniqueWindow(stock, b.Offset, 4, MaxAnimWindow) is not { } w)
+            {
+                refuse(RefusalRule.ContextNotUnique, $"{b.Path} at 0x{b.Offset:X}: no window up to ±{MaxAnimWindow} bytes occurs only once in the chunk");
+                return;
+            }
+            int from = Math.Max(0, b.Offset - Context), to = Math.Min(stock.Length, b.Offset + 4 + Context);
+            planned.Add(new AnimWrite(key, $"{r.Description} · {b.Path.Replace("Properties.", "")}", "range", r.Export, b.Offset, oldBytes, newBytes, frame, newValue, w,
+                CountOccurrences(stock, stock[from..to])) { ReparsePath = b.Path });
+        }
+        writes.AddRange(planned);
     }
 
     /// <summary>
