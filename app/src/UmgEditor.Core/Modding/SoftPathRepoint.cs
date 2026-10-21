@@ -1,3 +1,4 @@
+using UmgEditor.Core.Editing;
 using UmgEditor.Core.Patching;
 
 namespace UmgEditor.Core.Modding;
@@ -12,10 +13,37 @@ public static class SoftPathRepoint
     public sealed record Result(ModPackage? Package, IReadOnlyList<string> Refusals, IReadOnlyList<string> Log);
 
     /// <param name="from">The stock object path, e.g. "/Game/…/Tex720/DemoTitlePlate.DemoTitlePlate"</param>
-    public static Result Build(GameSource source, string packagePath, string from, string to)
+    /// <param name="values">Stored values to change too (export name, path, new value), e.g. Img_Plate's Margin.Left → 0:
+    /// planned by BytePlanner (tag walk, stock value, location proof) and required to read back</param>
+    public static Result Build(GameSource source, string packagePath, string from, string to, IReadOnlyList<(string Export, string Path, double Value)>? values = null)
     {
         var (fileKey, stock) = source.ReadPackageBytes(packagePath);
-        var r = NameRenamePatch.Apply(source, fileKey, stock, [(from, to)]);
-        return r.Ok ? new Result(new ModPackage(packagePath, fileKey, source.ChunkIdHex(fileKey), r.Chunk!), [], r.Log) : new Result(null, r.Refusals, r.Log);
+        var log = new List<string>();
+        var writes = new List<(int Offset, byte[] Bytes, string What)>();
+        var expected = new Dictionary<(int Export, string Path), double>();
+        if (values is { Count: > 0 })
+        {
+            var package = source.ParsePackage(fileKey, stock);
+            var exports = package.ExportsLazy.Select(e => e.Value).ToList();
+            var changes = new List<FieldChange>();
+            foreach (var (exportName, path, value) in values)
+            {
+                var index = exports.FindIndex(e => e.Name == exportName);
+                if (index < 0 || exports.Count(e => e.Name == exportName) != 1) return new Result(null, [$"{packagePath} has {exports.Count(e => e.Name == exportName)} exports named {exportName}"], log);
+                changes.Add(new FieldChange(new FieldKey(packagePath, index, path), 0, value));
+                expected[(index, "Properties." + path)] = value;
+            }
+            // the parse writes a float as its shortest decimal ("0.33"); the stored value is the float that decimal stands for
+            double? Stock(FieldKey k) => WidgetTreeReader.StoredValues(exports[k.SlotExport]).TryGetValue(k.Path, out var t)
+                && double.TryParse(t, System.Globalization.NumberStyles.Float, System.Globalization.CultureInfo.InvariantCulture, out var v)
+                    ? t.IndexOfAny(['.', 'E', 'e']) >= 0 ? (float) v : v : null;
+            var plan = BytePlanner.Plan(stock, ZenPackageLayout.Read(stock, package), packagePath, EditSet.Empty.With(changes, Stock), Stock, i => exports[i].Name);
+            if (!plan.Ok) return new Result(null, plan.Refusals.Select(r => r.Message).ToList(), log);
+            if (plan.Insertions.Count > 0) return new Result(null, ["only stored values can be changed here"], log);
+            writes.AddRange(plan.Entries.Select(e => (e.Offset, e.NewBytes, $"{e.SlotName}.{e.Key.Path} {e.OldValue} → {e.NewValue} (context x{e.ContextMatches}, window ±{e.Window})")));
+        }
+        var r = NameRenamePatch.Apply(source, fileKey, stock, [(from, to)], writes, expected);
+        log.AddRange(r.Log);
+        return r.Ok ? new Result(new ModPackage(packagePath, fileKey, source.ChunkIdHex(fileKey), r.Chunk!), [], log) : new Result(null, r.Refusals, log);
     }
 }

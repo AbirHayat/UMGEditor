@@ -15,9 +15,10 @@ public sealed record RenameResult(byte[]? Chunk, IReadOnlyList<string> Refusals,
 public static class NameRenamePatch
 {
     /// <param name="fileKey">The stock file the bytes come from (the parse context)</param>
-    /// <param name="writes">Same-size writes at stock offsets (their effect isn't in the parse, e.g. a bulk payload; the caller checks it)</param>
+    /// <param name="writes">Same-size writes at stock offsets (e.g. a bulk payload, or planned values: then list their parse change in expected)</param>
+    /// <param name="expected">Values the writes change in the parse: (export, flattened path) → the new value; every other difference must be a rename</param>
     public static RenameResult Apply(GameSource source, string fileKey, byte[] stock, IReadOnlyList<(string From, string To)> renames,
-        IReadOnlyList<(int Offset, byte[] Bytes, string What)>? writes = null)
+        IReadOnlyList<(int Offset, byte[] Bytes, string What)>? writes = null, IReadOnlyDictionary<(int Export, string Path), double>? expected = null)
     {
         var log = new List<string>();
         var refusals = new List<string>();
@@ -57,6 +58,7 @@ public static class NameRenamePatch
             var after = source.ParsePackage(fileKey, renamed);
             if (before.ExportsLazy.Length != after.ExportsLazy.Length) return Refuse($"export count {before.ExportsLazy.Length} → {after.ExportsLazy.Length}");
             int changed = 0;
+            var seen = new HashSet<(int, string)>();
             for (int i = 0; i < before.ExportsLazy.Length; i++)
             {
                 var a = TagInserter.Flatten(before.ExportsLazy[i].Value);
@@ -67,10 +69,15 @@ public static class NameRenamePatch
                     var y = b.GetValueOrDefault(k);
                     if (x == y) continue;
                     if (x != null && y != null && y == Renamed(x)) { changed++; continue; }
+                    if (expected != null && expected.TryGetValue((i, k), out var want) && y != null
+                        && double.TryParse(y.Trim('"'), System.Globalization.NumberStyles.Float, System.Globalization.CultureInfo.InvariantCulture, out var got) && (float) got == (float) want)
+                    { changed++; seen.Add((i, k)); continue; }
                     refusals.Add($"re-parse: unintended difference in export {i} ({before.ExportsLazy[i].Value.Name}) {k}: {x ?? "(missing)"} → {y ?? "(missing)"}");
                 }
             }
-            log.Add($"re-parse: {before.ExportsLazy.Length} exports, {changed} values differ, each only by the renames");
+            foreach (var (key, want) in expected ?? new Dictionary<(int Export, string Path), double>())
+                if (!seen.Contains(key)) refusals.Add($"re-parse: export {key.Export} {key.Path} doesn't read back as {want}");
+            log.Add($"re-parse: {before.ExportsLazy.Length} exports, {changed} values differ, each only by the renames{(expected is { Count: > 0 } ? $" or the {expected.Count} planned values" : "")}");
         }
         catch (Exception e) { return Refuse($"re-parse failed: {e.GetType().Name}: {e.Message}"); }
         return refusals.Count > 0 ? new RenameResult(null, refusals, log) : new RenameResult(renamed, refusals, log);
