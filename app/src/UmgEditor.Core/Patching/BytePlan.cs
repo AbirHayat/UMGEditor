@@ -1,4 +1,5 @@
 using System.Buffers.Binary;
+using UmgEditor.Core.Animation;
 using UmgEditor.Core.Editing;
 
 namespace UmgEditor.Core.Patching;
@@ -53,6 +54,23 @@ public sealed record PatchEntry(
 }
 
 /// <summary>
+/// One animation key value to write (stock offset), in the section ("section") or the compiled copy ("compiled"), with its
+/// location proof: the smallest window around it, computed on the stock bytes, that occurs exactly once in the chunk.
+/// </summary>
+/// <param name="Window">Half-width of that window in bytes (32…512); the window is [Offset − Window, Offset + length + Window)</param>
+/// <param name="Context32Matches">How often the plain ±32 window occurs (the rule for layout values; usually &gt; 1 for keys)</param>
+public sealed record AnimWrite(FieldKey Key, string Description, string Copy, int Export, int Offset, byte[] OldBytes, byte[] NewBytes,
+    double OldValue, double NewValue, int Window, int Context32Matches)
+{
+    public string OffsetHex => $"0x{Offset:X}";
+    public string OldHex => PatchEntry.Hex(OldBytes);
+    public string NewHex => PatchEntry.Hex(NewBytes);
+    public IEnumerable<int> ChangedOffsets => Enumerable.Range(0, OldBytes.Length).Where(i => OldBytes[i] != NewBytes[i]).Select(i => Offset + i);
+    /// <summary>"unique stock window ±240 (±32 occurs 66×)"</summary>
+    public string WindowText => $"unique stock window ±{Window}" + (Context32Matches == 1 ? "" : $" (±32 occurs {Context32Matches}×)");
+}
+
+/// <summary>
 /// All writes for one save, or the reasons it is refused. Entries (in-place values) are sorted by offset. Insertions
 /// (values that aren't stored, added as new tags) and the header values they change (Derived) are in stock offsets too.
 /// </summary>
@@ -60,14 +78,19 @@ public sealed record BytePlan(string PackagePath, int StockSize, IReadOnlyList<P
 {
     public IReadOnlyList<TagInsertion> Insertions { get; init; } = [];
     public IReadOnlyList<DerivedWrite> Derived { get; init; } = [];
+    /// <summary>Animation key values (same size; section and compiled copy), sorted by offset.</summary>
+    public IReadOnlyList<AnimWrite> AnimWrites { get; init; } = [];
 
     public bool Ok => Refusals.Count == 0;
-    public int ValueCount => Entries.Count + Insertions.Count;
+    /// <summary>Animation keys edited (one key can have two writes: section and compiled copy).</summary>
+    public int AnimKeyCount => AnimWrites.Select(w => w.Key).Distinct().Count();
+    public int ValueCount => Entries.Count + Insertions.Count + AnimKeyCount;
     public bool ChangesSize => Insertions.Count > 0;
     /// <summary>The rebuilt chunk's size: stock + 29 bytes per inserted tag.</summary>
     public int EditedSize => StockSize + TagInserter.FloatTagSize * Insertions.Count;
-    /// <summary>Stock offsets that change (values and derived header values), not counting the inserted tags.</summary>
-    public IReadOnlyList<int> ExpectedChangedOffsets => Entries.SelectMany(e => e.ChangedOffsets).Concat(Derived.SelectMany(d => d.ChangedOffsets)).Order().ToList();
+    /// <summary>Stock offsets that change (values, animation keys and derived header values), not counting the inserted tags.</summary>
+    public IReadOnlyList<int> ExpectedChangedOffsets => Entries.SelectMany(e => e.ChangedOffsets).Concat(AnimWrites.SelectMany(w => w.ChangedOffsets))
+        .Concat(Derived.SelectMany(d => d.ChangedOffsets)).Order().ToList();
 
     /// <summary>"size 1269266 unchanged" or "size 1269266 → 1269295 (+29: 1 inserted tag)".</summary>
     public string SizeText => ChangesSize
@@ -84,20 +107,31 @@ public sealed record BytePlan(string PackagePath, int StockSize, IReadOnlyList<P
 /// <see cref="TagInserter.Insertable"/> allows it; its insertion point's ±32-byte stock context must be unique too, and
 /// with the inserted tags cut out again the rebuilt chunk differs from stock only in the planned values and the struct
 /// sizes and export map entries the tags change.
+/// Branch experiment, animation keys only (<see cref="AnimKeyPath"/>): the ±32-exactly-once rule is replaced by
+/// <see cref="UniqueWindow"/> (the smallest stock window that occurs exactly once, refused beyond ±512), because key
+/// blocks repeat across widgets and a key's two copies are byte-identical. Their location must also be re-derived from
+/// the section's own tags, the compiled copy must sit in the animation's compiled export with the same stock bytes, and
+/// the stock bytes must decode to the parsed value. The exact byte diff and the full re-parse (PatchSession) stay hard
+/// refusals.
 /// </summary>
 public static class BytePlanner
 {
     public const int Context = 32;
+    /// <summary>Animation keys: the widest stock window searched for uniqueness (half-width).</summary>
+    public const int MaxAnimWindow = 512;
+    private const int WindowStep = 16;
 
     /// <param name="stock">The stock chunk the plan is built on (always the untouched stock copy)</param>
     /// <param name="expectedStock">Stock value of a field from an independent parse (CUE4Parse), null when unknown</param>
+    /// <param name="animKey">Where an animation key is (AnimKeyIndex.Find); required for animation key edits</param>
     public static BytePlan Plan(ReadOnlySpan<byte> stock, ZenPackageLayout layout, string packagePath, EditSet edits,
-        Func<FieldKey, double?> expectedStock, Func<int, string>? slotName = null)
+        Func<FieldKey, double?> expectedStock, Func<int, string>? slotName = null, Func<FieldKey, AnimKeyRef?>? animKey = null)
     {
         var walker = new TaggedPropertyWalker(layout.NameMap);
         var walked = new Dictionary<int, List<FieldLocation>>();
         var entries = new List<PatchEntry>();
         var insertions = new List<TagInsertion>();
+        var animWrites = new List<AnimWrite>();
         var refusals = new List<PatchRefusal>();
 
         foreach (var (key, newValue) in edits.Values.OrderBy(kv => kv.Key.SlotExport).ThenBy(kv => kv.Key.Path, StringComparer.Ordinal))
@@ -105,6 +139,11 @@ public static class BytePlanner
             void Refuse(RefusalRule rule, string message) => refusals.Add(new PatchRefusal(rule, $"{Describe(key, slotName)}: {message}", key));
 
             if (!key.Package.Equals(packagePath, StringComparison.OrdinalIgnoreCase)) { Refuse(RefusalRule.OtherPackage, $"belongs to {key.Package}, not {packagePath}"); continue; }
+            if (AnimKeyPath.Is(key))
+            {
+                PlanAnimKey(stock, layout, key, newValue, animKey?.Invoke(key), expectedStock(key), animWrites, Refuse);
+                continue;
+            }
             if (!walked.TryGetValue(key.SlotExport, out var fields))
             {
                 try { fields = walker.Walk(stock, layout.SpanOf(key.SlotExport)); }
@@ -146,16 +185,107 @@ public static class BytePlanner
         }
 
         var sorted = entries.OrderBy(e => e.Offset).ToList();
-        for (int i = 1; i < sorted.Count; i++)
-            if (sorted[i].Offset < sorted[i - 1].Offset + sorted[i - 1].OldBytes.Length)
-                refusals.Add(new PatchRefusal(RefusalRule.NotLocated, $"{Describe(sorted[i].Key, slotName)} overlaps {Describe(sorted[i - 1].Key, slotName)} at 0x{sorted[i].Offset:X}", sorted[i].Key));
+        var anims = animWrites.OrderBy(w => w.Offset).ToList();
+        var spans = sorted.Select(e => (e.Key, e.Offset, Length: e.OldBytes.Length)).Concat(anims.Select(w => (w.Key, w.Offset, Length: w.OldBytes.Length))).OrderBy(s => s.Offset).ToList();
+        for (int i = 1; i < spans.Count; i++)
+            if (spans[i].Offset < spans[i - 1].Offset + spans[i - 1].Length)
+                refusals.Add(new PatchRefusal(RefusalRule.NotLocated, $"{Describe(spans[i].Key, slotName)} overlaps {Describe(spans[i - 1].Key, slotName)} at 0x{spans[i].Offset:X}", spans[i].Key));
 
         var derived = TagInserter.Derive(stock, layout, insertions, out var headerProblems);
         refusals.AddRange(headerProblems.Select(p => new PatchRefusal(RefusalRule.NotInsertable, $"{GamePaths.ShortName(packagePath)}: {p}")));
         foreach (var d in derived)
-            if (sorted.FirstOrDefault(e => e.Offset < d.Offset + d.OldBytes.Length && d.Offset < e.Offset + e.OldBytes.Length) is { } clash)
+            if (spans.FirstOrDefault(e => e.Offset < d.Offset + d.OldBytes.Length && d.Offset < e.Offset + e.Length) is { Key: not null } clash)
                 refusals.Add(new PatchRefusal(RefusalRule.NotLocated, $"{Describe(clash.Key, slotName)} overlaps a header value the inserted tags change at 0x{d.Offset:X}", clash.Key));
-        return new BytePlan(packagePath, stock.Length, sorted, refusals) { Insertions = TagInserter.InOrder(insertions).ToList(), Derived = derived };
+        foreach (var ins in insertions)
+            if (anims.FirstOrDefault(w => ins.InsertAt > w.Offset && ins.InsertAt < w.Offset + w.OldBytes.Length) is { } split)
+                refusals.Add(new PatchRefusal(RefusalRule.NotLocated, $"{Describe(split.Key, slotName)}: an inserted tag would split it at 0x{ins.InsertAt:X}", split.Key));
+        return new BytePlan(packagePath, stock.Length, sorted, refusals) { Insertions = TagInserter.InOrder(insertions).ToList(), Derived = derived, AnimWrites = anims };
+    }
+
+    /// <summary>
+    /// One animation key edit → its writes (section copy, and the compiled copy when there is one), or refusals:
+    /// the lookup must match the key, the section's own tags must put the key exactly there (re-derived here), the
+    /// compiled copy must sit inside the animation's compiled export and hold the same stock bytes, the stock bytes must
+    /// decode to the parsed value, the new value must be representable, and each write needs a unique stock window
+    /// within ±<see cref="MaxAnimWindow"/>.
+    /// </summary>
+    private static void PlanAnimKey(ReadOnlySpan<byte> stock, ZenPackageLayout layout, FieldKey key, double newValue, AnimKeyRef? r, double? expected,
+        List<AnimWrite> writes, Action<RefusalRule, string> refuse)
+    {
+        if (r == null) { refuse(RefusalRule.NotLocated, "no such animation key in the package"); return; }
+        var (channel, k) = AnimKeyPath.Parse(key.Path);
+        if (r.SectionExport != key.SlotExport || r.Channel != channel || r.KeyIndex != k) { refuse(RefusalRule.NotLocated, $"the key lookup returned {r.Description}"); return; }
+
+        // 1. structure: the section's own tags put this key at r.ValueAt
+        ChannelBytes? own;
+        try { own = AnimationBytes.Locate(stock, layout, key.SlotExport).GetValueOrDefault(channel); }
+        catch (KeyNotFoundException e) { refuse(RefusalRule.NotLocated, e.Message); return; }
+        if (own == null || k >= own.ValuesAt.Count || own.Kind != r.Kind || own.ValuesAt[k] != r.ValueAt)
+        {
+            refuse(RefusalRule.NotLocated, $"the section's own tags (export {key.SlotExport}) put key {k} of {channel} at {(own != null && k < own.ValuesAt.Count ? $"0x{own.ValuesAt[k]:X}" : "nowhere")}, not 0x{r.ValueAt:X}");
+            return;
+        }
+        var size = r.ValueSize;
+        var oldBytes = stock.Slice(r.ValueAt, size).ToArray();
+        var copies = new List<(string Copy, int Export, int At)> { ("section", key.SlotExport, r.ValueAt) };
+        if (r.HasCompiledCopy)
+        {
+            ExportSpan span;
+            try { span = layout.SpanOf(r.CompiledExport); }
+            catch (KeyNotFoundException e) { refuse(RefusalRule.NotLocated, e.Message); return; }
+            if (r.CompiledValueAt < span.Start || r.CompiledValueAt + size > span.End) { refuse(RefusalRule.NotLocated, $"compiled copy 0x{r.CompiledValueAt:X} is outside its compiled export {r.CompiledExport}"); return; }
+            if (!stock.Slice(r.CompiledValueAt, size).SequenceEqual(oldBytes)) { refuse(RefusalRule.StockBytesMismatch, $"the compiled copy at 0x{r.CompiledValueAt:X} holds {PatchEntry.Hex(stock.Slice(r.CompiledValueAt, size).ToArray())}, the section {PatchEntry.Hex(oldBytes)}"); return; }
+            copies.Add(("compiled", r.CompiledExport, r.CompiledValueAt));
+        }
+
+        // 2. the stock bytes decode to the parsed value; the new value fits the type
+        double old = r.Kind switch
+        {
+            ChannelKind.Float => BinaryPrimitives.ReadSingleLittleEndian(oldBytes),
+            ChannelKind.Integer => BinaryPrimitives.ReadInt32LittleEndian(oldBytes),
+            _ => oldBytes[0],
+        };
+        if (expected is not { } ev || (r.Kind == ChannelKind.Float ? (float) ev != (float) old : ev != old))
+        {
+            refuse(RefusalRule.StockBytesMismatch, $"stock bytes at 0x{r.ValueAt:X} are {PatchEntry.Hex(oldBytes)} ({old}), the parse says {expected?.ToString() ?? "unknown"}");
+            return;
+        }
+        byte[]? newBytes = r.Kind switch
+        {
+            ChannelKind.Float => Encode(FieldType.Float, newValue),
+            ChannelKind.Integer => Encode(FieldType.Int32, newValue),
+            ChannelKind.Bool => newValue is 0 or 1 ? [(byte) newValue] : null,
+            _ => newValue == Math.Round(newValue) && newValue is >= 0 and <= 255 ? [(byte) newValue] : null,
+        };
+        if (newBytes == null) { refuse(RefusalRule.NotRepresentable, $"{newValue} can't be stored exactly as a {r.Kind} key"); return; }
+
+        // 3. location proof: the smallest unique stock window
+        foreach (var (copy, export, at) in copies)
+        {
+            if (UniqueWindow(stock, at, size, MaxAnimWindow) is not { } w)
+            {
+                refuse(RefusalRule.ContextNotUnique, $"{copy} copy at 0x{at:X}: no window up to ±{MaxAnimWindow} bytes occurs only once in the chunk");
+                return;
+            }
+            int from = Math.Max(0, at - Context), to = Math.Min(stock.Length, at + size + Context);
+            writes.Add(new AnimWrite(key, r.Description, copy, export, at, stock.Slice(at, size).ToArray(), newBytes, old, newValue, w, CountOccurrences(stock, stock[from..to])));
+        }
+    }
+
+    /// <summary>
+    /// The smallest half-width W (32, 48, … up to <paramref name="max"/>) such that the stock bytes
+    /// [at − W, at + length + W) occur exactly once in the chunk (overlapping occurrences count), or null. Computed on
+    /// the stock bytes only, so windows of nearby writes may overlap each other without affecting each other.
+    /// </summary>
+    public static int? UniqueWindow(ReadOnlySpan<byte> stock, int at, int length, int max = MaxAnimWindow)
+    {
+        for (int w = Context; w <= max; w += WindowStep)
+        {
+            int from = Math.Max(0, at - w), to = Math.Min(stock.Length, at + length + w);
+            if (CountOccurrences(stock, stock[from..to], stopAt: 2) == 1) return w;
+            if (from == 0 && to == stock.Length) break;
+        }
+        return null;
     }
 
     /// <summary>
@@ -167,6 +297,7 @@ public static class BytePlanner
         if (!plan.Ok) throw new InvalidOperationException("can't apply a refused plan");
         var result = stock.ToArray();
         foreach (var e in plan.Entries) e.NewBytes.CopyTo(result, e.Offset);
+        foreach (var w in plan.AnimWrites) w.NewBytes.CopyTo(result, w.Offset);
         return plan.ChangesSize ? TagInserter.Apply(result, plan.Insertions, plan.Derived) : result;
     }
 
@@ -213,6 +344,9 @@ public static class BytePlanner
         foreach (var e in plan.Entries)
             if (!candidate.Slice(e.Offset, e.NewBytes.Length).SequenceEqual(e.NewBytes))
                 refusals.Add(new PatchRefusal(RefusalRule.UnexpectedByteDiff, $"{e.Key.Path} at 0x{e.Offset:X} is {PatchEntry.Hex(candidate.Slice(e.Offset, e.NewBytes.Length).ToArray())}, planned {e.NewHex}", e.Key));
+        foreach (var w in plan.AnimWrites)
+            if (!candidate.Slice(w.Offset, w.NewBytes.Length).SequenceEqual(w.NewBytes))
+                refusals.Add(new PatchRefusal(RefusalRule.UnexpectedByteDiff, $"{w.Description} ({w.Copy}) at 0x{w.Offset:X} is {PatchEntry.Hex(candidate.Slice(w.Offset, w.NewBytes.Length).ToArray())}, planned {w.NewHex}", w.Key));
         return refusals;
     }
 
@@ -230,10 +364,11 @@ public static class BytePlanner
         return result;
     }
 
-    public static int CountOccurrences(ReadOnlySpan<byte> haystack, ReadOnlySpan<byte> needle)
+    /// <summary>Occurrences of needle in haystack, overlapping ones included (stops counting at <paramref name="stopAt"/>).</summary>
+    public static int CountOccurrences(ReadOnlySpan<byte> haystack, ReadOnlySpan<byte> needle, int stopAt = int.MaxValue)
     {
         int count = 0;
-        for (int start = 0; start <= haystack.Length - needle.Length;)
+        for (int start = 0; start <= haystack.Length - needle.Length && count < stopAt;)
         {
             var at = haystack[start..].IndexOf(needle);
             if (at < 0) break;

@@ -1,6 +1,7 @@
 using System.Security.Cryptography;
 using System.Text.Json;
 using CUE4Parse.UE4.Assets;
+using UmgEditor.Core.Animation;
 using UmgEditor.Core.Editing;
 
 namespace UmgEditor.Core.Patching;
@@ -118,9 +119,26 @@ public sealed class PatchSession
 
     // ---- values ----
 
-    /// <summary>The stock value of a stored field as CUE4Parse parsed it, or null when the field isn't stored.</summary>
+    private AnimKeyIndex? _animIndex;
+
+    /// <summary>Every animation key of the package (read once, from the stock package).</summary>
+    public AnimKeyIndex AnimKeys => _animIndex ??= AnimKeyIndex.Read(_source, PackagePath);
+
+    /// <summary>Test seam: transforms an animation key's location before planning (simulates a wrong lookup).</summary>
+    internal Func<AnimKeyRef?, AnimKeyRef?>? AnimKeyTransform { get; set; }
+
+    /// <summary>Where an animation key edit writes (section and compiled copy), or null when it isn't an animation key of this package.</summary>
+    public AnimKeyRef? AnimKey(FieldKey key)
+    {
+        if (!AnimKeyPath.Is(key) || !key.Package.Equals(PackagePath, StringComparison.OrdinalIgnoreCase)) return null;
+        var found = AnimKeys.Find(key);
+        return AnimKeyTransform != null ? AnimKeyTransform(found) : found;
+    }
+
+    /// <summary>The stock value of a stored field (or animation key) as CUE4Parse parsed it, or null when the field isn't stored.</summary>
     public double? StockValue(FieldKey key)
     {
+        if (AnimKeyPath.Is(key)) return key.Package.Equals(PackagePath, StringComparison.OrdinalIgnoreCase) && AnimKeys.Find(key) is { } a ? AnimKeyIndex.Parse(a.StockValue) : null;
         if (!key.Package.Equals(PackagePath, StringComparison.OrdinalIgnoreCase) || key.SlotExport < 0 || key.SlotExport >= _stockPackage.ExportsLazy.Length) return null;
         if (!_stockValues.TryGetValue(key.SlotExport, out var values))
             _stockValues[key.SlotExport] = values = WidgetTreeReader.StoredValues(_stockPackage.ExportsLazy[key.SlotExport].Value);
@@ -172,6 +190,11 @@ public sealed class PatchSession
         {
             if (!c.Key.Package.Equals(PackagePath, StringComparison.OrdinalIgnoreCase))
                 return $"{c.Key.Path} belongs to {GamePaths.ShortName(c.Key.Package)}, not {GamePaths.ShortName(PackagePath)}; open that package to edit it.";
+            if (AnimKeyPath.Is(c.Key))
+            {
+                if (AnimKeys.Find(c.Key) == null) return $"{c.Key.Path} (section export {c.Key.SlotExport}) is not an animation key of {GamePaths.ShortName(PackagePath)}.";
+                continue;
+            }
             if (StockValue(c.Key) == null && InsertRefusal(c.Key) is { } why)
                 return why;
         }
@@ -205,7 +228,7 @@ public sealed class PatchSession
     // ---- bytes ----
 
     /// <summary>The "bytes to patch" for the current edits (offset, old/new value, hex, context), or why they'd be refused.</summary>
-    public BytePlan Plan() => BytePlanner.Plan(_stock, _layout, PackagePath, Current, StockValue, SlotName);
+    public BytePlan Plan() => BytePlanner.Plan(_stock, _layout, PackagePath, Current, StockValue, SlotName, AnimKey);
 
     /// <summary>Rebuilds the edited chunk from the stock copy + the full current EditSet and writes it if every check passes.</summary>
     public SaveResult Save()
@@ -221,7 +244,7 @@ public sealed class PatchSession
         if (Sha256(stock) != StockSha256)
             refusals.Add(new PatchRefusal(RefusalRule.StockCopyChanged, $"the stock copy {StockCopyPath} no longer hashes to the game's file ({Sha256(stock)[..16]}… vs {StockSha256[..16]}…)"));
 
-        var plan = BytePlanner.Plan(stock, _layout, PackagePath, Current, StockValue, SlotName);
+        var plan = BytePlanner.Plan(stock, _layout, PackagePath, Current, StockValue, SlotName, AnimKey);
         refusals.AddRange(plan.Refusals);
         if (refusals.Count > 0) return Refused(plan, refusals);
 
@@ -267,7 +290,7 @@ public sealed class PatchSession
         if (Saved.Count == 0 || !File.Exists(EditedPath)) return (null, $"{name} has no saved edits in {Folder}.");
         var stock = File.ReadAllBytes(StockCopyPath);
         if (Sha256(stock) != StockSha256) return (null, $"{StockCopyPath} no longer matches the game's file.");
-        var plan = BytePlanner.Plan(stock, _layout, PackagePath, Saved, StockValue, SlotName);
+        var plan = BytePlanner.Plan(stock, _layout, PackagePath, Saved, StockValue, SlotName, AnimKey);
         if (!plan.Ok) return (null, $"{name}: the saved edits no longer plan: {string.Join(" | ", plan.Refusals.Select(r => r.Message))}");
         var rebuilt = BytePlanner.Apply(stock, plan);
         if (BytePlanner.Verify(stock, rebuilt, plan) is { Count: > 0 } bad) return (null, $"{name}: {string.Join(" | ", bad.Select(r => r.Message))}");
@@ -334,12 +357,41 @@ public sealed class PatchSession
                 refusals.Add(new PatchRefusal(RefusalRule.ReloadMismatch, $"{SlotName(slot.Key)}.{missing} was inserted but isn't found by the walk"));
         }
 
-        if (plan.ChangesSize)
+        if (plan.ChangesSize || plan.AnimWrites.Count > 0)
         {
+            // every export compared with stock: only the edited values may differ; for animation keys, exactly the key's
+            // value in its own section and in the compiled template that points back at that section
             var byKey = values.ToDictionary(v => (v.Export, "Properties." + v.Path), v => v.Value);
+            var anim = plan.AnimWrites.Select(w => (w, Ref: AnimKey(w.Key))).Where(x => x.Ref != null).ToList();
+            var seen = new HashSet<(int Export, FieldKey Key)>();
+            bool AnimAllowed(int export, string key, string? now)
+            {
+                foreach (var (w, r) in anim)
+                {
+                    if (w.Export != export) continue;
+                    var suffix = $"{r!.Channel}.Values[{r.KeyIndex}]{(r.Kind == Animation.ChannelKind.Float ? ".Value" : "")}";
+                    bool match;
+                    if (w.Copy == "section") match = key == "Properties." + suffix;
+                    else
+                    {
+                        match = key.EndsWith(".Data." + suffix, StringComparison.Ordinal)
+                                && StockFlat(export).GetValueOrDefault(key[..^suffix.Length] + "SourceSectionPtr.ObjectPath") is { } source
+                                && source.Trim('"').EndsWith("." + w.Key.SlotExport, StringComparison.Ordinal);
+                    }
+                    if (!match) continue;
+                    var ok = now != null && TryParse(now.Trim('"'), out var got) && (r.Kind == Animation.ChannelKind.Float ? (float) got == (float) w.NewValue : got == w.NewValue);
+                    if (ok) seen.Add((export, w.Key));
+                    return ok;
+                }
+                return false;
+            }
             var (_, problems, _) = TagInserter.ReparseDiff(_source, FileKey, _stockPackage, written, StockFlat, (export, key, _, now) =>
-                byKey.TryGetValue((export, key), out var want) && now != null && TryParse(now, out var got) && (float) got == (float) want);
+                byKey.TryGetValue((export, key), out var want) ? now != null && TryParse(now, out var got) && (float) got == (float) want : AnimAllowed(export, key, now));
             refusals.AddRange(problems.Select(p => new PatchRefusal(RefusalRule.ReloadMismatch, p)));
+            foreach (var (w, _) in anim.Where(x => !seen.Contains((x.w.Export, x.w.Key))))
+                refusals.Add(new PatchRefusal(RefusalRule.ReloadMismatch, $"{w.Description} ({w.Copy} copy, export {w.Export}) doesn't re-parse as {w.NewValue}", w.Key));
+            foreach (var w in plan.AnimWrites.Where(w => AnimKey(w.Key) == null))
+                refusals.Add(new PatchRefusal(RefusalRule.NotLocated, $"{w.Key.Path}: no longer an animation key of the package", w.Key));
         }
         return refusals;
     }
@@ -358,8 +410,12 @@ public sealed class PatchSession
     /// <param name="InsertAt">Stock offset the 29-byte tag goes in front of</param>
     private sealed record ManifestInsertion(string Slot, string Path, int InsertAt, string InsertAtHex, string Before, float Value, string TagHex, int ContextMatches);
     /// <param name="ChangedOffsets">Stock offsets that differ, with any inserted tags cut out</param>
+    /// <param name="Window">Half-width of the smallest stock window around the write that occurs exactly once (animation keys only)</param>
+    private sealed record ManifestAnimWrite(string Key, string Description, string Copy, int Export, int Offset, string OffsetHex, double Old, double New,
+        string OldHex, string NewHex, int Window, int Context32Matches);
     private sealed record Manifest(string Package, string FileKey, string ChunkId, int StockSize, string StockSha256, string EditedSha256, DateTime SavedUtc,
-        List<ManifestEdit> Edits, List<ManifestEntry> Plan, List<int> ChangedOffsets, int EditedSize = 0, List<ManifestInsertion>? Insertions = null);
+        List<ManifestEdit> Edits, List<ManifestEntry> Plan, List<int> ChangedOffsets, int EditedSize = 0, List<ManifestInsertion>? Insertions = null,
+        List<ManifestAnimWrite>? AnimWrites = null);
 
     private static readonly JsonSerializerOptions JsonOptions = new() { WriteIndented = true };
 
@@ -370,7 +426,9 @@ public sealed class PatchSession
                 .Select(kv => new ManifestEdit(kv.Key.SlotExport, SlotName(kv.Key.SlotExport), kv.Key.Path, BaseValue(kv.Key) ?? 0, kv.Value, StockValue(kv.Key) == null)).ToList(),
             plan.Entries.Select(e => new ManifestEntry(e.SlotName, e.Key.Path, e.Offset, e.OffsetHex, e.Type.ToString(), e.OldValue, e.NewValue, e.OldHex, e.NewHex, e.ContextHex, e.ContextMatches)).ToList(),
             changed.ToList(), plan.EditedSize,
-            plan.Insertions.Select(i => new ManifestInsertion(i.SlotName, i.Path, i.InsertAt, i.InsertAtHex, i.Before, i.Value, i.TagHex, i.ContextMatches)).ToList());
+            plan.Insertions.Select(i => new ManifestInsertion(i.SlotName, i.Path, i.InsertAt, i.InsertAtHex, i.Before, i.Value, i.TagHex, i.ContextMatches)).ToList(),
+            plan.AnimWrites.Select(w => new ManifestAnimWrite($"{w.Key.SlotExport}:{w.Key.Path}", w.Description, w.Copy, w.Export, w.Offset, w.OffsetHex, w.OldValue, w.NewValue,
+                w.OldHex, w.NewHex, w.Window, w.Context32Matches)).ToList());
         var tmp = ManifestPath + ".tmp";
         _guard.WriteAllText(tmp, JsonSerializer.Serialize(manifest, JsonOptions));
         _guard.Move(tmp, ManifestPath);
