@@ -39,6 +39,7 @@ switch (args.FirstOrDefault())
     case "canary-insert": return CanaryInsert();
     case "canary-texture": return CanaryTexture();
     case "canary-scoreboard": return CanaryScoreboard();
+    case "canary-ucl": return CanaryUcl();
     default:
         Console.WriteLine("       umgcompare mod-diff --mod DIR [--out DIR]   what a PC mod folder changes against PC stock");
         Console.WriteLine("usage: umgcompare check-pc|compare [--pc-paks DIR] [--focus SUBSTR] [--out DIR]");
@@ -46,6 +47,7 @@ switch (args.FirstOrDefault())
         Console.WriteLine("       umgcompare anim-dump <packagePath> <out.json> [--pc]   every MovieScene/WidgetAnimation export as JSON");
         Console.WriteLine("       umgcompare export-dump <packagePath> <out.json> [--pc]   every export (widgets, slots, animations) as JSON");
         Console.WriteLine("       umgcompare export-tex <outDir> <objectPath>... [--pc | --mod DIR]   textures decoded to PNG (read-only)");
+        Console.WriteLine("       umgcompare canary-ucl [C16] [--set C16] [--only board,banners,replay]   builds canary C16 (the complete UCL look)");
         return 2;
 }
 
@@ -284,6 +286,47 @@ int CanaryScoreboard()
             var tex = withMod.LoadPackage(c.PackagePath).GetExports().OfType<CUE4Parse.UE4.Assets.Exports.Texture.UTexture2D>().SingleOrDefault();
             Check($"mounted: {c.PackagePath} loads by path and decodes to the bar design", tex != null && (tex.PlatformData.Mips[0].BulkData?.Data ?? []).AsSpan().SequenceEqual(art),
                 tex == null ? "not found" : $"{tex.PlatformData.SizeX}x{tex.PlatformData.SizeY}");
+        }
+    }
+    foreach (var f in result.Files) Console.WriteLine($"  {f.Name}  {f.Size:N0} B  {f.Sha256}");
+    Console.WriteLine(failures == 0 ? "ALL PASSED" : $"{failures} FAILED");
+    return failures == 0 ? 0 : 1;
+}
+
+// C16: the complete UCL look (UclC16: board, banners, replay; --only GROUP[,GROUP] builds a part, e.g. to isolate a
+// failure), packed and mounted with stock: every re-point, class swap and colour reads back, every new texture decodes.
+int CanaryUcl()
+{
+    var modName = args.Length > 1 && !args[1].StartsWith("--") ? args[1] : "C16";
+    var set = Opt("--set") ?? "C16";
+    var groups = Opt("--only")?.Split(',') ?? UmgEditor.Core.Modding.UclC16.AllGroups;
+    if (groups.Except(UmgEditor.Core.Modding.UclC16.AllGroups).Any()) { Console.WriteLine($"--only takes {string.Join(", ", UmgEditor.Core.Modding.UclC16.AllGroups)}"); return 2; }
+    using var source = GameSource.Open(config);
+    var built = UmgEditor.Core.Modding.UclC16.Build(source, config, set, groups);
+    foreach (var l in built.Log) Console.WriteLine(l);
+    foreach (var step in built.Steps) Check(step.What, step.Ok, step.Detail);
+    if (failures > 0) return 1;
+    Console.WriteLine($"{built.Packages.Count} packages: {string.Join(", ", built.Packages.Select(p => p.PackagePath[(p.PackagePath.LastIndexOf('/') + 1)..]))}");
+
+    var result = new UmgEditor.Core.Modding.ModBuilder(source, new UmgEditor.Core.Modding.RetocProcess(config.RetocPath)).Build(modName, "pc9999_mobile_and_P", built.Packages);
+    Console.WriteLine(result.Log);
+    foreach (var r in result.Refusals) Console.WriteLine("  REFUSED " + r);
+    Check("mod built, retoc verify + read-back passed", result.Built, result.ModDir);
+    if (failures > 0) return 1;
+
+    using (var withMod = GameSource.Open(config with { ExtraPaksDirs = [result.ModDir] }))
+    {
+        foreach (var e in built.Expects)
+        {
+            var export = withMod.LoadPackage(e.PackagePath).GetExports().SingleOrDefault(x => x.Name == e.Export);
+            var value = export == null ? null : UmgEditor.Core.Patching.TagInserter.Flatten(export).GetValueOrDefault(e.Key);
+            Check($"mounted: {e.PackagePath[(e.PackagePath.LastIndexOf('/') + 1)..]} {e.Export} {e.Key} has {e.Contains}", value?.Contains(e.Contains, StringComparison.Ordinal) == true, value ?? "(absent)");
+        }
+        foreach (var (path, mip0) in built.Textures)
+        {
+            var tex = withMod.LoadPackage(path).GetExports().OfType<CUE4Parse.UE4.Assets.Exports.Texture.UTexture2D>().SingleOrDefault();
+            Check($"mounted: {path} loads by path and decodes to its art", tex != null && (tex.PlatformData.Mips[0].BulkData?.Data ?? []).AsSpan().SequenceEqual(mip0),
+                tex == null ? "not found" : $"{tex.PlatformData.SizeX}x{tex.PlatformData.SizeY}, {tex.PlatformData.Mips.Length} mips");
         }
     }
     foreach (var f in result.Files) Console.WriteLine($"  {f.Name}  {f.Size:N0} B  {f.Sha256}");
