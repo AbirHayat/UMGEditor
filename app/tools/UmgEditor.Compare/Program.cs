@@ -38,6 +38,7 @@ switch (args.FirstOrDefault())
     case "canary-goal-slide": return CanaryGoalSlide();
     case "canary-insert": return CanaryInsert();
     case "canary-texture": return CanaryTexture();
+    case "canary-scoreboard": return CanaryScoreboard();
     default:
         Console.WriteLine("       umgcompare mod-diff --mod DIR [--out DIR]   what a PC mod folder changes against PC stock");
         Console.WriteLine("usage: umgcompare check-pc|compare [--pc-paks DIR] [--focus SUBSTR] [--out DIR]");
@@ -162,6 +163,125 @@ int CanaryTexture()
             var img = withMod.LoadPackage(DemoTitle + "DemoTitleBase").GetExports().Single(e => e.Name == "Img_Plate");
             var stored = WidgetTreeReader.StoredValues(img);
             Check("with the mod mounted, Img_Plate's margins are 0", new[] { "Left", "Top", "Right", "Bottom" }.All(side => stored.GetValueOrDefault("Margin." + side) == "0"), "");
+        }
+    }
+    foreach (var f in result.Files) Console.WriteLine($"  {f.Name}  {f.Size:N0} B  {f.Sha256}");
+    Console.WriteLine(failures == 0 ? "ALL PASSED" : $"{failures} FAILED");
+    return failures == 0 ? 0 : 1;
+}
+
+// C15: the UCL-style scoreboard with the user's bar design. Layers, each verified against the one before:
+// 1. edit set C15 (umgmod: layout values, KickOff/Aspect keys, C11's flatten; exact diff + re-parse at save);
+// 2. NameRenamePatch: Img_Line's soft path -> MatchTime/Tex720/MatchTimeBarUCL0, the scores' colour 87 -> 86 (white);
+// 3. TagRemover: Normal_Display's Clipping tag (ClipToBounds -> the default Inherit);
+// 4. a final re-parse against stock: only layer 1's changes (at layer 1's values) and layers 2-3's planned ones;
+// then the bar texture (work/out/art/C15, from make_bar_texture.py) in two new packages (Tex720 + 0164F), the build,
+// and a mount with stock as the game sees it.
+int CanaryScoreboard()
+{
+    var modName = args.Length > 1 && !args[1].StartsWith("--") ? args[1] : "C15";
+    var set = Opt("--set") ?? modName;
+    const string MatchTime = Tv + "MatchTime/MatchTime";
+    const string NewTexture = "MatchTimeBarUCL0";
+    const int ArtWidth = 2964, ArtHeight = 96;
+    var artPath = Opt("--art") ?? Path.Combine(config.WorkDir, "out", "art", "C15", $"{NewTexture}_{ArtWidth}x{ArtHeight}.bgra");
+    string softFrom = Tv + "MatchTime/Tex720/MatchTimePlate_0.MatchTimePlate_0", softTo = Tv + $"MatchTime/Tex720/{NewTexture}.{NewTexture}";
+    const string Dark = "ColorEnum_String::NewEnumerator87", White = "ColorEnum_String::NewEnumerator86";
+    using var source = GameSource.Open(config);
+
+    // layer 1
+    var session = UmgEditor.Core.Patching.PatchSession.Open(source, MatchTime, UmgEditor.Core.Patching.PatchSession.DefaultFolder(new UmgEditor.Core.Patching.WriteGuard(config), MatchTime, set));
+    var (layer1, why1) = session.ReadSavedChunk();
+    Check($"edit set {set}: the saved chunk re-plans and verifies against stock", layer1 != null, why1 ?? $"{session.Saved.Count} edits");
+    if (failures > 0) return 1;
+    var fileKey = session.FileKey;
+    var stockBytes = source.ReadPackageBytes(MatchTime).Bytes;
+    var stockPkg = source.ParsePackage(fileKey, stockBytes);
+    var p1 = source.ParsePackage(fileKey, layer1!);
+    var exports = p1.ExportsLazy.Select(e => e.Value).ToList();
+    int Export(string name) => exports.FindIndex(e => e.Name == name);
+
+    // layer 2
+    var layout1 = UmgEditor.Core.Patching.ZenPackageLayout.Read(layer1!, p1);
+    var writes = new List<(int Offset, byte[] Bytes, string What)>();
+    var expected = new Dictionary<(int Export, string Path), string>();
+    foreach (var score in new[] { "Text_Score_Home", "Text_Score_Away" })
+    {
+        var (at, bytes, why) = UmgEditor.Core.Patching.EnumValueSwap.Plan(layer1, layout1, Export(score), "color", Dark, White);
+        Check($"{score}.color {Dark} -> {White} located", why == null, why ?? $"@0x{at:X}");
+        writes.Add((at, bytes, $"{score}.color -> {White}"));
+        expected[(Export(score), "Properties.color")] = White;
+    }
+    if (failures > 0) return 1;
+    var layer2 = UmgEditor.Core.Patching.NameRenamePatch.Apply(source, fileKey, layer1!, [(softFrom, softTo)], writes, expected);
+    foreach (var l in layer2.Log) Console.WriteLine("  " + l);
+    Check("layer 2 (Img_Line's texture path, scores white): byte diff + re-parse", layer2.Ok, string.Join(" | ", layer2.Refusals));
+    if (failures > 0) return 1;
+
+    // layer 3
+    var layer3 = UmgEditor.Core.Patching.TagRemover.Remove(source, fileKey, layer2.Chunk!, "Normal_Display", "Clipping", "EWidgetClipping::ClipToBounds");
+    foreach (var l in layer3.Log) Console.WriteLine("  " + l);
+    Check("layer 3 (Normal_Display.Clipping removed): put back = input, re-parse, walk", layer3.Chunk != null, string.Join(" | ", layer3.Refusals));
+    if (failures > 0) return 1;
+    var final = layer3.Chunk!;
+
+    // final re-parse against stock
+    var flat1 = new Dictionary<int, Dictionary<string, string>>();
+    Dictionary<string, string> Flat1(int i) => flat1.TryGetValue(i, out var f) ? f : flat1[i] = UmgEditor.Core.Patching.TagInserter.Flatten(exports[i]);
+    var stockFlat = new Dictionary<int, Dictionary<string, string>>();
+    Dictionary<string, string> StockFlat(int i) => stockFlat.TryGetValue(i, out var f) ? f : stockFlat[i] = UmgEditor.Core.Patching.TagInserter.Flatten(stockPkg.ExportsLazy[i].Value);
+    int fromLayer1 = 0, planned = 0;
+    var (_, finalProblems, changedExports) = UmgEditor.Core.Patching.TagInserter.ReparseDiff(source, fileKey, stockPkg, final, StockFlat, (export, key, old, now) =>
+    {
+        if (export == Export("Normal_Display") && key == "Properties.Clipping" && now == null) { planned++; return true; }
+        if (export == Export("Img_Line") && key == "Properties.texture.AssetPathName" && now?.Trim('"') == softTo) { planned++; return true; }
+        if (expected.ContainsKey((export, key)) && now?.Trim('"') == White) { planned++; return true; }
+        if (Flat1(export).GetValueOrDefault(key) is { } v1 && v1 != StockFlat(export).GetValueOrDefault(key) && v1 == now) { fromLayer1++; return true; }
+        return false;
+    });
+    Check($"final re-parse against stock: {changedExports} exports differ, {fromLayer1} values from the edit set, {planned} planned in layers 2-3, nothing else",
+        finalProblems.Count == 0 && planned == 4, string.Join(" | ", finalProblems.Take(5)));
+    if (failures > 0) return 1;
+
+    // the bar texture in two new packages
+    var art = File.Exists(artPath) ? File.ReadAllBytes(artPath) : [];
+    Check($"bar texture {artPath} is {ArtWidth}x{ArtHeight} BGRA", art.Length == ArtWidth * ArtHeight * 4, $"{art.Length} bytes");
+    if (failures > 0) return 1;
+    var mip0 = new UmgEditor.Core.Modding.TextureClone.Mip(ArtWidth, ArtHeight, art);
+    var clones = new List<UmgEditor.Core.Modding.ModPackage>();
+    foreach (var folder in new[] { "Tex720", "0164F/Tex720" })
+    {
+        var stockTex = Tv + $"MatchTime/{folder}/MatchTimePlate_0";
+        var mipCount = source.LoadPackage(stockTex).GetExports().OfType<CUE4Parse.UE4.Assets.Exports.Texture.UTexture2D>().Single().PlatformData.Mips.Length;
+        var chain = new List<UmgEditor.Core.Modding.TextureClone.Mip> { mip0 };
+        while (chain.Count < mipCount) chain.Add(UmgEditor.Core.Modding.TextureClone.Half(chain[^1]));
+        var clone = UmgEditor.Core.Modding.TextureClone.BuildResized(source, stockTex, NewTexture, chain);
+        Console.WriteLine($"{folder} clone ({mipCount} mip{(mipCount == 1 ? "" : "s")})");
+        foreach (var l in clone.Log) Console.WriteLine("  " + l);
+        Check($"{folder}/{NewTexture} planned and verified", clone.Package != null, string.Join(" | ", clone.Refusals));
+        if (clone.Package != null) clones.Add(clone.Package);
+    }
+    if (failures > 0) return 1;
+
+    var matchTimePackage = new UmgEditor.Core.Modding.ModPackage(MatchTime, fileKey, source.ChunkIdHex(fileKey), final);
+    var result = new UmgEditor.Core.Modding.ModBuilder(source, new UmgEditor.Core.Modding.RetocProcess(config.RetocPath)).Build(modName, "pc9999_mobile_and_P", [matchTimePackage, .. clones]);
+    Console.WriteLine(result.Log);
+    foreach (var r in result.Refusals) Console.WriteLine("  REFUSED " + r);
+    Check("mod built, retoc verify + read-back passed", result.Built, result.ModDir);
+    if (failures > 0) return 1;
+
+    using (var withMod = GameSource.Open(config with { ExtraPaksDirs = [result.ModDir] }))
+    {
+        var mt = withMod.LoadPackage(MatchTime).GetExports().ToList();
+        string Json(string name) => Newtonsoft.Json.JsonConvert.SerializeObject(mt.Single(e => e.Name == name));
+        Check("mounted: Img_Line points at " + NewTexture, Json("Img_Line").Contains(softTo), "");
+        Check("mounted: both scores are white (" + White + ")", Json("Text_Score_Home").Contains(White) && Json("Text_Score_Away").Contains(White), "");
+        Check("mounted: Normal_Display has no Clipping property (default Inherit)", !Json("Normal_Display").Contains("Clipping"), "");
+        foreach (var c in clones)
+        {
+            var tex = withMod.LoadPackage(c.PackagePath).GetExports().OfType<CUE4Parse.UE4.Assets.Exports.Texture.UTexture2D>().SingleOrDefault();
+            Check($"mounted: {c.PackagePath} loads by path and decodes to the bar design", tex != null && (tex.PlatformData.Mips[0].BulkData?.Data ?? []).AsSpan().SequenceEqual(art),
+                tex == null ? "not found" : $"{tex.PlatformData.SizeX}x{tex.PlatformData.SizeY}");
         }
     }
     foreach (var f in result.Files) Console.WriteLine($"  {f.Name}  {f.Size:N0} B  {f.Sha256}");
