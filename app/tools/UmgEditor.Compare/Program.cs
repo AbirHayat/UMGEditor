@@ -31,6 +31,7 @@ switch (args.FirstOrDefault())
     case "compare": return Compare();
     case "anim-dump": return AnimDump();
     case "export-dump": return AnimDump(all: true);
+    case "export-tex": return ExportTex();
     case "anim-keys": return AnimKeys();
     case "anim-report": return AnimReportCommand();
     case "mod-diff": return RunModDiff();
@@ -43,6 +44,7 @@ switch (args.FirstOrDefault())
         Console.WriteLine("       umgcompare anim-keys <packagePath> [--anim REGEX] [--widget NAME] [--pc]   keys of every channel, checked against the compiled copy");
         Console.WriteLine("       umgcompare anim-dump <packagePath> <out.json> [--pc]   every MovieScene/WidgetAnimation export as JSON");
         Console.WriteLine("       umgcompare export-dump <packagePath> <out.json> [--pc]   every export (widgets, slots, animations) as JSON");
+        Console.WriteLine("       umgcompare export-tex <outDir> <objectPath>... [--pc | --mod DIR]   textures decoded to PNG (read-only)");
         return 2;
 }
 
@@ -95,6 +97,8 @@ int CanaryGoalSlide()
 // C13 (option 2, step 1): two NEW texture packages, copies of both theme copies of DemoTitlePlate (2x2) renamed to
 // DemoTitleUCL01 with test colours (Tex720 green, 0164F magenta), and DemoTitleBase's soft texture path re-pointed to
 // them (a same-length name-map rename). Same sizes everywhere. Seen on the replay title plate (DemoTitle).
+// C14 (--ucl [--mod DIR]): the same, with the UCL mod's 696x192 DemoTitlePlate image instead of the test colours (the
+// 0164F copy gets a 348x96 second mip), and Img_Plate's 9-slice margins 0.33 -> 0 (as UCL does).
 int CanaryTexture()
 {
     var modName = args.Length > 1 && !args[1].StartsWith("--") ? args[1] : "C13";
@@ -103,10 +107,29 @@ int CanaryTexture()
     string softFrom = DemoTitle + "Tex720/DemoTitlePlate.DemoTitlePlate", softTo = DemoTitle + $"Tex720/{NewName}.{NewName}";
     using var source = GameSource.Open(config);
 
-    var green = UmgEditor.Core.Modding.TextureClone.Build(source, DemoTitle + "Tex720/DemoTitlePlate", NewName, UmgEditor.Core.Modding.TextureClone.Solid(0, 255, 0));
-    var magenta = UmgEditor.Core.Modding.TextureClone.Build(source, DemoTitle + "0164F/Tex720/DemoTitlePlate", NewName, UmgEditor.Core.Modding.TextureClone.Solid(255, 0, 255));
-    var repoint = UmgEditor.Core.Modding.SoftPathRepoint.Build(source, DemoTitle + "DemoTitleBase", softFrom, softTo);
-    foreach (var (what, log, refusals) in new[] { ("Tex720 clone (green)", green.Log, green.Refusals), ("0164F clone (magenta)", magenta.Log, magenta.Refusals), ("DemoTitleBase re-point", repoint.Log, repoint.Refusals) })
+    // C14: the UCL image (B8G8R8A8, read straight from the PC mod; the same format mobile uses)
+    var ucl = args.Contains("--ucl");
+    UmgEditor.Core.Modding.TextureClone.Mip? art = null;
+    if (ucl)
+    {
+        var modDir = Opt("--mod") ?? @"E:\n3tron\patch\pc_mods\3RD_PARTY\PesConsole\Content\Paks\~mods\UCL_theme_by_eFootball.cz";
+        using var uclSource = GameSource.Open(pcConfig with { ExtraPaksDirs = [modDir] });
+        var t = uclSource.LoadPackage(DemoTitle + "Tex1080/DemoTitlePlate").GetExports().OfType<CUE4Parse.UE4.Assets.Exports.Texture.UTexture2D>().Single();
+        Check("UCL DemoTitlePlate is 696x192 PF_B8G8R8A8 with one mip", t.PlatformData is { SizeX: 696, SizeY: 192, PixelFormat: "PF_B8G8R8A8" } && t.PlatformData.Mips.Length == 1,
+            $"{t.PlatformData.SizeX}x{t.PlatformData.SizeY} {t.PlatformData.PixelFormat}, {t.PlatformData.Mips.Length} mips");
+        if (failures > 0) return 1;
+        art = new UmgEditor.Core.Modding.TextureClone.Mip(696, 192, t.PlatformData.Mips[0].BulkData!.Data!);
+        Console.WriteLine($"UCL image from {modDir}: {art.Bgra.Length} bytes, sha256 {Convert.ToHexString(System.Security.Cryptography.SHA256.HashData(art.Bgra)).ToLowerInvariant()}");
+    }
+    var green = art != null
+        ? UmgEditor.Core.Modding.TextureClone.BuildResized(source, DemoTitle + "Tex720/DemoTitlePlate", NewName, [art])
+        : UmgEditor.Core.Modding.TextureClone.Build(source, DemoTitle + "Tex720/DemoTitlePlate", NewName, UmgEditor.Core.Modding.TextureClone.Solid(0, 255, 0));
+    var magenta = art != null
+        ? UmgEditor.Core.Modding.TextureClone.BuildResized(source, DemoTitle + "0164F/Tex720/DemoTitlePlate", NewName, [art, UmgEditor.Core.Modding.TextureClone.Half(art)])
+        : UmgEditor.Core.Modding.TextureClone.Build(source, DemoTitle + "0164F/Tex720/DemoTitlePlate", NewName, UmgEditor.Core.Modding.TextureClone.Solid(255, 0, 255));
+    var repoint = UmgEditor.Core.Modding.SoftPathRepoint.Build(source, DemoTitle + "DemoTitleBase", softFrom, softTo,
+        ucl ? new[] { "Left", "Top", "Right", "Bottom" }.Select(side => ("Img_Plate", "Margin." + side, 0.0)).ToList() : null);
+    foreach (var (what, log, refusals) in new[] { (ucl ? "Tex720 clone (UCL image)" : "Tex720 clone (green)", green.Log, green.Refusals), (ucl ? "0164F clone (UCL image + half mip)" : "0164F clone (magenta)", magenta.Log, magenta.Refusals), (ucl ? "DemoTitleBase re-point + margins 0" : "DemoTitleBase re-point", repoint.Log, repoint.Refusals) })
     {
         Console.WriteLine(what);
         foreach (var l in log) Console.WriteLine("  " + l);
@@ -130,8 +153,15 @@ int CanaryTexture()
         {
             var tex = withMod.LoadPackage(p.PackagePath).GetExports().OfType<CUE4Parse.UE4.Assets.Exports.Texture.UTexture2D>().SingleOrDefault();
             var data = tex?.PlatformData.Mips[0].BulkData?.Data ?? [];
-            var ok = tex != null && data.Length >= 4 && data.Chunk(4).All(px => px[2] == rgb.Item1 && px[1] == rgb.Item2 && px[0] == rgb.Item3);
-            Check($"with the mod mounted, {p.PackagePath} loads by path and decodes to RGB {rgb}", ok, tex == null ? "not found" : $"{tex.PlatformData.SizeX}x{tex.PlatformData.SizeY}");
+            var ok = art != null ? tex != null && data.AsSpan().SequenceEqual(art.Bgra)
+                : tex != null && data.Length >= 4 && data.Chunk(4).All(px => px[2] == rgb.Item1 && px[1] == rgb.Item2 && px[0] == rgb.Item3);
+            Check($"with the mod mounted, {p.PackagePath} loads by path and decodes to {(art != null ? "the UCL image" : $"RGB {rgb}")}", ok, tex == null ? "not found" : $"{tex.PlatformData.SizeX}x{tex.PlatformData.SizeY}");
+        }
+        if (ucl)
+        {
+            var img = withMod.LoadPackage(DemoTitle + "DemoTitleBase").GetExports().Single(e => e.Name == "Img_Plate");
+            var stored = WidgetTreeReader.StoredValues(img);
+            Check("with the mod mounted, Img_Plate's margins are 0", new[] { "Left", "Top", "Right", "Bottom" }.All(side => stored.GetValueOrDefault("Margin." + side) == "0"), "");
         }
     }
     foreach (var f in result.Files) Console.WriteLine($"  {f.Name}  {f.Size:N0} B  {f.Sha256}");
@@ -256,6 +286,21 @@ int AnimDump(bool all = false)
     }
     File.WriteAllText(args[2], Newtonsoft.Json.JsonConvert.SerializeObject(dump, Newtonsoft.Json.Formatting.Indented));
     Console.WriteLine($"{dump.Count} exports -> {args[2]}");
+    return 0;
+}
+
+int ExportTex()
+{
+    using var source = GameSource.Open(SourceConfig());
+    var textures = new TextureCache(source, new AssetRipperTextureDecoder());
+    Directory.CreateDirectory(args[1]);
+    foreach (var path in args.Skip(2).TakeWhile(a => !a.StartsWith("--")))
+    {
+        var img = textures.Get(path);
+        var file = Path.Combine(args[1], GamePaths.ShortName(path) + ".png");
+        PngWriter.Write(file, img);
+        Console.WriteLine($"{path}: {img.Format} {img.Width}x{img.Height}{(img.IsPlaceholder ? " (placeholder)" : "")} -> {file}");
+    }
     return 0;
 }
 
