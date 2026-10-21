@@ -20,12 +20,22 @@ namespace UmgEditor.Core.Modding;
 /// MatchTimeGoal and MatchTimeCard, the names a Justification tag needs appended to the name map
 /// (<see cref="EnumTagInsert.AppendNames"/>), then Justification = ETextJustify::Center inserted on the text
 /// (<see cref="EnumTagInsert.Insert"/>, its builder first checked against stock's own tag).
+/// C17b (<c>font</c>): UCL's font on the board, the timer, added time, aggregate and the banners (21 texts; mobile has no
+/// MatchTimeStats). Each text's <c>_font.TypefaceFontName</c> becomes HeadlineBoldSub (<see cref="NameTagEdit"/>: the team
+/// names swap HeadlineBold in place, the others get the member inserted, after the names it needs are appended), and the
+/// group "pes" re-points pes's Latin HeadlineBoldSub entry to NotoSansThai-ExtraBold (<see cref="FontFaceRepoint"/>), whose
+/// .ufont the mod's loose-file pak replaces with UCL's font (built by the caller). MatchTimeTimer, MatchTimeAdditional and
+/// MatchTimeAggregate are built from stock.
 /// </summary>
 public static class UclC16
 {
     public const string Tv = "/Game/Assets/ui/Data/Widget/TVGraphics/SwitchAssets_Original/";
     public const string MT = Tv + "MatchTime/", DT = Tv + "DemoTitle/";
     public static readonly string[] AllGroups = ["board", "banners", "replay"];
+    /// <summary>C17b's extra group: the pes font asset</summary>
+    public const string PesGroup = "pes", Pes = "/Game/Platforms/_Android/Assets/ui/Font/pes";
+    public const string FontEntry = "CompositeFont.SubTypefaces[9].Typeface.Fonts[4]", FontFrom = "eFootballStencil-Regular", FontTo = "NotoSansThai-ExtraBold";
+    private const string FontName = "HeadlineBoldSub";
     private const string Dark = "ColorEnum_String::NewEnumerator87", White = "ColorEnum_String::NewEnumerator86";
     public const string LogoSource = "/Game/Assets/ui/Data/Widget/General/Modals/ExtraLoginBonus/Tex720/ExtraLoginBonusInfo", LogoName = "ExtraLoginBonusUCLb";
     public const string LogoFrom = MT + "Tex720/MatchTimeLogo.MatchTimeLogo";
@@ -46,7 +56,7 @@ public static class UclC16
         public bool Ok => Steps.All(s => s.Ok);
     }
 
-    public static Output Build(GameSource source, GameConfig config, string set, IReadOnlyCollection<string> groups, string? artDir = null, bool centreNames = false)
+    public static Output Build(GameSource source, GameConfig config, string set, IReadOnlyCollection<string> groups, string? artDir = null, bool centreNames = false, bool font = false)
     {
         var o = new Output();
         artDir ??= Path.Combine(config.WorkDir, "out", "art", "C16");
@@ -144,10 +154,65 @@ public static class UclC16
             return [names.Chunk!, tag.Chunk!];
         }
 
+        // C17b: _font.TypefaceFontName = HeadlineBoldSub on each text (names first), one layer per text
+        string[] fontNames = ["TypefaceFontName", "NameProperty", FontName];
+        bool fontAnchored = false;
+        List<byte[]>? Font(string packagePath, byte[] chunk, IReadOnlyList<string> texts)
+        {
+            if (!fontAnchored)
+            {
+                var why = NameTagEdit.CheckAgainst(source, MT + "MatchTime", "Text_TeamName_Home", "_font", "TypefaceFontName", "HeadlineBold");
+                if (!Check("TypefaceFontName tag builder reproduces stock's (MatchTime Text_TeamName_Home._font) byte for byte", why == null, why ?? $"{NameTagEdit.TagLength} bytes")) return null;
+                fontAnchored = true;
+            }
+            var (fileKey, _) = source.ReadPackageBytes(packagePath);
+            var layers = new List<byte[]>();
+            var missing = fontNames.Where(n => ZenNameMap.Read(chunk).All(m => m.Text != n)).ToList();
+            if (missing.Count > 0)
+            {
+                var names = EnumTagInsert.AppendNames(source, fileKey, chunk, missing);
+                Log($"{Short(packagePath)}: names for TypefaceFontName appended", names.Log);
+                if (!Check($"{Short(packagePath)}: {string.Join(", ", missing)} appended (old names and hashes kept, header shifted, every export re-parses identically)", names.Chunk != null, string.Join(" | ", names.Refusals))) return null;
+                layers.Add(chunk = names.Chunk!);
+            }
+            foreach (var text in texts)
+            {
+                var parsed = source.ParsePackage(fileKey, chunk);
+                var export = parsed.ExportsLazy.Select(e => e.Value).SingleOrDefault(e => e.Name == text);
+                var stored = export == null ? null : TagInserter.Flatten(export).GetValueOrDefault("Properties._font.TypefaceFontName")?.Trim('"');
+                var r = stored == null
+                    ? NameTagEdit.Insert(source, fileKey, chunk, text, "_font", "TypefaceFontName", FontName, NameTagEdit.SlateFontInfoOrder)
+                    : NameTagEdit.Swap(source, fileKey, chunk, text, "_font", "TypefaceFontName", stored, FontName);
+                Log($"{Short(packagePath)}: {text}._font.TypefaceFontName = {FontName}", r.Log);
+                if (!Check($"{Short(packagePath)}: {text}._font.TypefaceFontName {stored ?? "(default Bold)"} → {FontName} ({(stored == null ? "inserted: cut out = input, re-parse, walk" : "in place: byte diff + re-parse")})",
+                    r.Chunk != null, string.Join(" | ", r.Refusals))) return null;
+                layers.Add(chunk = r.Chunk!);
+                o.Expects.Add(new Expect(packagePath, text, "Properties._font.TypefaceFontName", FontName));
+            }
+            return layers;
+        }
+        // a package C16 doesn't edit: stock, then the font layers
+        bool FontOnly(string packagePath, IReadOnlyList<string> texts)
+        {
+            var (_, stock) = source.ReadPackageBytes(packagePath);
+            return Font(packagePath, stock, texts) is { } layers && Finish(packagePath, layers);
+        }
+
         if (groups.Contains("board") && !Board()) return o;
         if (groups.Contains("banners") && !Banners()) return o;
         if (groups.Contains("replay") && !Replay()) return o;
+        if (groups.Contains(PesGroup) && !PesFont()) return o;
         return o;
+
+        bool PesFont()
+        {
+            var (fileKey, stock) = source.ReadPackageBytes(Pes);
+            var r = FontFaceRepoint.Plan(source, fileKey, stock, FontEntry, FontName, FontFrom, FontTo);
+            Log($"pes: {FontEntry} ({FontName}) → {FontTo}", r.Log);
+            if (!Check($"pes: Latin {FontName} face {FontFrom} → {FontTo} (FontData walk agrees with the parse, byte diff + re-parse)", r.Chunk != null, string.Join(" | ", r.Refusals))) return false;
+            o.Expects.Add(new Expect(Pes, "pes", $"Properties.{FontEntry}.Font.LocalFontFaceAsset.ObjectName", $"FontFace'{FontTo}'"));
+            return Finish(Pes, [r.Chunk!]);
+        }
 
         bool Board()
         {
@@ -176,7 +241,16 @@ public static class UclC16
             var layer3 = TagRemover.Remove(source, fileKey, layer2.Chunk!, "Normal_Display", "Clipping", "EWidgetClipping::ClipToBounds");
             Log("MatchTime layer 3: Normal_Display.Clipping removed", layer3.Log);
             if (!Check("MatchTime layer 3 (Normal_Display.Clipping removed): put back = input, re-parse, walk", layer3.Chunk != null, string.Join(" | ", layer3.Refusals))) return false;
-            if (!Finish(MT + "MatchTime", [layer1, layer2.Chunk!, layer3.Chunk!])) return false;
+            var boardLayers = new List<byte[]> { layer1, layer2.Chunk!, layer3.Chunk! };
+            if (font)
+            {
+                if (Font(MT + "MatchTime", layer3.Chunk!, ["Text_Score_Away", "Text_Score_Home", "Text_TeamName_Away", "Text_TeamName_Home"]) is not { } extra) return false;
+                boardLayers.AddRange(extra);
+                if (!FontOnly(MT + "MatchTimeTimer", ["Text_Colon", "Text_Minute_1", "Text_Minute_2", "Text_Minute_3", "Text_Second_1", "Text_Second_2"])) return false;
+                if (!FontOnly(MT + "MatchTimeAdditional", ["Text_AdditionalTime"])) return false;
+                if (!FontOnly(MT + "MatchTimeAggregate", ["Text_Aggregate_Away", "Text_Aggregate_Home"])) return false;
+            }
+            if (!Finish(MT + "MatchTime", boardLayers)) return false;
             o.Expects.Add(new Expect(MT + "MatchTime", "Img_Line", "Properties.texture.AssetPathName", MT + $"Tex720/{barName}.{barName}"));
             o.Expects.Add(new Expect(MT + "MatchTime", "Img_Logo", "Properties.texture.AssetPathName", LogoTo));
 
@@ -234,6 +308,11 @@ public static class UclC16
                 if (Centre(MT + "MatchTimeGoal", layer3.Chunk!, "Text_PlayerName") is not { } extra) return false;
                 goalLayers.AddRange(extra);
             }
+            if (font)
+            {
+                if (Font(MT + "MatchTimeGoal", goalLayers[^1], ["Text_Item", "Text_PlayerName", "Text_PlayerNumber"]) is not { } extra) return false;
+                goalLayers.AddRange(extra);
+            }
             if (!Finish(MT + "MatchTimeGoal", goalLayers, [layer3.PackageSwap])) return false;
             o.Expects.Add(new Expect(MT + "MatchTimeGoal", "Text_PlayerName", "Properties.color", White));
             o.Expects.Add(new Expect(MT + "MatchTimeGoal", "MatchTimeBase_1", "Class", "DemoTitleBase_C"));
@@ -245,6 +324,12 @@ public static class UclC16
                 if (centreNames && banner == "MatchTimeCard")
                 {
                     if (Centre(MT + banner, chunk, "Text_Value") is not { } extra) return false;
+                    layers.AddRange(extra);
+                }
+                if (font)
+                {
+                    string[] texts = banner == "MatchTimeCard" ? ["Text_Item", "Text_Value"] : ["Text_Item", "Text_Value_1", "Text_Value_2"];
+                    if (Font(MT + banner, layers[^1], texts) is not { } extra) return false;
                     layers.AddRange(extra);
                 }
                 if (!Finish(MT + banner, layers)) return false;
