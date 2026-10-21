@@ -19,6 +19,12 @@ public sealed record ModPackage(string PackagePath, string FileKey, string Chunk
     /// made from, whose store entry the mod's container header copies. Its chunk id must be FPackageId of PackagePath.
     /// </summary>
     public string? CloneOf { get; init; }
+
+    /// <summary>
+    /// Imported packages swapped in this package's graph data (branch experiment, C16: ClassSwap), applied to the store
+    /// entry copied into the mod's container header too: each (old, new) package id, old must be in the stock entry.
+    /// </summary>
+    public IReadOnlyList<(ulong Old, ulong New)> ImportedPackageSwaps { get; init; } = [];
 }
 
 public sealed record ModFile(string Name, long Size, string Sha256);
@@ -108,7 +114,18 @@ public sealed class ModBuilder(GameSource source, IRetoc retoc)
             catch (Exception e) { refusals.Add($"{p.FileKey}: the container header of {container} can't be read ({e.Message})"); continue; }
             var index = header.PackageIds.ToList().IndexOf(BinaryPrimitives.ReadUInt64LittleEndian(Convert.FromHexString(entryId[..16])));
             if (index < 0) { refusals.Add($"{p.FileKey}: package id {entryId[..16]} is not in the container header of {container}"); continue; }
-            sources.Add((p, packageId, header, header.Entries[index]));
+            var storeEntry = header.Entries[index];
+            if (p.ImportedPackageSwaps.Count > 0)
+            {
+                var imported = storeEntry.ImportedPackages.ToList();
+                var unswappable = p.ImportedPackageSwaps.Where(s => imported.Count(x => x == s.Old) != 1 || imported.Contains(s.New)).ToList();
+                if (unswappable.Count > 0) { refusals.Add($"{p.FileKey}: the store entry can't take the imported package swaps {string.Join(", ", unswappable.Select(b => $"{b.Old:x16}→{b.New:x16}"))}"); continue; }
+                foreach (var (o, n) in p.ImportedPackageSwaps) imported[imported.IndexOf(o)] = n;
+                if (storeEntry.ImportedPackages.SequenceEqual(storeEntry.ImportedPackages.Order())) imported.Sort(); // stock keeps them sorted
+                storeEntry = storeEntry with { ImportedPackages = imported };
+                log.AppendLine($"{p.FileKey}: store entry imported packages swapped: {string.Join(", ", p.ImportedPackageSwaps.Select(x => $"{x.Old:x16}→{x.New:x16}"))}");
+            }
+            sources.Add((p, packageId, header, storeEntry));
         }
         if (refusals.Count > 0) return Fail();
         var nameHashes = sources[0].Header.NameHashes;
