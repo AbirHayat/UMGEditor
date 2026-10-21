@@ -13,7 +13,7 @@ An eFootball modding workspace (scoreboard mod). eFootball runs on UE 4.26/4.27 
 - **Never run calls that download files or binaries; ask first.** That includes library helpers that fetch at runtime (e.g. CUE4Parse `ZlibHelper.Initialize`/`DownloadDll`, `OodleHelper` downloads), `git clone`, `winget`, and NuGet restores that add new packages.
 - Ask before adding any dependency (NuGet package, native DLL, tool).
 - Never modify stock files; work on copies, and verify every edit by reloading and diffing.
-- Patches: change stored values only, never `to-zen` a Blueprint, refuse a patch unless its ±32-byte context matches exactly once, check size + byte diff, run `retoc verify`.
+- Patches: change stored values only, never `to-zen` a Blueprint, refuse a patch unless its ±32-byte context matches exactly once, check size + byte diff, run `retoc verify`. (Branch `experiment`, approved exceptions to the ±32 rule: animation keys/ranges (C11) and, since C12 on 2026-10-21, layout values and tag insertion points whose ±32 repeats use the smallest stock window that occurs exactly once, ≤ ±512, computed on stock bytes. ±32 is still tried first; the tag walk, the stock-value check, the exact diff and the re-parse stay hard refusals.)
 
 ## UMG editor app (`app/`, eFootball **Mobile**, net10.0)
 - Projects: `src/UmgEditor.Core` (CUE4Parse-based, read-only access to stock containers), `src/UmgEditor.App` (WPF), `tools/UmgEditor.Smoke` (console checks against the stock containers; there's no test framework yet).

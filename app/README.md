@@ -151,7 +151,9 @@ umgmod [--set NAME] anim-end <package> <anim> <oldEndTicks> <newEndTicks> [--yes
   it, computed on the stock bytes, that occurs exactly once in the chunk (±32 in 16-byte steps). Beyond ±512 it is
   refused. The location must also follow from the section's own tags, the compiled copy must be inside the
   animation's compiled export with the same stock bytes, and the stock bytes must decode to the parsed value. The
-  exact byte diff and the full re-parse of every export stay hard refusals. Layout values keep the ±32 rule.
+  exact byte diff and the full re-parse of every export stay hard refusals. Layout values keep the ±32 rule, except on
+  branch `experiment` since C12: a layout value or tag insertion point whose ±32 context repeats (e.g. two slots that store
+  the same Right/Bottom) is proven by the smallest unique stock window instead (`show`: `context x2, unique stock window ±48`).
 - Branch `experiment`: `anim-key` sets one key's `value`, `frame` (ticks, 60000 per second) or `interp` (0 Linear,
   1 Constant = stepped, 2 Cubic; float keys only), in both copies when the key has a compiled one. `anim-end` moves
   every range bound of an animation at `oldEnd` to `newEnd`: section and compiled ranges, plus the MovieScene's
