@@ -7,6 +7,7 @@
 //   umgmod [--set NAME] build <modName> <package>... [--container pc9999_mobile_and_P] [--ack-danger]
 //   umgmod [--set NAME] predict <package>...
 //   umgmod show-anim <package> [--anim REGEX] [--widget NAME] [--bytes]
+//   umgmod [--set NAME] anim-flatten <package> <anim,anim...> [--parts width,visibility,positions] [--normal-from Info_Hide] [--check Show] [--yes]
 // <package> is a /Game/... path or a unique suffix such as MatchTime/MatchTimeBase. Edits are saved PatchSessions in
 // work\edits[\NAME]\<package path>; build packs their saved chunks into work\out\mods\<modName>\mod (the export
 // dialog's plan and run: predictions\ and TEST_INSTRUCTIONS.md next to it). Exit 0 = done, 2 = refused, 3 = needs
@@ -41,6 +42,9 @@ var ackDanger = Flag(BuildCommand.AckFlag);
 var animFilter = Option("--anim") is { } re ? new System.Text.RegularExpressions.Regex(re) : null;
 var widgetFilter = Option("--widget");
 var withBytes = Flag("--bytes");
+var parts = Option("--parts");
+var normalFrom = Option("--normal-from") ?? "Info_Hide";
+var crossCheck = Option("--check") ?? "Show";
 if (argv.Count < 2) return Usage();
 
 var config = GameConfig.LoadOrDefault(Path.Combine(AppContext.BaseDirectory, "umgeditor.json"));
@@ -76,6 +80,10 @@ void PrintPlan(PatchSession s)
     foreach (var i in plan.Insertions)
         Console.WriteLine($"  {i.SlotName}.{i.Path}  NEW TAG before {i.Before} @ {i.InsertAtHex}  {Num(i.Key is { } k ? s.BaseValue(k) ?? 0 : 0)} (default) -> {Num(i.Value)}  [{i.TagHex}]\n      context x{i.ContextMatches}");
     if (plan.ChangesSize) Console.WriteLine($"  {plan.SizeText}; {PackageBytes.HeaderChangesOf(plan)}");
+    if (plan.AnimWrites.Count > 0)
+        Console.WriteLine($"  {plan.AnimKeyCount} animation keys in {plan.AnimWrites.Count} writes (location proof: smallest unique stock window, limit ±{BytePlanner.MaxAnimWindow}):");
+    foreach (var w in plan.AnimWrites)
+        Console.WriteLine($"  {w.OffsetHex,-9} {w.Copy,-8} {w.Description}  {Num(w.OldValue)} -> {Num(w.NewValue)}  [{w.OldHex}] -> [{w.NewHex}]  {w.WindowText}");
     foreach (var r in plan.Refusals) Console.WriteLine($"  REFUSED [{r.Rule}] {r.Message}");
 }
 
@@ -196,6 +204,34 @@ try
             Console.WriteLine($"{report.WarningCount} warning{(report.WarningCount == 1 ? "" : "s")}{(dangers > 0 ? $", {dangers} danger (the export dialog asks to acknowledge each)" : "")}");
             return 0;
         }
+        case "anim-flatten" when argv.Count >= 3:
+        {
+            // every key of the named animations set to the channel's normal value (last key of --normal-from, checked
+            // against --check), only the --parts tracks; saved like any edit (both copies of each key, hard checks)
+            var package = ResolvePackage(argv[1]);
+            var session = OpenSession(package);
+            var picked = UmgEditor.Core.Animation.TrackParts.None;
+            foreach (var p in (parts ?? "width,visibility,positions").Split(',', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries))
+                picked |= Enum.Parse<UmgEditor.Core.Animation.TrackParts>(p, ignoreCase: true);
+            var names = argv[2].Split(',', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries);
+            var flat = UmgEditor.Core.Animation.AnimationFlatten.Plan(package, session.AnimKeys.Animations, names, normalFrom, crossCheck, picked,
+                File.ReadAllBytes(session.StockCopyPath));
+            foreach (var l in flat.Log) Console.WriteLine("  " + l);
+            foreach (var r in flat.Refusals) Console.Error.WriteLine("refused: " + r);
+            if (flat.Refusals.Count > 0) return 2;
+            if (flat.Changes.Count == 0) { Console.Error.WriteLine("refused: nothing to change"); return 2; }
+            Console.WriteLine($"{flat.Changes.Count} keys in {string.Join(", ", names)} ({picked}), normal value = last key of {normalFrom}, checked against {crossCheck}");
+            if (session.Saved.Count == 0 && !session.IsDirty && !yes)
+            {
+                Console.WriteLine($"First edit of {GamePaths.ShortName(package)}{(editSet != null ? $" in set {editSet}" : "")}: read the above, then re-run with --yes.");
+                return 3;
+            }
+            if (session.Apply(EditResult.Of(flat.Changes)) is { } why) { Console.Error.WriteLine($"refused: {why}"); return 2; }
+            var saved = session.Save();
+            Console.WriteLine(saved.Summary);
+            PrintPlan(session);
+            return saved.Saved ? 0 : 2;
+        }
         case "show-anim":
         {
             // every animation of the package, what each track does, and with --bytes every key with its byte locations
@@ -250,6 +286,7 @@ static int Usage()
           umgmod [--set NAME] build <modName> <package>... [--container pc9999_mobile_and_P] [--ack-danger]
           umgmod [--set NAME] predict <package>...
           umgmod show-anim <package> [--anim REGEX] [--widget NAME] [--bytes]
+          umgmod [--set NAME] anim-flatten <package> <anim,anim...> [--parts width,visibility,positions] [--normal-from Info_Hide] [--check Show] [--yes]
         <package>: /Game/... path or a unique suffix (MatchTime/MatchTimeBase); <field>: e.g. Offsets.Right
         """);
     return 1;
