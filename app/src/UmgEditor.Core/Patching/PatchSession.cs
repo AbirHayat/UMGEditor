@@ -213,7 +213,8 @@ public sealed class PatchSession
         {
             var (ins, refusal) = TagInserter.PlanFloat(_stock, _layout, key.SlotExport, at.StructPath, at.Field, 0f, at.Order);
             why = ins == null ? $"{SlotName(key.SlotExport)}.{key.Path} is not stored in {GamePaths.ShortName(PackagePath)} and can't be added: {refusal}"
-                : ins.ContextMatches != 1 ? $"{SlotName(key.SlotExport)}.{key.Path} can't be added: the ±{BytePlanner.Context}-byte stock context at its insertion point matches {ins.ContextMatches} times"
+                : ins.ContextMatches != 1 && BytePlanner.UniqueWindow(_stock, ins.InsertAt, 0) == null
+                    ? $"{SlotName(key.SlotExport)}.{key.Path} can't be added: the ±{BytePlanner.Context}-byte stock context at its insertion point matches {ins.ContextMatches} times and no window up to ±{BytePlanner.MaxAnimWindow} bytes occurs only once"
                 : null;
         }
         _insertRefusals[key] = why;
@@ -467,9 +468,9 @@ public sealed class PatchSession
 
     /// <param name="Stock">The stored value, or the engine default when Inserted (not stored: saving adds it as a new tag)</param>
     private sealed record ManifestEdit(int SlotExport, string Slot, string Path, double Stock, double Value, bool Inserted = false);
-    private sealed record ManifestEntry(string Slot, string Path, int Offset, string OffsetHex, string Type, double Old, double New, string OldHex, string NewHex, string ContextHex, int ContextMatches);
+    private sealed record ManifestEntry(string Slot, string Path, int Offset, string OffsetHex, string Type, double Old, double New, string OldHex, string NewHex, string ContextHex, int ContextMatches, int Window = BytePlanner.Context);
     /// <param name="InsertAt">Stock offset the 29-byte tag goes in front of</param>
-    private sealed record ManifestInsertion(string Slot, string Path, int InsertAt, string InsertAtHex, string Before, float Value, string TagHex, int ContextMatches);
+    private sealed record ManifestInsertion(string Slot, string Path, int InsertAt, string InsertAtHex, string Before, float Value, string TagHex, int ContextMatches, int Window = BytePlanner.Context);
     /// <param name="ChangedOffsets">Stock offsets that differ, with any inserted tags cut out</param>
     /// <param name="Window">Half-width of the smallest stock window around the write that occurs exactly once (animation keys only)</param>
     private sealed record ManifestAnimWrite(string Key, string Description, string Copy, int Export, int Offset, string OffsetHex, double Old, double New,
@@ -485,9 +486,9 @@ public sealed class PatchSession
         var manifest = new Manifest(PackagePath, FileKey, ChunkIdHex, StockSize, StockSha256, editedSha, DateTime.UtcNow,
             Current.Values.OrderBy(kv => kv.Key.SlotExport).ThenBy(kv => kv.Key.Path, StringComparer.Ordinal)
                 .Select(kv => new ManifestEdit(kv.Key.SlotExport, SlotName(kv.Key.SlotExport), kv.Key.Path, BaseValue(kv.Key) ?? 0, kv.Value, StockValue(kv.Key) == null)).ToList(),
-            plan.Entries.Select(e => new ManifestEntry(e.SlotName, e.Key.Path, e.Offset, e.OffsetHex, e.Type.ToString(), e.OldValue, e.NewValue, e.OldHex, e.NewHex, e.ContextHex, e.ContextMatches)).ToList(),
+            plan.Entries.Select(e => new ManifestEntry(e.SlotName, e.Key.Path, e.Offset, e.OffsetHex, e.Type.ToString(), e.OldValue, e.NewValue, e.OldHex, e.NewHex, e.ContextHex, e.ContextMatches, e.Window)).ToList(),
             changed.ToList(), plan.EditedSize,
-            plan.Insertions.Select(i => new ManifestInsertion(i.SlotName, i.Path, i.InsertAt, i.InsertAtHex, i.Before, i.Value, i.TagHex, i.ContextMatches)).ToList(),
+            plan.Insertions.Select(i => new ManifestInsertion(i.SlotName, i.Path, i.InsertAt, i.InsertAtHex, i.Before, i.Value, i.TagHex, i.ContextMatches, i.Window)).ToList(),
             plan.AnimWrites.Select(w => new ManifestAnimWrite($"{w.Key.SlotExport}:{w.Key.Path}", w.Description, w.Copy, w.Export, w.Offset, w.OffsetHex, w.OldValue, w.NewValue,
                 w.OldHex, w.NewHex, w.Window, w.Context32Matches)).ToList());
         var tmp = ManifestPath + ".tmp";

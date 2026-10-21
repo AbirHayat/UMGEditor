@@ -78,9 +78,9 @@ void PrintPlan(PatchSession s)
     Console.WriteLine($"  {s.Current.Count} edit{(s.Current.Count == 1 ? "" : "s")}, {(s.IsDirty ? "UNSAVED changes" : "saved")}");
     var plan = s.Plan();
     foreach (var e in plan.Entries)
-        Console.WriteLine($"  {e.SlotName}.{e.Key.Path}  @ {e.OffsetHex}  {Num(e.OldValue)} -> {Num(e.NewValue)}  [{e.OldHex}] -> [{e.NewHex}]\n      context x{e.ContextMatches}: {e.ContextHex}");
+        Console.WriteLine($"  {e.SlotName}.{e.Key.Path}  @ {e.OffsetHex}  {Num(e.OldValue)} -> {Num(e.NewValue)}  [{e.OldHex}] -> [{e.NewHex}]\n      context x{e.ContextMatches}{(e.ContextMatches == 1 ? "" : $", unique stock window ±{e.Window}")}: {e.ContextHex}");
     foreach (var i in plan.Insertions)
-        Console.WriteLine($"  {i.SlotName}.{i.Path}  NEW TAG before {i.Before} @ {i.InsertAtHex}  {Num(i.Key is { } k ? s.BaseValue(k) ?? 0 : 0)} (default) -> {Num(i.Value)}  [{i.TagHex}]\n      context x{i.ContextMatches}");
+        Console.WriteLine($"  {i.SlotName}.{i.Path}  NEW TAG before {i.Before} @ {i.InsertAtHex}  {Num(i.Key is { } k ? s.BaseValue(k) ?? 0 : 0)} (default) -> {Num(i.Value)}  [{i.TagHex}]\n      context x{i.ContextMatches}{(i.ContextMatches == 1 ? "" : $", unique stock window ±{i.Window}")}");
     if (plan.ChangesSize) Console.WriteLine($"  {plan.SizeText}; {PackageBytes.HeaderChangesOf(plan)}");
     if (plan.AnimWrites.Count > 0)
         Console.WriteLine($"  {PackageBytes.AnimCounts(plan.AnimWrites)} (location proof: smallest unique stock window, limit ±{BytePlanner.MaxAnimWindow}):");

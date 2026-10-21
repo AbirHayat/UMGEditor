@@ -41,6 +41,8 @@ public sealed record PatchEntry(
     double OldValue, double NewValue, byte[] OldBytes, byte[] NewBytes,
     byte[] ContextBefore, byte[] ContextAfter, int ContextMatches)
 {
+    /// <summary>Half-width of the location proof: 32 when the ±32 context is unique, else the smallest unique stock window (≤ ±512, rule since C12).</summary>
+    public int Window { get; init; } = BytePlanner.Context;
     public string OffsetHex => $"0x{Offset:X}";
     public string OldHex => Hex(OldBytes);
     public string NewHex => Hex(NewBytes);
@@ -115,11 +117,14 @@ public sealed record BytePlan(string PackagePath, int StockSize, IReadOnlyList<P
 /// the section's own tags, the compiled copy must sit in the animation's compiled export with the same stock bytes, and
 /// the stock bytes must decode to the parsed value. The exact byte diff and the full re-parse (PatchSession) stay hard
 /// refusals.
+/// Branch experiment, since C12 (approved 2026-10-21): a layout value or tag insertion point whose ±32 context repeats is
+/// located by the same <see cref="UniqueWindow"/> (refused beyond ±512). ±32 is still tried first, so a value that was
+/// unique at ±32 keeps exactly that proof; the tag walk, the stock-value check, the exact diff and the re-parse are unchanged.
 /// </summary>
 public static class BytePlanner
 {
     public const int Context = 32;
-    /// <summary>Animation keys: the widest stock window searched for uniqueness (half-width).</summary>
+    /// <summary>The widest stock window searched for uniqueness (half-width): animation keys, and layout values whose ±32 repeats.</summary>
     public const int MaxAnimWindow = 512;
     private const int WindowStep = 16;
 
@@ -165,8 +170,13 @@ public static class BytePlanner
                 if (Encode(FieldType.Float, newValue) == null) { Refuse(RefusalRule.NotRepresentable, $"{newValue} can't be stored exactly as Float"); continue; }
                 var (ins, why) = TagInserter.PlanFloat(stock, layout, key.SlotExport, at.StructPath, at.Field, (float) newValue, at.Order);
                 if (ins == null) Refuse(RefusalRule.NotInsertable, why!);
-                else if (ins.ContextMatches != 1) Refuse(RefusalRule.ContextNotUnique, $"the ±{Context}-byte context at the insertion point 0x{ins.InsertAt:X} matches {ins.ContextMatches} times in the chunk (must be exactly 1)");
-                else insertions.Add(ins with { Key = key, SlotName = slotName?.Invoke(key.SlotExport) ?? $"export {key.SlotExport}" });
+                else if (ins.ContextMatches != 1 && UniqueWindow(stock, ins.InsertAt, 0, MaxAnimWindow) is null)
+                    Refuse(RefusalRule.ContextNotUnique, $"the ±{Context}-byte context at the insertion point 0x{ins.InsertAt:X} matches {ins.ContextMatches} times in the chunk and no window up to ±{MaxAnimWindow} bytes occurs only once");
+                else insertions.Add(ins with
+                {
+                    Key = key, SlotName = slotName?.Invoke(key.SlotExport) ?? $"export {key.SlotExport}",
+                    Window = ins.ContextMatches == 1 ? Context : UniqueWindow(stock, ins.InsertAt, 0, MaxAnimWindow)!.Value,
+                });
                 continue;
             }
             if (hits.Count != 1) { Refuse(RefusalRule.NotLocated, $"found {hits.Count} times among the stored values of the slot export (must be exactly 1)"); continue; }
@@ -186,11 +196,20 @@ public static class BytePlanner
             int from = loc.Offset - Context, to = loc.Offset + loc.Length + Context;
             if (from < 0 || to > stock.Length) { Refuse(RefusalRule.ContextNotUnique, $"the ±{Context}-byte context at 0x{loc.Offset:X} runs past the chunk bounds (0..{stock.Length})"); continue; }
             var matches = CountOccurrences(stock, stock[from..to]);
-            if (matches != 1) { Refuse(RefusalRule.ContextNotUnique, $"the ±{Context}-byte context at 0x{loc.Offset:X} matches {matches} times in the chunk (must be exactly 1)"); continue; }
+            var window = Context;
+            if (matches != 1)
+            {
+                if (UniqueWindow(stock, loc.Offset, loc.Length, MaxAnimWindow) is not { } w)
+                {
+                    Refuse(RefusalRule.ContextNotUnique, $"the ±{Context}-byte context at 0x{loc.Offset:X} matches {matches} times in the chunk and no window up to ±{MaxAnimWindow} bytes occurs only once");
+                    continue;
+                }
+                window = w;
+            }
 
             entries.Add(new PatchEntry(key, slotName?.Invoke(key.SlotExport) ?? $"export {key.SlotExport}", loc.Offset, loc.Type,
                 Decode(loc.Type, oldBytes), newValue, oldBytes, newBytes,
-                stock[from..loc.Offset].ToArray(), stock[(loc.Offset + loc.Length)..to].ToArray(), matches));
+                stock[from..loc.Offset].ToArray(), stock[(loc.Offset + loc.Length)..to].ToArray(), matches) { Window = window });
         }
 
         var sorted = entries.OrderBy(e => e.Offset).ToList();

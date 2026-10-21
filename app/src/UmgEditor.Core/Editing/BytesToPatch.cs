@@ -49,7 +49,9 @@ public sealed record PatchRow(PatchEntry Entry, string Widget)
         ? "no byte changes"
         : $"{Changed.Count} of {Entry.OldBytes.Length} bytes change: {string.Join(", ", Changed.Select(o => $"0x{o:X}"))}";
     public string MatchText =>
-        $"±{BytePlanner.Context}-byte stock context found {Entry.ContextMatches} time{(Entry.ContextMatches == 1 ? "" : "s")} in the chunk (must be exactly 1)";
+        Entry.ContextMatches == 1
+            ? $"±{BytePlanner.Context}-byte stock context found {Entry.ContextMatches} time in the chunk (must be exactly 1)"
+            : $"±{BytePlanner.Context}-byte stock context found {Entry.ContextMatches} times; the smallest unique stock window is ±{Entry.Window} (limit ±{BytePlanner.MaxAnimWindow})";
 
     /// <summary>The ±32-byte stock window as 16-byte rows, with the field's bytes marked.</summary>
     public IReadOnlyList<HexRow> Context
@@ -102,7 +104,9 @@ public sealed record InsertRow(TagInsertion Insertion, string Widget, double Def
     public string WhereText => $"{Insertion.InsertAtHex} (stock offset), in front of the {Insertion.Before} tag";
     public const string TagLayoutText = "Name, Type FloatProperty, Size 4, ArrayIndex 0, no property GUID, then the float";
     public string MatchText =>
-        $"±{BytePlanner.Context}-byte stock context around the insertion point found {Insertion.ContextMatches} time{(Insertion.ContextMatches == 1 ? "" : "s")} in the chunk (must be exactly 1)";
+        Insertion.ContextMatches == 1
+            ? $"±{BytePlanner.Context}-byte stock context around the insertion point found {Insertion.ContextMatches} time in the chunk (must be exactly 1)"
+            : $"±{BytePlanner.Context}-byte stock context around the insertion point found {Insertion.ContextMatches} times; the smallest unique stock window is ±{Insertion.Window} (limit ±{BytePlanner.MaxAnimWindow})";
 
     /// <summary>The ±32-byte stock window as 16-byte rows; the tag goes in at the "|".</summary>
     public IReadOnlyList<string> Context

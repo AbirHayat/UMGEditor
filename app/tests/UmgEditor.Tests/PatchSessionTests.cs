@@ -163,12 +163,15 @@ public class PatchSessionTests
     // ---- refusals ----
 
     /// <summary>A copy of the stock chunk with the C3 field's ±32-byte window also written into another export.</summary>
-    private static (byte[] Chunk, ZenPackageLayout Layout, int CopyAt) DuplicateC3Context()
+    /// <summary>The stock chunk with C3's ±<paramref name="half"/> window (around Img_Plate's Offsets.Right) copied somewhere else.</summary>
+    private static (byte[] Chunk, ZenPackageLayout Layout, int CopyAt) DuplicateC3Context(int half = 32)
     {
         var (layout, _, chunk) = Layout(Base);
-        var window = chunk[(C3Offset - 32)..(C3Offset + 36)];
-        var other = layout.Exports.Where(x => x.Size >= window.Length + 8 && (x.End <= C3Offset - 32 || x.Start >= C3Offset + 36)).MaxBy(x => x.Size);
-        var at = other.Start + 4;
+        var window = chunk[(C3Offset - half)..(C3Offset + 4 + half)];
+        var others = layout.Exports.Where(x => x.Size >= window.Length + 8 && (x.End <= C3Offset - half || x.Start >= C3Offset + 4 + half)).ToList();
+        // a window larger than any other export goes over the start of the chunk (planning reads only the slot's export)
+        var at = others.Count > 0 ? others.MaxBy(x => x.Size).Start + 4 : C3Offset > chunk.Length / 2 ? 0 : chunk.Length - window.Length;
+        Assert.IsTrue(at + window.Length <= C3Offset - half || at >= C3Offset + 4 + half, "the copy must not overlap the original");
         window.CopyTo(chunk, at);
         return (chunk, layout, at);
     }
@@ -182,15 +185,30 @@ public class PatchSessionTests
     }
 
     [TestMethod]
-    public void Refuses_NonUniqueContext()
+    public void Accepts_RepeatedPm32Context_WithTheSmallestUniqueWindow()
     {
-        var (chunk, layout, at) = DuplicateC3Context();
+        // ±32 occurs twice (rule since C12): the location is proven by the smallest unique stock window instead
+        var (chunk, layout, at) = DuplicateC3Context(32);
+        var plan = BytePlanner.Plan(chunk, layout, Base, C3Edit(out var stock), stock);
+        Assert.IsTrue(plan.Ok, string.Join("\n", plan.Refusals.Select(r => r.Message)));
+        var e = plan.Entries.Single();
+        Assert.AreEqual(2, e.ContextMatches);
+        Assert.IsTrue(e.Window is > BytePlanner.Context and <= BytePlanner.MaxAnimWindow, $"window ±{e.Window}");
+        Assert.AreEqual(1, BytePlanner.CountOccurrences(chunk, chunk[(C3Offset - e.Window)..(C3Offset + 4 + e.Window)]));
+        Console.WriteLine($"window copied to 0x{at:X}: unique at ±{e.Window}");
+    }
+
+    [TestMethod]
+    public void Refuses_ContextNotUniqueWithin512()
+    {
+        var (chunk, layout, at) = DuplicateC3Context(BytePlanner.MaxAnimWindow + 16);
         var plan = BytePlanner.Plan(chunk, layout, Base, C3Edit(out var stock), stock);
         Assert.IsFalse(plan.Ok);
         Assert.AreEqual(0, plan.Entries.Count);
         var r = plan.Refusals.Single();
         Assert.AreEqual(RefusalRule.ContextNotUnique, r.Rule);
         StringAssert.Contains(r.Message, "matches 2 times");
+        StringAssert.Contains(r.Message, $"no window up to ±{BytePlanner.MaxAnimWindow} bytes occurs only once");
         Console.WriteLine($"window copied to 0x{at:X}: {r.Message}");
 
         // the same through a session whose stock copy was altered that way: refused, nothing written

@@ -17,6 +17,8 @@ public sealed record TagInsertion(int ExportIndex, string Path, float Value, int
 {
     public FieldKey? Key { get; init; }
     public string SlotName { get; init; } = $"export {ExportIndex}";
+    /// <summary>Half-width of the location proof: 32 when the ±32 context is unique, else the smallest unique stock window (≤ ±512, rule since C12).</summary>
+    public int Window { get; init; } = BytePlanner.Context;
     public string InsertAtHex => $"0x{InsertAt:X}";
     public string TagHex => PatchEntry.Hex(TagBytes);
 }
