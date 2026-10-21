@@ -77,5 +77,50 @@ public static class ZenNameMap
         return (result, null);
     }
 
+    /// <summary>
+    /// Appends new names to the name map (branch experiment, C16b: the names a new property tag needs). They go after
+    /// the last name, so no existing index changes; each gets its hash after the last hash. The names block is padded
+    /// to 8 before the hashes as stock is, and the header after the name map moves as one piece: ImportMapOffset,
+    /// ExportMapOffset, ExportBundlesOffset and GraphDataOffset grow by the shift. Export data positions are relative to
+    /// the cooked header (CookedSerialOffset − CookedHeaderSize from the end of the graph data), so they don't change.
+    /// Refused unless every stored hash is reproduced by <see cref="Hash"/>, the names are new, distinct, plain ASCII, and
+    /// the header is laid out as expected (names, pad, hashes, then the import map directly). Returns the new chunk and
+    /// the shift.
+    /// </summary>
+    public static (byte[]? Chunk, int Shift, string? Why) Append(ReadOnlySpan<byte> chunk, IReadOnlyList<string> newNames)
+    {
+        IReadOnlyList<ZenName> names;
+        try { names = Read(chunk); }
+        catch (InvalidDataException e) { return (null, 0, e.Message); }
+        if (names.FirstOrDefault(n => Hash(n.Text, n.Wide) != n.Hash) is { } bad)
+            return (null, 0, $"the stored hash of name {bad.Index} \"{bad.Text}\" isn't reproduced; the hash rule doesn't hold for this package");
+        if (newNames.Count == 0 || newNames.Distinct(StringComparer.Ordinal).Count() != newNames.Count) return (null, 0, "the new names must be distinct and at least one");
+        if (newNames.FirstOrDefault(n => names.Any(m => m.Text == n)) is { } present) return (null, 0, $"\"{present}\" is already in the name map");
+        if (newNames.FirstOrDefault(n => n.Length is 0 or > 1023 || n.Any(c => c is < (char) 0x20 or > (char) 0x7E)) is { } odd) return (null, 0, $"\"{odd}\" isn't a plain ASCII name");
+
+        int namesAt = I32(chunk, 24), namesSize = I32(chunk, 28), hashesAt = I32(chunk, 32), hashesSize = I32(chunk, 36), importAt = I32(chunk, 40);
+        int namesEnd = namesAt + namesSize;
+        if (hashesAt != Align8(namesEnd) || importAt != hashesAt + hashesSize) return (null, 0, $"unexpected header layout (names end @{namesEnd}, hashes @{hashesAt}+{hashesSize}, import map @{importAt})");
+        if (chunk[namesEnd..hashesAt].IndexOfAnyExcept((byte) 0) >= 0) return (null, 0, "the padding before the hashes isn't zero");
+
+        var added = new List<byte>();
+        foreach (var n in newNames) { added.Add((byte) (n.Length >> 8)); added.Add((byte) (n.Length & 0xFF)); added.AddRange(Encoding.ASCII.GetBytes(n)); }
+        int newNamesSize = namesSize + added.Count, newHashesAt = Align8(namesAt + newNamesSize), newHashesSize = hashesSize + 8 * newNames.Count;
+        int shift = newHashesAt + newHashesSize - importAt;
+        var result = new byte[chunk.Length + shift];
+        chunk[..namesEnd].CopyTo(result);
+        added.ToArray().CopyTo(result, namesEnd);
+        chunk.Slice(hashesAt, hashesSize).CopyTo(result.AsSpan(newHashesAt));
+        for (int i = 0; i < newNames.Count; i++) BinaryPrimitives.WriteUInt64LittleEndian(result.AsSpan(newHashesAt + hashesSize + 8 * i), Hash(newNames[i], false));
+        chunk[importAt..].CopyTo(result.AsSpan(importAt + shift));
+        BinaryPrimitives.WriteInt32LittleEndian(result.AsSpan(28), newNamesSize);
+        BinaryPrimitives.WriteInt32LittleEndian(result.AsSpan(32), newHashesAt);
+        BinaryPrimitives.WriteInt32LittleEndian(result.AsSpan(36), newHashesSize);
+        foreach (var at in new[] { 40, 44, 48, 52 }) BinaryPrimitives.WriteInt32LittleEndian(result.AsSpan(at), I32(chunk, at) + shift);
+        return (result, shift, null);
+    }
+
+    private static int Align8(int v) => (v + 7) & ~7;
+
     private static int I32(ReadOnlySpan<byte> c, int at) => BinaryPrimitives.ReadInt32LittleEndian(c[at..]);
 }
