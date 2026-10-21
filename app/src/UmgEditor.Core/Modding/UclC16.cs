@@ -16,6 +16,10 @@ namespace UmgEditor.Core.Modding;
 /// - replay: DemoTitle's plate → class MatchTimeBase (the navy gradient), plus MatchTimeBase and its texture.
 /// Every package is built in layers, each verified by its own tool, then <see cref="LayerUnion.Check"/> against stock.
 /// The art comes from work/out/art/C16 (make_bar_texture.py art, make_gradient.py, image_to_bgra.py).
+/// C16b (<c>centreNames</c>): the goal scorer's and the card player's names centred, as UCL has them: two more layers on
+/// MatchTimeGoal and MatchTimeCard, the names a Justification tag needs appended to the name map
+/// (<see cref="EnumTagInsert.AppendNames"/>), then Justification = ETextJustify::Center inserted on the text
+/// (<see cref="EnumTagInsert.Insert"/>, its builder first checked against stock's own tag).
 /// </summary>
 public static class UclC16
 {
@@ -42,7 +46,7 @@ public static class UclC16
         public bool Ok => Steps.All(s => s.Ok);
     }
 
-    public static Output Build(GameSource source, GameConfig config, string set, IReadOnlyCollection<string> groups, string? artDir = null)
+    public static Output Build(GameSource source, GameConfig config, string set, IReadOnlyCollection<string> groups, string? artDir = null, bool centreNames = false)
     {
         var o = new Output();
         artDir ??= Path.Combine(config.WorkDir, "out", "art", "C16");
@@ -116,6 +120,28 @@ public static class UclC16
                 if (!Clone(r, $"{folder}/{newName} (white, stock alpha)", Whiten(stockMips[0].BulkData!.Data!))) return false;
             }
             return true;
+        }
+
+        // C16b: Justification = Center on a banner text (the names first, then the tag), as two more layers
+        string[] justifyNames = ["Justification", "ETextJustify", "ETextJustify::Center"];
+        bool anchored = false;
+        List<byte[]>? Centre(string packagePath, byte[] chunk, string text)
+        {
+            if (!anchored)
+            {
+                var why = EnumTagInsert.CheckAgainst(source, MT + "MatchTime", "Text_TeamName_Home", "Justification", "ByteProperty", "ETextJustify", "ETextJustify::Center");
+                if (!Check("Justification tag builder reproduces stock's (MatchTime Text_TeamName_Home) byte for byte", why == null, why ?? "41 bytes")) return null;
+                anchored = true;
+            }
+            var (fileKey, _) = source.ReadPackageBytes(packagePath);
+            var names = EnumTagInsert.AppendNames(source, fileKey, chunk, justifyNames);
+            Log($"{Short(packagePath)}: names for Justification appended", names.Log);
+            if (!Check($"{Short(packagePath)}: Justification names appended (old names and hashes kept, header shifted, every export re-parses identically)", names.Chunk != null, string.Join(" | ", names.Refusals))) return null;
+            var tag = EnumTagInsert.Insert(source, fileKey, names.Chunk!, text, "VerticalAlignment", "Justification", "ByteProperty", "ETextJustify", "ETextJustify::Center");
+            Log($"{Short(packagePath)}: {text}.Justification = Center", tag.Log);
+            if (!Check($"{Short(packagePath)}: {text}.Justification = ETextJustify::Center inserted (cut out = input, re-parse, walk)", tag.Chunk != null, string.Join(" | ", tag.Refusals))) return null;
+            o.Expects.Add(new Expect(packagePath, text, "Properties.Justification", "ETextJustify::Center"));
+            return [names.Chunk!, tag.Chunk!];
         }
 
         if (groups.Contains("board") && !Board()) return o;
@@ -202,12 +228,27 @@ public static class UclC16
             var layer3 = ClassSwap.Swap(source, fileKey, layer2.Chunk!, "MatchTimeBase_1", DT + "DemoTitleBase");
             Log("MatchTimeGoal layer 3: MatchTimeBase_1 → DemoTitleBase_C", layer3.Log);
             if (!Check("MatchTimeGoal layer 3 (plate class → DemoTitleBase_C): slots, byte diff, re-parse", layer3.Chunk != null, string.Join(" | ", layer3.Refusals))) return false;
-            if (!Finish(MT + "MatchTimeGoal", [layer1, layer2.Chunk!, layer3.Chunk!], [layer3.PackageSwap])) return false;
+            var goalLayers = new List<byte[]> { layer1, layer2.Chunk!, layer3.Chunk! };
+            if (centreNames)
+            {
+                if (Centre(MT + "MatchTimeGoal", layer3.Chunk!, "Text_PlayerName") is not { } extra) return false;
+                goalLayers.AddRange(extra);
+            }
+            if (!Finish(MT + "MatchTimeGoal", goalLayers, [layer3.PackageSwap])) return false;
             o.Expects.Add(new Expect(MT + "MatchTimeGoal", "Text_PlayerName", "Properties.color", White));
             o.Expects.Add(new Expect(MT + "MatchTimeGoal", "MatchTimeBase_1", "Class", "DemoTitleBase_C"));
 
             foreach (var banner in new[] { "MatchTimeCard", "MatchTimeMemberChange" })
-                if (EditSet(MT + banner) is not { } chunk || !Finish(MT + banner, [chunk])) return false;
+            {
+                if (EditSet(MT + banner) is not { } chunk) return false;
+                var layers = new List<byte[]> { chunk };
+                if (centreNames && banner == "MatchTimeCard")
+                {
+                    if (Centre(MT + banner, chunk, "Text_Value") is not { } extra) return false;
+                    layers.AddRange(extra);
+                }
+                if (!Finish(MT + banner, layers)) return false;
+            }
 
             if (!Navy()) return false;
             if (!Repoint(DT + "DemoTitleBase", DT + "Tex720/DemoTitlePlate.DemoTitlePlate", DT + "Tex720/DemoTitleUCL01.DemoTitleUCL01", true)) return false;

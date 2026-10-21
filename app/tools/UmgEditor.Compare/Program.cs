@@ -47,7 +47,7 @@ switch (args.FirstOrDefault())
         Console.WriteLine("       umgcompare anim-dump <packagePath> <out.json> [--pc]   every MovieScene/WidgetAnimation export as JSON");
         Console.WriteLine("       umgcompare export-dump <packagePath> <out.json> [--pc]   every export (widgets, slots, animations) as JSON");
         Console.WriteLine("       umgcompare export-tex <outDir> <objectPath>... [--pc | --mod DIR]   textures decoded to PNG (read-only)");
-        Console.WriteLine("       umgcompare canary-ucl [C16] [--set C16] [--only board,banners,replay]   builds canary C16 (the complete UCL look)");
+        Console.WriteLine("       umgcompare canary-ucl [C16] [--set C16] [--only board,banners,replay] [--art DIR] [--centre]   builds canary C16 (the complete UCL look); C16b = --centre");
         return 2;
 }
 
@@ -302,7 +302,8 @@ int CanaryUcl()
     var groups = Opt("--only")?.Split(',') ?? UmgEditor.Core.Modding.UclC16.AllGroups;
     if (groups.Except(UmgEditor.Core.Modding.UclC16.AllGroups).Any()) { Console.WriteLine($"--only takes {string.Join(", ", UmgEditor.Core.Modding.UclC16.AllGroups)}"); return 2; }
     using var source = GameSource.Open(config);
-    var built = UmgEditor.Core.Modding.UclC16.Build(source, config, set, groups);
+    // C16b: --centre (the goal scorer's and card player's names centred), --art DIR (e.g. work/out/art/C16b)
+    var built = UmgEditor.Core.Modding.UclC16.Build(source, config, set, groups, Opt("--art"), args.Contains("--centre"));
     foreach (var l in built.Log) Console.WriteLine(l);
     foreach (var step in built.Steps) Check(step.What, step.Ok, step.Detail);
     if (failures > 0) return 1;
