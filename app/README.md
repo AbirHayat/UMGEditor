@@ -49,8 +49,9 @@ afterwards for more offline tests.
 - **Stored values only.** A value is edited where the cooked file already stores it, at the same size. A field the
   file doesn't store (the engine default) is greyed out, with the reason. Only CanvasPanelSlot position, size, anchors,
   alignment and ZOrder are editable.
-- **No keyframes.** Animation tracks aren't edited. An animation that keys a slot's margins (e.g. `KickOff_Show`) or
-  moves a widget can override or shift your value while it plays. The pre-edit warnings name these.
+- **No keyframes in the editor.** The editor doesn't edit animation tracks. An animation that keys a slot's margins
+  (e.g. `KickOff_Show`) or moves a widget can override or shift your value while it plays. The pre-edit warnings name
+  these. (Branch `experiment`: `umgmod anim-flatten` changes key values; see below.)
 - **Preview placeholders.** Text is drawn as the widget's name in a placeholder font ("font not rendered"),
   materials and textures that can't be decoded are labelled boxes, and tint isn't applied. Positions and sizes match
   the game (checked against screenshots to ±3 px); colours and glyphs are not reproduced.
@@ -123,6 +124,8 @@ umgmod [--set NAME] show  <package>
 umgmod [--set NAME] reset <package>
 umgmod [--set NAME] build <modName> <package>... [--container pc9999_mobile_and_P] [--ack-danger]
 umgmod [--set NAME] predict <package>...
+umgmod show-anim <package> [--anim REGEX] [--widget NAME] [--bytes]
+umgmod [--set NAME] anim-flatten <package> <anim,anim...> [--parts width,visibility,positions] [--normal-from Info_Hide] [--check Show] [--yes]
 ```
 
 - `edit` applies one SlotEditor edit to the package's PatchSession and saves it (`work\edits[\NAME]\<package path>`).
@@ -131,6 +134,22 @@ umgmod [--set NAME] predict <package>...
 - Branch `experiment`: `edit … set Offsets.Left 20` also works on an Offsets value that isn't stored (shown as
   `default`), as long as another value of that Offsets struct is. Saving adds it as a 29-byte tag, so the package
   grows (`show` lists it as `NEW TAG` with the header values it changes). Device-tested by canary C10.
+- `show-anim` prints every animation of the package and what each track does; `--bytes` adds every key with its
+  byte offsets (section copy and compiled copy). Read-only.
+- Branch `experiment`: `anim-flatten` makes the named animations keep the normal state. Every key of every channel is
+  set to that channel's last key in `--normal-from` (default `Info_Hide`), cross-checked against its last key in
+  `--check` (default `Show`). A mismatch, a missing value, or a float channel with a tangent above 1e-6 refuses the
+  plan. `--parts` picks the tracks: `width` (slot margin tracks), `visibility` (visibility byte tracks), `positions`
+  (2D transform and opacity tracks). Only key values change, at the same size, in the section copy **and** the
+  compiled copy (`MovieSceneCompiledData`) when there is one. It is saved like any edit (first edit: exit 3 until
+  `--yes`), and `show`/`build` list every write. Canary C11 and its variants C11a/b/c were made this way
+  (`work/out/mods/CANARY_C11.md`).
+- Animation keys have their own location rule. Key blocks repeat across widgets, and a key's two copies are
+  byte-identical, so the ±32-byte window often isn't unique. Instead, each write records the smallest window around
+  it, computed on the stock bytes, that occurs exactly once in the chunk (±32 in 16-byte steps). Beyond ±512 it is
+  refused. The location must also follow from the section's own tags, the compiled copy must be inside the
+  animation's compiled export with the same stock bytes, and the stock bytes must decode to the parsed value. The
+  exact byte diff and the full re-parse of every export stay hard refusals. Layout values keep the ±32 rule.
 - `build` is the export dialog without the window: the same plan (`PlanExport`: the same refusals) and run
   (`RunExport`), so it writes `mod\<container>.{utoc,ucas,pak}`, `predictions\` and `TEST_INSTRUCTIONS.md` under
   `work\out\mods\<modName>`. The packing steps are the same as `work/scripts/make_mod.py` (kept as the reference),
