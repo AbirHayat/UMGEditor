@@ -20,3 +20,6 @@ fmodel_exports/
 
 # third-party reference material (captures of other mods), not ours to redistribute
 /3rd_party_ingame/
+
+# the user's own design art (source images for the canary textures), kept out of the repo
+/custom Design/
