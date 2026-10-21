@@ -30,6 +30,7 @@ switch (args.FirstOrDefault())
     case "check-pc": return CheckPc();
     case "compare": return Compare();
     case "anim-dump": return AnimDump();
+    case "export-dump": return AnimDump(all: true);
     case "anim-keys": return AnimKeys();
     case "anim-report": return AnimReportCommand();
     case "mod-diff": return RunModDiff();
@@ -40,6 +41,7 @@ switch (args.FirstOrDefault())
         Console.WriteLine("usage: umgcompare check-pc|compare [--pc-paks DIR] [--focus SUBSTR] [--out DIR]");
         Console.WriteLine("       umgcompare anim-keys <packagePath> [--anim REGEX] [--widget NAME] [--pc]   keys of every channel, checked against the compiled copy");
         Console.WriteLine("       umgcompare anim-dump <packagePath> <out.json> [--pc]   every MovieScene/WidgetAnimation export as JSON");
+        Console.WriteLine("       umgcompare export-dump <packagePath> <out.json> [--pc]   every export (widgets, slots, animations) as JSON");
         return 2;
 }
 
@@ -192,14 +194,14 @@ int AnimKeys()
     return 0;
 }
 
-int AnimDump()
+int AnimDump(bool all = false)
 {
     using var source = GameSource.Open(SourceConfig());
     var pkg = source.LoadPackage(args[1]);
     var dump = new List<object>();
     foreach (var e in pkg.GetExports())
     {
-        if (!e.ExportType.Contains("MovieScene") && e.ExportType != "WidgetAnimation") continue;
+        if (!all && !e.ExportType.Contains("MovieScene") && e.ExportType != "WidgetAnimation") continue;
         var outer = new List<string>();
         for (var o = e.Outer; o != null; o = o.Outer) outer.Add(o.Name.Text);
         dump.Add(new { e.Name, e.ExportType, Outer = string.Join(" < ", outer), Json = Newtonsoft.Json.Linq.JToken.FromObject(e).ToString() });
