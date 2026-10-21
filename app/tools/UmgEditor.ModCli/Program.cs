@@ -8,6 +8,8 @@
 //   umgmod [--set NAME] predict <package>...
 //   umgmod show-anim <package> [--anim REGEX] [--widget NAME] [--bytes]
 //   umgmod [--set NAME] anim-flatten <package> <anim,anim...> [--parts width,visibility,positions] [--normal-from Info_Hide] [--check Show] [--yes]
+//   umgmod [--set NAME] anim-key <package> <anim> <widget> <channel> <key#> <value|frame|interp> <new> [--yes]
+//   umgmod [--set NAME] anim-end <package> <anim> <oldEndTicks> <newEndTicks> [--yes]
 // <package> is a /Game/... path or a unique suffix such as MatchTime/MatchTimeBase. Edits are saved PatchSessions in
 // work\edits[\NAME]\<package path>; build packs their saved chunks into work\out\mods\<modName>\mod (the export
 // dialog's plan and run: predictions\ and TEST_INSTRUCTIONS.md next to it). Exit 0 = done, 2 = refused, 3 = needs
@@ -81,7 +83,7 @@ void PrintPlan(PatchSession s)
         Console.WriteLine($"  {i.SlotName}.{i.Path}  NEW TAG before {i.Before} @ {i.InsertAtHex}  {Num(i.Key is { } k ? s.BaseValue(k) ?? 0 : 0)} (default) -> {Num(i.Value)}  [{i.TagHex}]\n      context x{i.ContextMatches}");
     if (plan.ChangesSize) Console.WriteLine($"  {plan.SizeText}; {PackageBytes.HeaderChangesOf(plan)}");
     if (plan.AnimWrites.Count > 0)
-        Console.WriteLine($"  {plan.AnimKeyCount} animation keys in {plan.AnimWrites.Count} writes (location proof: smallest unique stock window, limit ±{BytePlanner.MaxAnimWindow}):");
+        Console.WriteLine($"  {PackageBytes.AnimCounts(plan.AnimWrites)} (location proof: smallest unique stock window, limit ±{BytePlanner.MaxAnimWindow}):");
     foreach (var w in plan.AnimWrites)
         Console.WriteLine($"  {w.OffsetHex,-9} {w.Copy,-8} {w.Description}  {Num(w.OldValue)} -> {Num(w.NewValue)}  [{w.OldHex}] -> [{w.NewHex}]  {w.WindowText}");
     foreach (var r in plan.Refusals) Console.WriteLine($"  REFUSED [{r.Rule}] {r.Message}");
@@ -232,6 +234,34 @@ try
             PrintPlan(session);
             return saved.Saved ? 0 : 2;
         }
+        case "anim-key" when argv.Count >= 8:
+        {
+            // one key's value, frame (ticks) or interp mode (0 Linear, 1 Constant, 2 Cubic); both copies when it has a compiled one
+            var package = ResolvePackage(argv[1]);
+            var session = OpenSession(package);
+            if (session.AnimKeys.Animations.FirstOrDefault(a => a.Name == argv[2]) is not { } anim) { Console.Error.WriteLine($"refused: {GamePaths.ShortName(package)} has no animation {argv[2]}"); return 2; }
+            var tracks = anim.Tracks.Where(t => t.Widget == argv[3] && t.Channels.Any(c => c.Path == argv[4])).ToList();
+            if (tracks.Count != 1) { Console.Error.WriteLine($"refused: {tracks.Count} tracks of {argv[3]} in {argv[2]} have a channel {argv[4]} (need exactly 1)"); return 2; }
+            var channel = tracks[0].Channels.Single(c => c.Path == argv[4]);
+            var keyIndex = int.Parse(argv[5], CultureInfo.InvariantCulture);
+            if (keyIndex < 0 || keyIndex >= channel.Keys.Count) { Console.Error.WriteLine($"refused: {argv[4]} has {channel.Keys.Count} keys"); return 2; }
+            var field = Enum.Parse<UmgEditor.Core.Animation.AnimKeyField>(argv[6], ignoreCase: true);
+            var key = UmgEditor.Core.Animation.AnimKeyIndex.KeyOf(package, tracks[0], channel, keyIndex, field);
+            var value = double.Parse(argv[7], CultureInfo.InvariantCulture);
+            Console.WriteLine($"{argv[2]} · {argv[3]} · {argv[4]} · key {keyIndex} {field}: {Num(session.BaseValue(key) ?? double.NaN)} -> {Num(value)}");
+            return ApplyAndSave(session, package, [new FieldChange(key, session.BaseValue(key) ?? 0, value)]);
+        }
+        case "anim-end" when argv.Count >= 5:
+        {
+            // C9's range edit: every range bound of the animation at oldEnd -> newEnd (the MovieScene's playback end oldEnd+1 -> newEnd+1)
+            var package = ResolvePackage(argv[1]);
+            var session = OpenSession(package);
+            var (oldEnd, newEnd) = (int.Parse(argv[3], CultureInfo.InvariantCulture), int.Parse(argv[4], CultureInfo.InvariantCulture));
+            var changes = session.AnimationEndChanges(argv[2], oldEnd, newEnd);
+            if (changes.Count == 0) { Console.Error.WriteLine($"refused: no range bound of {argv[2]} at {oldEnd}"); return 2; }
+            foreach (var c in changes) Console.WriteLine($"  {session.AnimRange(c.Key).Ref!.Description} -> {Num(c.NewValue)}");
+            return ApplyAndSave(session, package, changes);
+        }
         case "show-anim":
         {
             // every animation of the package, what each track does, and with --bytes every key with its byte locations
@@ -274,6 +304,20 @@ static T? Try<T>(Func<T> f) where T : class
     catch { return null; }
 }
 
+int ApplyAndSave(PatchSession session, string package, IReadOnlyList<FieldChange> changes)
+{
+    if (session.Saved.Count == 0 && !session.IsDirty && !yes)
+    {
+        Console.WriteLine($"First edit of {GamePaths.ShortName(package)}{(editSet != null ? $" in set {editSet}" : "")}: read the above, then re-run with --yes.");
+        return 3;
+    }
+    if (session.Apply(EditResult.Of(changes)) is { } why) { Console.Error.WriteLine($"refused: {why}"); return 2; }
+    var saved = session.Save();
+    Console.WriteLine(saved.Summary);
+    PrintPlan(session);
+    return saved.Saved ? 0 : 2;
+}
+
 static int Usage()
 {
     Console.Error.WriteLine("""
@@ -287,6 +331,8 @@ static int Usage()
           umgmod [--set NAME] predict <package>...
           umgmod show-anim <package> [--anim REGEX] [--widget NAME] [--bytes]
           umgmod [--set NAME] anim-flatten <package> <anim,anim...> [--parts width,visibility,positions] [--normal-from Info_Hide] [--check Show] [--yes]
+          umgmod [--set NAME] anim-key <package> <anim> <widget> <channel> <key#> <value|frame|interp> <new> [--yes]
+          umgmod [--set NAME] anim-end <package> <anim> <oldEndTicks> <newEndTicks> [--yes]
         <package>: /Game/... path or a unique suffix (MatchTime/MatchTimeBase); <field>: e.g. Offsets.Right
         """);
     return 1;
