@@ -40,6 +40,7 @@ switch (args.FirstOrDefault())
     case "canary-texture": return CanaryTexture();
     case "canary-scoreboard": return CanaryScoreboard();
     case "canary-ucl": return CanaryUcl();
+    case "canary-font": return CanaryFont();
     default:
         Console.WriteLine("       umgcompare mod-diff --mod DIR [--out DIR]   what a PC mod folder changes against PC stock");
         Console.WriteLine("usage: umgcompare check-pc|compare [--pc-paks DIR] [--focus SUBSTR] [--out DIR]");
@@ -47,6 +48,7 @@ switch (args.FirstOrDefault())
         Console.WriteLine("       umgcompare anim-dump <packagePath> <out.json> [--pc]   every MovieScene/WidgetAnimation export as JSON");
         Console.WriteLine("       umgcompare export-dump <packagePath> <out.json> [--pc]   every export (widgets, slots, animations) as JSON");
         Console.WriteLine("       umgcompare export-tex <outDir> <objectPath>... [--pc | --mod DIR]   textures decoded to PNG (read-only)");
+        Console.WriteLine("       umgcompare canary-font [C17a] [--ucl-pak FILE]   builds canary C17a (UCL's font as a loose .ufont in a pak-only mod, no package edits)");
         Console.WriteLine("       umgcompare canary-ucl [C16] [--set C16] [--only board,banners,replay] [--art DIR] [--centre]   builds canary C16 (the complete UCL look); C16b = --centre");
         return 2;
 }
@@ -295,6 +297,79 @@ int CanaryScoreboard()
 
 // C16: the complete UCL look (UclC16: board, banners, replay; --only GROUP[,GROUP] builds a part, e.g. to isolate a
 // failure), packed and mounted with stock: every re-point, class swap and colour reads back, every new texture decodes.
+// C17a (probe): the UCL mod's font ("Champions", OpenType) shipped as a loose file in a pak-only legacy pak
+// (pc9998_mobile_and_P.pak, v11, index encrypted as stock's), replacing eFootballStencil-Regular.ufont = the Latin face
+// of HeadlineBold/HeadlineBoldSub. No package edits: tests loose-file delivery and a CFF font on mobile.
+int CanaryFont()
+{
+    var modName = args.Length > 1 && !args[1].StartsWith("--") ? args[1] : "C17a";
+    const string FontDir = "PesMobile/Content/Platforms/_Android/Assets/ui/Font/";
+    const string Target = "eFootballStencil-Regular.ufont", UclFile = "PesConsole/Content/Platforms/_Windows/Assets/ui/Font/NotoSansThai-ExtraBold.ufont";
+    const string PakName = "pc9998_mobile_and_P.pak";
+    var uclPak = Opt("--ucl-pak") ?? @"E:\n3tron\patch\pc_mods\3RD_PARTY\PesConsole\Content\Paks\~mods\UCL_theme_by_eFootball.cz\EfTheme_Fonts_P.pak";
+    var key = UmgEditor.Core.Modding.LegacyPak.KeyBytes(config.AesKey);
+    string Sha(byte[] b) => Convert.ToHexString(System.Security.Cryptography.SHA256.HashData(b)).ToLowerInvariant();
+
+    // the font: UCL's ExtraBold file, read by our reader and by CUE4Parse (PC stock + the UCL mod), which must agree
+    var (ucl, uclProblems) = UmgEditor.Core.Modding.LegacyPak.Read(File.ReadAllBytes(uclPak), key);
+    var font = ucl?.Files.SingleOrDefault(f => f.Path == UclFile)?.Data;
+    Check($"UCL font pak parses, {UclFile} found", font != null && uclProblems.All(p => p.StartsWith("index isn't encrypted")), string.Join(" | ", uclProblems));
+    if (font == null) return 1;
+    using (var pcMod = GameSource.Open(pcConfig with { ExtraPaksDirs = [Path.GetDirectoryName(uclPak)!] }))
+        Check("CUE4Parse reads the same font bytes from the UCL pak", pcMod.Provider.TrySaveAsset(UclFile, out var viaCue) && viaCue.AsSpan().SequenceEqual(font));
+    Check("font is OpenType (OTTO), 66,560 B", font.Length == 66_560 && System.Text.Encoding.ASCII.GetString(font, 0, 4) == "OTTO", $"{font.Length} B");
+    Console.WriteLine($"font: {font.Length:N0} B, sha256 {Sha(font)}");
+
+    // the target: a stock loose file in a legacy pak, read by its FontFace (only SourceFilename stored = LazyLoad from the file)
+    using var source = GameSource.Open(config);
+    var stockOk = source.Provider.Files.TryGetValue(FontDir + Target, out var stockEntry);
+    Check($"stock has {FontDir + Target} in a legacy pak", stockOk && stockEntry is CUE4Parse.UE4.Pak.Objects.FPakEntry, stockOk ? $"{stockEntry!.Size:N0} B ({stockEntry.GetType().Name})" : "missing");
+    var face = Newtonsoft.Json.JsonConvert.SerializeObject(source.LoadPackage("/Game/Platforms/_Android/Assets/ui/Font/eFootballStencil-Regular").GetExports().Single());
+    Check("its FontFace stores no LoadingPolicy (default LazyLoad: read from the .ufont)", !face.Contains("LoadingPolicy"));
+    var pes = Newtonsoft.Json.JsonConvert.SerializeObject(source.LoadPackage("/Game/Platforms/_Android/Assets/ui/Font/pes").GetExports().Single());
+    Check("pes uses eFootballStencil-Regular (the Latin HeadlineBold/HeadlineBoldSub face)", pes.Contains("FontFace'eFootballStencil-Regular'"));
+    if (failures > 0) return 1;
+
+    // the pak
+    var contents = new UmgEditor.Core.Modding.PakContents("../../../" + FontDir, UmgEditor.Core.Modding.LegacyPak.SeedFor(PakName), ["", "", "", "", ""],
+        [new UmgEditor.Core.Modding.PakFile(Target, font)]);
+    var pak = UmgEditor.Core.Modding.LegacyPak.Write(contents, key);
+    Check("two builds give identical bytes", pak.AsSpan().SequenceEqual(UmgEditor.Core.Modding.LegacyPak.Write(contents, key)));
+    var (back, backProblems) = UmgEditor.Core.Modding.LegacyPak.Read(pak, key);
+    Check("our reader: v11, index encrypted, GUID 0, every SHA-1 and the path hash check out", back != null && backProblems.Count == 0, string.Join(" | ", backProblems));
+    Check("our reader: one file, the font byte for byte, stored", back?.Files is [{ ZlibBlock: null } f] && f.Path == Target && f.Data.AsSpan().SequenceEqual(font));
+    if (failures > 0) return 1;
+
+    var guard = UmgEditor.Core.Patching.WriteGuard.ForMods(config);
+    var outDir = Path.Combine(config.ModsDir, modName);
+    var modDir = Path.Combine(outDir, "mod");
+    guard.DeleteDirectory(modDir);
+    guard.CreateDirectory(modDir);
+    var pakPath = Path.Combine(modDir, PakName);
+    guard.WriteAllBytes(pakPath, pak);
+
+    // CUE4Parse on the mod folder alone, then stock + mod as the game mounts them
+    using (var only = new CUE4Parse.FileProvider.DefaultFileProvider(modDir, SearchOption.TopDirectoryOnly, new CUE4Parse.UE4.Versions.VersionContainer(CUE4Parse.UE4.Versions.EGame.GAME_eFootball), StringComparer.Ordinal))
+    {
+        only.Initialize();
+        only.SubmitKey(new CUE4Parse.UE4.Objects.Core.Misc.FGuid(), new CUE4Parse.Encryption.Aes.FAesKey(config.AesKey));
+        Check("CUE4Parse mounts the pak alone and reads the font back at " + FontDir + Target,
+            only.Files.Count == 1 && only.TrySaveAsset(FontDir + Target, out var b) && b.AsSpan().SequenceEqual(font), $"{only.Files.Count} files");
+    }
+    using (var withMod = GameSource.Open(config with { ExtraPaksDirs = [modDir] }))
+    {
+        var sees = withMod.Provider.TrySaveAsset(FontDir + Target, out var b) && b.AsSpan().SequenceEqual(font);
+        Console.WriteLine($"info: with stock + mod mounted, CUE4Parse resolves {Target} to {(sees ? "the mod's font" : "stock's file")} (the game's order: _P paks after stock)");
+        Check("with stock + mod, every stock package still loads (MatchTime, pes)", withMod.LoadPackage(Tv + "MatchTime/MatchTime").GetExports().Any() && withMod.LoadPackage("/Game/Platforms/_Android/Assets/ui/Font/pes").GetExports().Any());
+    }
+
+    var build = new { mod = modName, pak = PakName, mount = contents.MountPoint, file = Target, fontSource = uclPak + " : " + UclFile, fontSha256 = Sha(font), pakSize = pak.Length, pakSha256 = Sha(pak) };
+    guard.WriteAllText(Path.Combine(outDir, "build.json"), System.Text.Json.JsonSerializer.Serialize(build, new System.Text.Json.JsonSerializerOptions { WriteIndented = true }));
+    Console.WriteLine($"{pakPath}  {pak.Length:N0} B  sha256 {Sha(pak)}");
+    Console.WriteLine(failures == 0 ? "ALL PASSED" : $"{failures} FAILED");
+    return failures == 0 ? 0 : 1;
+}
+
 int CanaryUcl()
 {
     var modName = args.Length > 1 && !args[1].StartsWith("--") ? args[1] : "C16";
