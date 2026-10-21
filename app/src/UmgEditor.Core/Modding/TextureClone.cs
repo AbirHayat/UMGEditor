@@ -60,10 +60,8 @@ public static class TextureClone
         log.Add($"{stockPath}: {platform.SizeX}×{platform.SizeY} {platform.PixelFormat}, {mips.Count} inline mip{(mips.Count == 1 ? "" : "s")} @{string.Join(", ", writes.Select(w => $"0x{w.Offset:X}"))}");
 
         // every name holding the short name must be the package path or the export name
-        var holders = ZenNameMap.Read(stock).Where(n => n.Text.Contains(oldShortName, StringComparison.Ordinal)).Select(n => n.Text).ToList();
-        if (holders.Order(StringComparer.Ordinal).SequenceEqual(new[] { stockPath, oldShortName }.Order(StringComparer.Ordinal)) == false)
-            return Refuse($"names holding \"{oldShortName}\": {string.Join(", ", holders)} (expected exactly the package path and the export name)");
-        var renamed = NameRenamePatch.Apply(source, fileKey, stock, [(stockPath, newPath), (oldShortName, newShortName)], writes);
+        if (NameRenames(stock, stockPath, newShortName, out var renames) is { } bad) return Refuse(bad);
+        var renamed = NameRenamePatch.Apply(source, fileKey, stock, renames, writes);
         log.AddRange(renamed.Log);
         if (!renamed.Ok) return new Result(null, renamed.Refusals, log);
 
@@ -125,10 +123,8 @@ public static class TextureClone
         }
 
         // rename first (verified on its own), then move on the renamed bytes: the rename keeps every offset
-        var holders = ZenNameMap.Read(stock).Where(n => n.Text.Contains(oldShortName, StringComparison.Ordinal)).Select(n => n.Text).ToList();
-        if (!holders.Order(StringComparer.Ordinal).SequenceEqual(new[] { stockPath, oldShortName }.Order(StringComparer.Ordinal)))
-            return Refuse($"names holding \"{oldShortName}\": {string.Join(", ", holders)} (expected exactly the package path and the export name)");
-        var renamed = NameRenamePatch.Apply(source, fileKey, stock, [(stockPath, newPath), (oldShortName, newShortName)]);
+        if (NameRenames(stock, stockPath, newShortName, out var renames) is { } bad) return Refuse(bad);
+        var renamed = NameRenamePatch.Apply(source, fileKey, stock, renames);
         log.AddRange(renamed.Log);
         if (!renamed.Ok) return new Result(null, renamed.Refusals, log);
         var r = renamed.Chunk!;
@@ -291,6 +287,37 @@ public static class TextureClone
                     o[(y * w + x) * 4 + c] = (byte) ((sum + n / 2) / n);
                 }
         return new Mip(w, h, o);
+    }
+
+    /// <summary>
+    /// FName keeps a trailing "_N" (digits, no leading zero unless just "0") as a number, so the name map holds only the
+    /// part before it: "MatchTimePlate_0" is "MatchTimePlate" with number 1. Returns (base, suffix).
+    /// </summary>
+    public static (string Base, string Suffix) SplitNumber(string name)
+    {
+        var i = name.LastIndexOf('_');
+        if (i <= 0 || i == name.Length - 1) return (name, "");
+        var digits = name[(i + 1)..];
+        return digits.All(char.IsAsciiDigit) && (digits[0] != '0' || digits.Length == 1) ? (name[..i], name[i..]) : (name, "");
+    }
+
+    /// <summary>
+    /// The name-map renames that give a texture package its new short name: the package path and the export name, as
+    /// the name map stores them (without an FName number suffix, which must be the same on both sides). Every name
+    /// holding the old base must be one of those two. Returns why not, or null.
+    /// </summary>
+    private static string? NameRenames(byte[] stock, string stockPath, string newShortName, out List<(string From, string To)> renames)
+    {
+        renames = [];
+        var folder = stockPath[..(stockPath.LastIndexOf('/') + 1)];
+        var (oldBase, oldSuffix) = SplitNumber(stockPath[folder.Length..]);
+        var (newBase, newSuffix) = SplitNumber(newShortName);
+        if (oldSuffix != newSuffix) return $"\"{newShortName}\" must end like \"{oldBase}{oldSuffix}\" (FName number suffix \"{oldSuffix}\")";
+        var holders = ZenNameMap.Read(stock).Where(n => n.Text.Contains(oldBase, StringComparison.Ordinal)).Select(n => n.Text).ToList();
+        if (!holders.Order(StringComparer.Ordinal).SequenceEqual(new[] { folder + oldBase, oldBase }.Order(StringComparer.Ordinal)))
+            return $"names holding \"{oldBase}\": {string.Join(", ", holders)} (expected exactly the package path and the export name)";
+        renames = [(folder + oldBase, folder + newBase), (oldBase, newBase)];
+        return null;
     }
 
     /// <summary>One colour for every pixel of every mip (B, G, R, A as stored).</summary>

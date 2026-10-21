@@ -70,6 +70,27 @@ public class ScoreboardTests
         Assert.IsTrue(r.Log.Any(l => l.Contains("2 values differ")), string.Join("\n", r.Log));
     }
 
+    /// <summary>FName keeps "_0" as a number: the name map holds "MatchTimePlate", the soft path "…MatchTimePlate_0.MatchTimePlate".</summary>
+    [TestMethod]
+    public void NumberedNames_CloneAndRepoint()
+    {
+        const string Plate = Tv + "MatchTime/Tex720/MatchTimePlate_0";
+        Assert.AreEqual(("MatchTimePlate", "_0"), UmgEditor.Core.Modding.TextureClone.SplitNumber("MatchTimePlate_0"));
+        Assert.AreEqual(("Plate_01", ""), UmgEditor.Core.Modding.TextureClone.SplitNumber("Plate_01"));
+        var clone = UmgEditor.Core.Modding.TextureClone.BuildResized(Source, Plate, "MatchTimeBarUC_0", [new(4, 2, UmgEditor.Core.Modding.TextureClone.Solid(0, 255, 0)(4, 2))]);
+        Console.WriteLine(string.Join("\n", clone.Log));
+        Assert.IsNotNull(clone.Package, string.Join("\n", clone.Refusals));
+        Assert.AreEqual(Tv + "MatchTime/Tex720/MatchTimeBarUC_0", clone.Package.PackagePath);
+        Assert.IsTrue(ZenNameMap.Read(clone.Package.Chunk).Any(n => n.Text == "MatchTimeBarUC"), "stored as base + number");
+        StringAssert.Contains(UmgEditor.Core.Modding.TextureClone.BuildResized(Source, Plate, "MatchTimeBarUCL0", [new(2, 2, new byte[16])]).Refusals.Single(), "FName number suffix");
+
+        var r = UmgEditor.Core.Modding.SoftPathRepoint.Build(Source, MatchTime, Tv + "MatchTime/Tex720/MatchTimePlate_0.MatchTimePlate", Tv + "MatchTime/Tex720/MatchTimeBarUC_0.MatchTimeBarUC");
+        Assert.IsNotNull(r.Package, string.Join("\n", r.Refusals));
+        var (fileKey, _) = Source.ReadPackageBytes(MatchTime);
+        var img = Source.ParsePackage(fileKey, r.Package.Chunk).ExportsLazy.Select(e => e.Value).Single(e => e.Name == "Img_Line");
+        StringAssert.Contains(Newtonsoft.Json.JsonConvert.SerializeObject(img), Tv + "MatchTime/Tex720/MatchTimeBarUC_0.MatchTimeBarUC_0");
+    }
+
     [TestMethod]
     public void SwapEnum_Refusals()
     {

@@ -182,10 +182,12 @@ int CanaryScoreboard()
     var modName = args.Length > 1 && !args[1].StartsWith("--") ? args[1] : "C15";
     var set = Opt("--set") ?? modName;
     const string MatchTime = Tv + "MatchTime/MatchTime";
-    const string NewTexture = "MatchTimeBarUCL0";
+    const string NewTexture = "MatchTimeBarUC_0"; // ends in "_0" like MatchTimePlate_0: FName stores it as base + number
     const int ArtWidth = 2964, ArtHeight = 96;
     var artPath = Opt("--art") ?? Path.Combine(config.WorkDir, "out", "art", "C15", $"{NewTexture}_{ArtWidth}x{ArtHeight}.bgra");
-    string softFrom = Tv + "MatchTime/Tex720/MatchTimePlate_0.MatchTimePlate_0", softTo = Tv + $"MatchTime/Tex720/{NewTexture}.{NewTexture}";
+    // the soft path as the name map stores it: "…/MatchTimePlate_0.MatchTimePlate" + number 1 (= "_0")
+    string softFrom = Tv + "MatchTime/Tex720/MatchTimePlate_0.MatchTimePlate", softTo = Tv + $"MatchTime/Tex720/{NewTexture}.{NewTexture[..^2]}";
+    string softToFull = Tv + $"MatchTime/Tex720/{NewTexture}.{NewTexture}";
     const string Dark = "ColorEnum_String::NewEnumerator87", White = "ColorEnum_String::NewEnumerator86";
     using var source = GameSource.Open(config);
 
@@ -234,7 +236,7 @@ int CanaryScoreboard()
     var (_, finalProblems, changedExports) = UmgEditor.Core.Patching.TagInserter.ReparseDiff(source, fileKey, stockPkg, final, StockFlat, (export, key, old, now) =>
     {
         if (export == Export("Normal_Display") && key == "Properties.Clipping" && now == null) { planned++; return true; }
-        if (export == Export("Img_Line") && key == "Properties.texture.AssetPathName" && now?.Trim('"') == softTo) { planned++; return true; }
+        if (export == Export("Img_Line") && key == "Properties.texture.AssetPathName" && now?.Trim('"') == softToFull) { planned++; return true; }
         if (expected.ContainsKey((export, key)) && now?.Trim('"') == White) { planned++; return true; }
         if (Flat1(export).GetValueOrDefault(key) is { } v1 && v1 != StockFlat(export).GetValueOrDefault(key) && v1 == now) { fromLayer1++; return true; }
         return false;
@@ -274,7 +276,7 @@ int CanaryScoreboard()
     {
         var mt = withMod.LoadPackage(MatchTime).GetExports().ToList();
         string Json(string name) => Newtonsoft.Json.JsonConvert.SerializeObject(mt.Single(e => e.Name == name));
-        Check("mounted: Img_Line points at " + NewTexture, Json("Img_Line").Contains(softTo), "");
+        Check("mounted: Img_Line points at " + NewTexture, Json("Img_Line").Contains(softToFull), "");
         Check("mounted: both scores are white (" + White + ")", Json("Text_Score_Home").Contains(White) && Json("Text_Score_Away").Contains(White), "");
         Check("mounted: Normal_Display has no Clipping property (default Inherit)", !Json("Normal_Display").Contains("Clipping"), "");
         foreach (var c in clones)
