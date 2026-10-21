@@ -20,7 +20,7 @@ public static class SoftPathRepoint
         var (fileKey, stock) = source.ReadPackageBytes(packagePath);
         var log = new List<string>();
         var writes = new List<(int Offset, byte[] Bytes, string What)>();
-        var expected = new Dictionary<(int Export, string Path), double>();
+        var expected = new Dictionary<(int Export, string Path), string>();
         if (values is { Count: > 0 })
         {
             var package = source.ParsePackage(fileKey, stock);
@@ -31,7 +31,7 @@ public static class SoftPathRepoint
                 var index = exports.FindIndex(e => e.Name == exportName);
                 if (index < 0 || exports.Count(e => e.Name == exportName) != 1) return new Result(null, [$"{packagePath} has {exports.Count(e => e.Name == exportName)} exports named {exportName}"], log);
                 changes.Add(new FieldChange(new FieldKey(packagePath, index, path), 0, value));
-                expected[(index, "Properties." + path)] = value;
+                expected[(index, "Properties." + path)] = value.ToString("R", System.Globalization.CultureInfo.InvariantCulture);
             }
             // the parse writes a float as its shortest decimal ("0.33"); the stored value is the float that decimal stands for
             double? Stock(FieldKey k) => WidgetTreeReader.StoredValues(exports[k.SlotExport]).TryGetValue(k.Path, out var t)
