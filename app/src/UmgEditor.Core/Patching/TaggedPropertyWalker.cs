@@ -16,6 +16,15 @@ public sealed record FieldLocation(string Path, int Offset, int Length, FieldTyp
     };
 }
 
+/// <summary>One top-level tagged property of an export.</summary>
+/// <param name="Extra">StructName, or the EnumName / inner type of Byte/Enum/Array/Set properties</param>
+/// <param name="NameValue">The FName an enum value holds (8-byte EnumProperty or ByteProperty with an enum), else null</param>
+public sealed record TagLocation(string Name, string Type, int ArrayIndex, int TagStart, int ValueStart, int Size, string? Extra, string? NameValue)
+{
+    public int End => ValueStart + Size;
+    public int Length => End - TagStart;
+}
+
 /// <summary>
 /// Walks UE 4.26 tagged property serialization (FPropertyTag) inside one export and reports where every float,
 /// int32 and bool value lives. Tag: Name, Type (FNames = index into the Zen name map + number), Size, ArrayIndex,
@@ -103,6 +112,39 @@ public sealed class TaggedPropertyWalker(IReadOnlyList<string> nameMap)
                     break;
             }
             pos = valueStart + size;
+        }
+    }
+
+    /// <summary>
+    /// The export's top-level tags in order: where each tag starts, where its value starts, its size, and for
+    /// ByteProperty-with-enum / EnumProperty values of 8 bytes, the FName it holds (branch experiment, C15).
+    /// </summary>
+    public List<TagLocation> TopLevelTags(ReadOnlySpan<byte> c, ExportSpan export)
+    {
+        var tags = new List<TagLocation>();
+        int pos = export.Start;
+        while (true)
+        {
+            if (pos + 8 > export.End) throw new InvalidDataException($"no terminating None tag before {export.End}");
+            var tagStart = pos;
+            var name = Name(c, pos); pos += 8;
+            if (name == "None") return tags;
+            var type = Name(c, pos); pos += 8;
+            var size = I32(c, pos); pos += 4;
+            var arrayIndex = I32(c, pos); pos += 4;
+            string? extra = null;
+            switch (type)
+            {
+                case "StructProperty": extra = Name(c, pos); pos += 8 + 16; break;
+                case "BoolProperty": pos += 1; break;
+                case "ByteProperty" or "EnumProperty" or "ArrayProperty" or "SetProperty": extra = Name(c, pos); pos += 8; break;
+                case "MapProperty": pos += 16; break;
+            }
+            if (c[pos++] != 0) pos += 16;
+            if (pos + size > export.End) throw new InvalidDataException($"{name}: value of {size} bytes runs past {export.End}");
+            var nameValue = type is "EnumProperty" || (type == "ByteProperty" && extra != "None") ? size == 8 ? Name(c, pos) : null : null;
+            tags.Add(new TagLocation(name, type, arrayIndex, tagStart, pos, size, extra, nameValue));
+            pos += size;
         }
     }
 
