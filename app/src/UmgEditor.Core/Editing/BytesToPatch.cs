@@ -137,12 +137,35 @@ public sealed record InsertRow(TagInsertion Insertion, string Widget, double Def
     }
 }
 
+/// <summary>
+/// One animation key value write (branch experiment): section or compiled copy, old → new, and its location proof, the
+/// smallest stock window around it that occurs exactly once in the chunk (animation keys only; layout values keep ±32).
+/// </summary>
+public sealed record AnimRow(AnimWrite Write)
+{
+    public string What => Write.Description;
+    public string Copy => Write.Copy;
+    public string ValueText => $"{SlotEditor.Format(Write.OldValue)} → {SlotEditor.Format(Write.NewValue)}";
+    public string BytesText => $"{Write.OffsetHex}  {Write.OldHex} → {Write.NewHex}";
+    public string WindowText => Write.WindowText;
+
+    public string ToText() =>
+        $"  {What} · {Copy} copy (export {Write.Export})\n    offset   {Write.OffsetHex}\n    value    {ValueText}\n    bytes    {Write.OldHex} → {Write.NewHex}\n    proof    {WindowText}\n";
+}
+
 /// <summary>The bytes to patch for one package of the project, or why its save would be refused.</summary>
 public sealed record PackageBytes(string Package, string FileKey, int StockSize, bool Dirty, IReadOnlyList<PatchRow> Rows, IReadOnlyList<PatchRefusal> Refusals)
 {
     public IReadOnlyList<InsertRow> Insertions { get; init; } = [];
     /// <summary>The header values the inserted tags change, as one line (null without insertions).</summary>
     public string? HeaderChanges { get; init; }
+    /// <summary>Animation key writes (section and compiled copies), by offset.</summary>
+    public IReadOnlyList<AnimRow> AnimRows { get; init; } = [];
+    public int AnimKeyCount => AnimRows.Select(r => r.Write.Key).Distinct().Count();
+    /// <summary>"63 animation keys in 99 writes; location proof = smallest unique stock window (±32…±384)", null without any.</summary>
+    public string? AnimText => AnimRows.Count == 0 ? null
+        : $"{AnimKeyCount} animation key{(AnimKeyCount == 1 ? "" : "s")} in {AnimRows.Count} write{(AnimRows.Count == 1 ? "" : "s")} (section + compiled copy where one exists); " +
+          $"location proof per write = the smallest stock window that occurs exactly once (±{AnimRows.Min(r => r.Write.Window)}…±{AnimRows.Max(r => r.Write.Window)}, limit ±{BytePlanner.MaxAnimWindow}).";
 
     public int EditedSize => StockSize + TagInserter.FloatTagSize * Insertions.Count;
     public string Name => GamePaths.ShortName(Package);
@@ -152,7 +175,7 @@ public sealed record PackageBytes(string Package, string FileKey, int StockSize,
         ? $"{Name} · {StateText} · {StockSize:N0} bytes, size unchanged"
         : $"{Name} · {StateText} · {StockSize:N0} → {EditedSize:N0} bytes (+{EditedSize - StockSize}: {Insertions.Count} new tag{(Insertions.Count == 1 ? "" : "s")})";
     /// <summary>Shown when the package has no value left to patch (every edit undone back to stock).</summary>
-    public string? EmptyText => Rows.Count == 0 && Insertions.Count == 0 && !Refused ? "No values to patch: saving writes the stock bytes back." : null;
+    public string? EmptyText => Rows.Count == 0 && Insertions.Count == 0 && AnimRows.Count == 0 && !Refused ? "No values to patch: saving writes the stock bytes back." : null;
 
     public string ToText()
     {
@@ -163,6 +186,8 @@ public sealed record PackageBytes(string Package, string FileKey, int StockSize,
         foreach (var r in Rows) sb.Append(r.ToText());
         foreach (var r in Insertions) sb.Append(r.ToText());
         if (HeaderChanges != null) sb.AppendLine("  " + HeaderChanges);
+        if (AnimText != null) sb.AppendLine("  " + AnimText);
+        foreach (var r in AnimRows) sb.Append(r.ToText());
         foreach (var r in Refusals) sb.AppendLine($"  REFUSED [{r.Rule}] {r.Message}");
         return sb.ToString();
     }
@@ -183,7 +208,7 @@ public sealed record PackageBytes(string Package, string FileKey, int StockSize,
 /// <summary>What the bytes-to-patch panel shows: every package of the project with edits, as planned on its stock copy.</summary>
 public sealed record BytesReport(string Project, IReadOnlyList<PackageBytes> Packages)
 {
-    public int ValueCount => Packages.Sum(p => p.Rows.Count + p.Insertions.Count);
+    public int ValueCount => Packages.Sum(p => p.Rows.Count + p.Insertions.Count + p.AnimKeyCount);
     public int InsertionCount => Packages.Sum(p => p.Insertions.Count);
     public int RefusalCount => Packages.Sum(p => p.Refusals.Count);
     public bool IsEmpty => Packages.Count == 0;
@@ -212,7 +237,7 @@ public sealed record BytesReport(string Project, IReadOnlyList<PackageBytes> Pac
                 var rows = plan.Entries.Select(e => new PatchRow(e, widgetOf(s.PackagePath, e.Key.SlotExport) ?? e.SlotName)).ToList();
                 var inserts = plan.Insertions.Select(i => new InsertRow(i, widgetOf(s.PackagePath, i.ExportIndex) ?? i.SlotName, i.Key is { } k ? s.BaseValue(k) ?? 0 : 0)).ToList();
                 return new PackageBytes(s.PackagePath, s.FileKey, plan.StockSize, s.IsDirty, rows, plan.Refusals)
-                    { Insertions = inserts, HeaderChanges = PackageBytes.HeaderChangesOf(plan) };
+                    { Insertions = inserts, HeaderChanges = PackageBytes.HeaderChangesOf(plan), AnimRows = plan.AnimWrites.Select(w => new AnimRow(w)).ToList() };
             }).ToList();
         return new BytesReport(project, packages);
     }

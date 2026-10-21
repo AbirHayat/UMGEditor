@@ -140,6 +140,14 @@ public static class ModInstructions
         L("|---|---|---|---|---|");
         foreach (var e in plan.Edits)
             L($"| {e.Package} | {e.Widget} | {e.Field} | {SlotEditor.Format(e.Stock)} → **{SlotEditor.Format(e.Value)}** | `{e.OldHex}` → `{e.NewHex}` @ {e.OffsetHex} |");
+        if (plan.Edits.Any(e => e.Field.StartsWith("animation key", StringComparison.Ordinal)))
+        {
+            L();
+            L($"Animation key rows (branch experiment): each key is written in its section and, where one exists, in its compiled copy, with the same old and new bytes. " +
+              $"Location proof (animation keys only): the section's own tags give the offset, the compiled copy sits in the animation's compiled export, the stock bytes decode " +
+              $"to the parsed value, and the *unique stock window* is the smallest window around the write, computed on the stock bytes, that occurs exactly once in the chunk " +
+              $"(refused beyond ±{Patching.BytePlanner.MaxAnimWindow}). The exact byte diff and a full re-parse of every export were hard checks before the save.");
+        }
         if (parts.Count > 0)
             L($"\n{string.Join(", ", parts.Select(p => p.Name))} {(parts.Count == 1 ? "is" : "are")} embedded in the screens below, so {(parts.Count == 1 ? "it changes" : "they change")} inside them.");
         L();

@@ -506,6 +506,24 @@
                                             </ItemsControl>
                                             <TextBlock Margin="0,4,0,0" FontSize="11" Foreground="#92400E" TextWrapping="Wrap" Text="{Binding HeaderChanges}"
                                                        Visibility="{Binding HeaderChanges, Converter={StaticResource NullToVis}}" />
+                                            <!-- branch experiment: animation key writes with their location proof (smallest unique stock window) -->
+                                            <TextBlock x:Name="AnimSummary" Margin="0,6,0,2" FontSize="11" Foreground="#5B21B6" TextWrapping="Wrap" Text="{Binding AnimText}"
+                                                       Visibility="{Binding AnimText, Converter={StaticResource NullToVis}}" />
+                                            <ItemsControl x:Name="AnimWriteList" ItemsSource="{Binding AnimRows}">
+                                                <ItemsControl.ItemTemplate>
+                                                    <DataTemplate>
+                                                        <Border Margin="0,2,0,0" Padding="8,3" Background="#F5F3FF" BorderBrush="#DDD6FE" BorderThickness="1" CornerRadius="3">
+                                                            <StackPanel>
+                                                                <TextBlock TextWrapping="Wrap" FontSize="11">
+                                                                    <Run Text="{Binding What, Mode=OneWay}" FontWeight="SemiBold" /><Run Text="{Binding Copy, Mode=OneWay, StringFormat='  ·  {0} copy'}" Foreground="#6D28D9" /><Run Text="{Binding ValueText, Mode=OneWay, StringFormat='  ·  {0}'}" />
+                                                                </TextBlock>
+                                                                <TextBox Style="{StaticResource Value}" FontFamily="Consolas" FontSize="11" Text="{Binding BytesText, Mode=OneWay}" />
+                                                                <TextBlock FontSize="11" Foreground="#666" Text="{Binding WindowText}" />
+                                                            </StackPanel>
+                                                        </Border>
+                                                    </DataTemplate>
+                                                </ItemsControl.ItemTemplate>
+                                            </ItemsControl>
                                             <ItemsControl Margin="0,6,0,0" ItemsSource="{Binding Refusals}">
                                                 <ItemsControl.ItemTemplate>
                                                     <DataTemplate>
