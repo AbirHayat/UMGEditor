@@ -12,7 +12,14 @@ using UmgEditor.Core.Patching;
 namespace UmgEditor.Core.Modding;
 
 /// <summary>One patched package to ship: its stock file key, ExportBundleData chunk id and the patched chunk bytes.</summary>
-public sealed record ModPackage(string PackagePath, string FileKey, string ChunkIdHex, byte[] Chunk);
+public sealed record ModPackage(string PackagePath, string FileKey, string ChunkIdHex, byte[] Chunk)
+{
+    /// <summary>
+    /// A package that isn't in the stock containers (branch experiment, C13: a cloned texture): the stock file it was
+    /// made from, whose store entry the mod's container header copies. Its chunk id must be FPackageId of PackagePath.
+    /// </summary>
+    public string? CloneOf { get; init; }
+}
 
 public sealed record ModFile(string Name, long Size, string Sha256);
 
@@ -81,16 +88,26 @@ public sealed class ModBuilder(GameSource source, IRetoc retoc)
             var id = p.ChunkIdHex.ToLowerInvariant();
             if (id.Length != 24 || !id.All(Uri.IsHexDigit) || !id.EndsWith("0002")) { refusals.Add($"{p.FileKey}: \"{p.ChunkIdHex}\" is not an ExportBundleData chunk id (24 hex digits ending in 0002)"); continue; }
             var stockId = source.ChunkIdHex(p.FileKey);
-            if (stockId != id) { refusals.Add($"{p.FileKey}: chunk id {id} doesn't match the stock file's {(stockId.Length == 0 ? "(not an IoStore file)" : stockId)}"); continue; }
+            if (p.CloneOf is { } cloneOf)
+            {
+                if (stockId.Length > 0) { refusals.Add($"{p.FileKey}: a new package can't use the path of a stock file"); continue; }
+                var expected = BitConverter.GetBytes(CUE4Parse.UE4.IO.Objects.FPackageId.FromName(p.PackagePath).id);
+                if (Convert.ToHexString(expected).ToLowerInvariant() + "00000002" != id) { refusals.Add($"{p.FileKey}: chunk id {id} isn't the package id of {p.PackagePath}"); continue; }
+            }
+            else if (stockId != id) { refusals.Add($"{p.FileKey}: chunk id {id} doesn't match the stock file's {(stockId.Length == 0 ? "(not an IoStore file)" : stockId)}"); continue; }
             if (p.Chunk.Length == 0) { refusals.Add($"{p.FileKey}: empty chunk"); continue; }
             var packageId = BinaryPrimitives.ReadUInt64LittleEndian(Convert.FromHexString(id[..16])); // chunk id = package id (LE) + index 0 + type 2
 
-            var container = source.ContainerOf(p.FileKey);
+            // the store entry comes from the stock package (for a clone: the one it was made from)
+            var entryKey = p.CloneOf ?? p.FileKey;
+            var entryId = p.CloneOf is { } src ? source.ChunkIdHex(src) : id;
+            if (entryId.Length != 24) { refusals.Add($"{p.FileKey}: the clone's source {p.CloneOf} is not a stock IoStore file"); continue; }
+            var container = source.ContainerOf(entryKey);
             ContainerHeader header;
-            try { header = ContainerHeader.Parse(HeaderSource(p.FileKey)); }
+            try { header = ContainerHeader.Parse(HeaderSource(entryKey)); }
             catch (Exception e) { refusals.Add($"{p.FileKey}: the container header of {container} can't be read ({e.Message})"); continue; }
-            var index = header.PackageIds.ToList().IndexOf(packageId);
-            if (index < 0) { refusals.Add($"{p.FileKey}: package id {packageId:x16} is not in the container header of {container}"); continue; }
+            var index = header.PackageIds.ToList().IndexOf(BinaryPrimitives.ReadUInt64LittleEndian(Convert.FromHexString(entryId[..16])));
+            if (index < 0) { refusals.Add($"{p.FileKey}: package id {entryId[..16]} is not in the container header of {container}"); continue; }
             sources.Add((p, packageId, header, header.Entries[index]));
         }
         if (refusals.Count > 0) return Fail();
@@ -154,7 +171,7 @@ public sealed class ModBuilder(GameSource source, IRetoc retoc)
             Retoc = new { Path = retoc.ExePath, Sha256 = RetocProcess.Sha256Of(retoc.ExePath) },
             Stub = new { Path = stub, Sha256 = Sha256(File.ReadAllBytes(stub)) },
             ContainerId = $"{containerId:x16}",
-            Packages = ordered.Select(s => new { s.Package.PackagePath, s.Package.FileKey, ChunkId = s.Package.ChunkIdHex, PackageId = $"{s.PackageId:x16}", SourceContainer = source.ContainerOf(s.Package.FileKey), ChunkSha256 = Sha256(s.Package.Chunk) }),
+            Packages = ordered.Select(s => new { s.Package.PackagePath, s.Package.FileKey, ChunkId = s.Package.ChunkIdHex, PackageId = $"{s.PackageId:x16}", SourceContainer = source.ContainerOf(s.Package.CloneOf ?? s.Package.FileKey), s.Package.CloneOf, ChunkSha256 = Sha256(s.Package.Chunk) }),
             Verify = verify.Output,
             Files = files,
         }, new JsonSerializerOptions { WriteIndented = true }));
