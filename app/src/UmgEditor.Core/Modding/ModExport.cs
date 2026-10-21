@@ -140,7 +140,7 @@ public static class ModInstructions
         L("|---|---|---|---|---|");
         foreach (var e in plan.Edits)
             L($"| {e.Package} | {e.Widget} | {e.Field} | {SlotEditor.Format(e.Stock)} → **{SlotEditor.Format(e.Value)}** | `{e.OldHex}` → `{e.NewHex}` @ {e.OffsetHex} |");
-        if (plan.Edits.Any(e => e.Field.StartsWith("animation key", StringComparison.Ordinal)))
+        if (plan.Edits.Any(e => e.Field.StartsWith("animation ", StringComparison.Ordinal)))
         {
             L();
             L($"Animation key rows (branch experiment): each key is written in its section and, where one exists, in its compiled copy, with the same old and new bytes. " +

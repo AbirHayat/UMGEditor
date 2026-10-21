@@ -564,7 +564,7 @@ public sealed class EditorController
             var plan = s.Plan();
             edits.AddRange(plan.Entries.Select(e => new ExportEdit(GamePaths.ShortName(s.PackagePath), Slot(e.Key.SlotExport, e.SlotName),
                 e.Key.Path.Replace("LayoutData.", ""), e.OldValue, e.NewValue, e.OffsetHex, e.OldHex, e.NewHex)));
-            edits.AddRange(plan.AnimWrites.Select(w => new ExportEdit(GamePaths.ShortName(s.PackagePath), w.Description, $"animation key, {w.Copy} copy",
+            edits.AddRange(plan.AnimWrites.Select(w => new ExportEdit(GamePaths.ShortName(s.PackagePath), w.Description, w.Copy == "range" ? "animation range bound" : $"animation key, {w.Copy} copy",
                 w.OldValue, w.NewValue, $"{w.OffsetHex} ({w.WindowText})", w.OldHex, w.NewHex)));
             edits.AddRange(plan.Insertions.Select(i => new ExportEdit(GamePaths.ShortName(s.PackagePath), Slot(i.ExportIndex, i.SlotName),
                 i.Path.Replace("LayoutData.", "") + " (new tag)", i.Key is { } k ? s.BaseValue(k) ?? 0 : 0, i.Value, $"{i.InsertAtHex} (inserted before {i.Before}, +{TagInserter.FloatTagSize} bytes)", "(not stored)", i.TagHex)));

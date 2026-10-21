@@ -145,12 +145,14 @@ public sealed record AnimRow(AnimWrite Write)
 {
     public string What => Write.Description;
     public string Copy => Write.Copy;
+    /// <summary>"section copy", "compiled copy" or "range bound".</summary>
+    public string CopyText => Write.Copy == "range" ? "range bound" : $"{Write.Copy} copy";
     public string ValueText => $"{SlotEditor.Format(Write.OldValue)} → {SlotEditor.Format(Write.NewValue)}";
     public string BytesText => $"{Write.OffsetHex}  {Write.OldHex} → {Write.NewHex}";
     public string WindowText => Write.WindowText;
 
     public string ToText() =>
-        $"  {What} · {Copy} copy (export {Write.Export})\n    offset   {Write.OffsetHex}\n    value    {ValueText}\n    bytes    {Write.OldHex} → {Write.NewHex}\n    proof    {WindowText}\n";
+        $"  {What} · {CopyText} (export {Write.Export})\n    offset   {Write.OffsetHex}\n    value    {ValueText}\n    bytes    {Write.OldHex} → {Write.NewHex}\n    proof    {WindowText}\n";
 }
 
 /// <summary>The bytes to patch for one package of the project, or why its save would be refused.</summary>
@@ -162,9 +164,16 @@ public sealed record PackageBytes(string Package, string FileKey, int StockSize,
     /// <summary>Animation key writes (section and compiled copies), by offset.</summary>
     public IReadOnlyList<AnimRow> AnimRows { get; init; } = [];
     public int AnimKeyCount => AnimRows.Select(r => r.Write.Key).Distinct().Count();
+    /// <summary>"63 animation keys in 99 writes", or "4 animation keys and 8 range edits in 14 writes".</summary>
+    public static string AnimCounts(IReadOnlyList<AnimWrite> writes)
+    {
+        int keys = writes.Where(w => w.Copy != "range").Select(w => w.Key).Distinct().Count(), ranges = writes.Where(w => w.Copy == "range").Select(w => w.Key).Distinct().Count();
+        static string N(int n, string what) => $"{n} {what}{(n == 1 ? "" : "s")}";
+        return $"{(ranges == 0 ? N(keys, "animation key") : keys == 0 ? N(ranges, "range edit") : $"{N(keys, "animation key")} and {N(ranges, "range edit")}")} in {N(writes.Count, "write")}";
+    }
     /// <summary>"63 animation keys in 99 writes; location proof = smallest unique stock window (±32…±384)", null without any.</summary>
     public string? AnimText => AnimRows.Count == 0 ? null
-        : $"{AnimKeyCount} animation key{(AnimKeyCount == 1 ? "" : "s")} in {AnimRows.Count} write{(AnimRows.Count == 1 ? "" : "s")} (section + compiled copy where one exists); " +
+        : $"{AnimCounts(AnimRows.Select(r => r.Write).ToList())} (section + compiled copy where one exists); " +
           $"location proof per write = the smallest stock window that occurs exactly once (±{AnimRows.Min(r => r.Write.Window)}…±{AnimRows.Max(r => r.Write.Window)}, limit ±{BytePlanner.MaxAnimWindow}).";
 
     public int EditedSize => StockSize + TagInserter.FloatTagSize * Insertions.Count;

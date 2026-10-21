@@ -515,7 +515,7 @@
                                                         <Border Margin="0,2,0,0" Padding="8,3" Background="#F5F3FF" BorderBrush="#DDD6FE" BorderThickness="1" CornerRadius="3">
                                                             <StackPanel>
                                                                 <TextBlock TextWrapping="Wrap" FontSize="11">
-                                                                    <Run Text="{Binding What, Mode=OneWay}" FontWeight="SemiBold" /><Run Text="{Binding Copy, Mode=OneWay, StringFormat='  ·  {0} copy'}" Foreground="#6D28D9" /><Run Text="{Binding ValueText, Mode=OneWay, StringFormat='  ·  {0}'}" />
+                                                                    <Run Text="{Binding What, Mode=OneWay}" FontWeight="SemiBold" /><Run Text="{Binding CopyText, Mode=OneWay, StringFormat='  ·  {0}'}" Foreground="#6D28D9" /><Run Text="{Binding ValueText, Mode=OneWay, StringFormat='  ·  {0}'}" />
                                                                 </TextBlock>
                                                                 <TextBox Style="{StaticResource Value}" FontFamily="Consolas" FontSize="11" Text="{Binding BytesText, Mode=OneWay}" />
                                                                 <TextBlock FontSize="11" Foreground="#666" Text="{Binding WindowText}" />
