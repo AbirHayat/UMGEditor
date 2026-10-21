@@ -36,6 +36,7 @@ switch (args.FirstOrDefault())
     case "mod-diff": return RunModDiff();
     case "canary-goal-slide": return CanaryGoalSlide();
     case "canary-insert": return CanaryInsert();
+    case "canary-texture": return CanaryTexture();
     default:
         Console.WriteLine("       umgcompare mod-diff --mod DIR [--out DIR]   what a PC mod folder changes against PC stock");
         Console.WriteLine("usage: umgcompare check-pc|compare [--pc-paks DIR] [--focus SUBSTR] [--out DIR]");
@@ -86,6 +87,53 @@ int CanaryGoalSlide()
     Console.WriteLine(result.Log);
     foreach (var r in result.Refusals) Console.WriteLine("  REFUSED " + r);
     Check("mod built, retoc verify + read-back passed", result.Built, result.ModDir);
+    foreach (var f in result.Files) Console.WriteLine($"  {f.Name}  {f.Size:N0} B  {f.Sha256}");
+    Console.WriteLine(failures == 0 ? "ALL PASSED" : $"{failures} FAILED");
+    return failures == 0 ? 0 : 1;
+}
+
+// C13 (option 2, step 1): two NEW texture packages, copies of both theme copies of DemoTitlePlate (2x2) renamed to
+// DemoTitleUCL01 with test colours (Tex720 green, 0164F magenta), and DemoTitleBase's soft texture path re-pointed to
+// them (a same-length name-map rename). Same sizes everywhere. Seen on the replay title plate (DemoTitle).
+int CanaryTexture()
+{
+    var modName = args.Length > 1 && !args[1].StartsWith("--") ? args[1] : "C13";
+    const string DemoTitle = Tv + "DemoTitle/";
+    const string NewName = "DemoTitleUCL01";
+    string softFrom = DemoTitle + "Tex720/DemoTitlePlate.DemoTitlePlate", softTo = DemoTitle + $"Tex720/{NewName}.{NewName}";
+    using var source = GameSource.Open(config);
+
+    var green = UmgEditor.Core.Modding.TextureClone.Build(source, DemoTitle + "Tex720/DemoTitlePlate", NewName, UmgEditor.Core.Modding.TextureClone.Solid(0, 255, 0));
+    var magenta = UmgEditor.Core.Modding.TextureClone.Build(source, DemoTitle + "0164F/Tex720/DemoTitlePlate", NewName, UmgEditor.Core.Modding.TextureClone.Solid(255, 0, 255));
+    var repoint = UmgEditor.Core.Modding.SoftPathRepoint.Build(source, DemoTitle + "DemoTitleBase", softFrom, softTo);
+    foreach (var (what, log, refusals) in new[] { ("Tex720 clone (green)", green.Log, green.Refusals), ("0164F clone (magenta)", magenta.Log, magenta.Refusals), ("DemoTitleBase re-point", repoint.Log, repoint.Refusals) })
+    {
+        Console.WriteLine(what);
+        foreach (var l in log) Console.WriteLine("  " + l);
+        Check(what + " planned and verified (byte diff + re-parse)", refusals.Count == 0, string.Join(" | ", refusals));
+    }
+    if (failures > 0) return 1;
+
+    var packages = new[] { green.Package!, magenta.Package!, repoint.Package! };
+    var result = new UmgEditor.Core.Modding.ModBuilder(source, new UmgEditor.Core.Modding.RetocProcess(config.RetocPath)).Build(modName, "pc9999_mobile_and_P", packages);
+    Console.WriteLine(result.Log);
+    foreach (var r in result.Refusals) Console.WriteLine("  REFUSED " + r);
+    Check("mod built, retoc verify + read-back passed", result.Built, result.ModDir);
+    if (failures > 0) return 1;
+
+    // as the game would see it: stock + the mod mounted together, everything loaded by path
+    using (var withMod = GameSource.Open(config with { ExtraPaksDirs = [result.ModDir] }))
+    {
+        var dtb = Newtonsoft.Json.JsonConvert.SerializeObject(withMod.LoadPackage(DemoTitle + "DemoTitleBase").GetExports().Single(e => e.Name == "Img_Plate"));
+        Check("with the mod mounted, DemoTitleBase's plate points at " + NewName, dtb.Contains(softTo), "");
+        foreach (var (p, rgb) in new[] { (green.Package!, (0, 255, 0)), (magenta.Package!, (255, 0, 255)) })
+        {
+            var tex = withMod.LoadPackage(p.PackagePath).GetExports().OfType<CUE4Parse.UE4.Assets.Exports.Texture.UTexture2D>().SingleOrDefault();
+            var data = tex?.PlatformData.Mips[0].BulkData?.Data ?? [];
+            var ok = tex != null && data.Length >= 4 && data.Chunk(4).All(px => px[2] == rgb.Item1 && px[1] == rgb.Item2 && px[0] == rgb.Item3);
+            Check($"with the mod mounted, {p.PackagePath} loads by path and decodes to RGB {rgb}", ok, tex == null ? "not found" : $"{tex.PlatformData.SizeX}x{tex.PlatformData.SizeY}");
+        }
+    }
     foreach (var f in result.Files) Console.WriteLine($"  {f.Name}  {f.Size:N0} B  {f.Sha256}");
     Console.WriteLine(failures == 0 ? "ALL PASSED" : $"{failures} FAILED");
     return failures == 0 ? 0 : 1;
