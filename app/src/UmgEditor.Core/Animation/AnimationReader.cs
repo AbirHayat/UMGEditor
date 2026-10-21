@@ -23,6 +23,8 @@ public sealed record AnimChannel(string Path, IReadOnlyList<AnimKey> Keys, strin
 {
     /// <summary>Offset of the section's key block (the times' header), -1 when not located.</summary>
     public int BlockAt { get; init; } = -1;
+    /// <summary>The MovieSceneCompiledData export holding the compiled copy, -1 when there is none or it wasn't located.</summary>
+    public int CompiledExport { get; init; } = -1;
 }
 
 /// <param name="Widget">Bound widget name (the slot's content widget when OnSlot)</param>
@@ -46,15 +48,16 @@ public sealed record AnimationInfo(string Name, int TickResolution, int? Start, 
 /// </summary>
 public static class AnimationReader
 {
-    public static IReadOnlyList<AnimationInfo> Read(GameSource source, string packagePath, Func<string, bool>? animationFilter = null)
+    /// <param name="chunk">Read these bytes (e.g. a saved edit) instead of the game's package; offsets are then into this chunk</param>
+    public static IReadOnlyList<AnimationInfo> Read(GameSource source, string packagePath, Func<string, bool>? animationFilter = null, byte[]? chunk = null)
     {
-        var pkg = source.LoadPackage(packagePath);
+        var pkg = chunk == null ? source.LoadPackage(packagePath) : source.ParsePackage(source.ReadPackageBytes(packagePath).FileKey, chunk);
         var exports = pkg.ExportsLazy;
         byte[]? bytes = null;
         ZenPackageLayout? layout = null;
         try
         {
-            bytes = source.ReadPackageBytes(packagePath).Bytes;
+            bytes = chunk ?? source.ReadPackageBytes(packagePath).Bytes;
             layout = ZenPackageLayout.Read(bytes, (IoPackage) pkg);
         }
         catch (Exception e) when (e is InvalidDataException or InvalidCastException or KeyNotFoundException) { } // keys without offsets
@@ -82,7 +85,7 @@ public static class AnimationReader
 
         // compiled data: one per WidgetAnimation, child templates point back at their source section
         var compiledBySection = new Dictionary<int, JObject>();
-        var compiledAt = new Dictionary<(int Section, string Path), CompiledKeys?>();
+        var compiledAt = new Dictionary<(int Section, string Path), (CompiledKeys? Keys, int Export)>();
         for (int i = 0; i < exports.Length; i++)
         {
             if (Obj(i).ExportType != "MovieSceneCompiledData") continue;
@@ -97,7 +100,7 @@ public static class AnimationReader
                     }
             if (order.Count == 0 || bytes == null || layout == null) continue;
             foreach (var (o, at) in order.Zip(AnimationBytes.LocateInOrder(bytes, layout, i, order.Select(o => o.Bytes).ToList())))
-                compiledAt[(o.Section, o.Path)] = at;
+                compiledAt[(o.Section, o.Path)] = (at, i);
         }
 
         var result = new List<AnimationInfo>();
@@ -135,9 +138,9 @@ public static class AnimationReader
                         foreach (var (path, ch) in Channels(section, ""))
                         {
                             var b = Located(s).GetValueOrDefault(path);
-                            var c = compiledAt.GetValueOrDefault((s, path));
+                            var (c, compiledExport) = compiledAt.TryGetValue((s, path), out var found) ? found : (null, -1);
                             channels.Add(new AnimChannel(path, Keys(ch, tick, b, c), Default(ch), CompareCompiled(path, ch, compiled), b?.Kind,
-                                c?.BlockStart) { BlockAt = b?.BlockStart ?? -1 });
+                                c?.BlockStart) { BlockAt = b?.BlockStart ?? -1, CompiledExport = c != null ? compiledExport : -1 });
                         }
                         var r = section["SectionRange"]?["Value"];
                         tracks.Add(new AnimTrack(widget, onSlot, type, property, s, Bound(r?["LowerBound"]), Bound(r?["UpperBound"]),
