@@ -129,6 +129,79 @@ public class TextureCloneTests
         Assert.IsTrue(r.Refusals.Any(x => x.Contains("unintended difference")), string.Join("\n", r.Refusals));
     }
 
+    /// <summary>C14: with a real image the plate's 9-slice margins (0.33) must go to 0 (as UCL does), planned like any stored float.</summary>
+    [TestMethod]
+    public void Repoint_WithTheMarginsAtZero_OnlyThoseAndThePathChange()
+    {
+        string[] sides = ["Left", "Top", "Right", "Bottom"];
+        var r = SoftPathRepoint.Build(Source, DemoTitle + "DemoTitleBase", SoftFrom, SoftTo, sides.Select(s => ("Img_Plate", "Margin." + s, 0.0)).ToList());
+        Console.WriteLine(string.Join("\n", r.Log));
+        Assert.IsNotNull(r.Package, string.Join("\n", r.Refusals));
+        Assert.IsTrue(r.Log.Any(l => l.Contains("5 values differ")), string.Join("\n", r.Log));
+        var (fileKey, _) = Source.ReadPackageBytes(DemoTitle + "DemoTitleBase");
+        var img = Source.ParsePackage(fileKey, r.Package.Chunk).ExportsLazy.Select(e => e.Value).Single(e => e.Name == "Img_Plate");
+        var stored = WidgetTreeReader.StoredValues(img);
+        Assert.IsTrue(sides.All(s => stored["Margin." + s] == "0"), string.Join(", ", sides.Select(s => stored["Margin." + s])));
+        StringAssert.Contains(SoftPathRepoint.Build(Source, DemoTitle + "DemoTitleBase", SoftFrom, SoftTo, [("NoSuchExport", "Margin.Left", 0)]).Refusals.Single(), "0 exports named NoSuchExport");
+    }
+
+    // ---- resized clones (C14) ----
+
+    /// <summary>sha256 of C13's two texture chunks (work\out\mods\C13\build.json, device-tested 2026-10-21).</summary>
+    private const string C13Green = "872a666435e677030944793aacf387a6abd8d81ba019e818e6daf1a000d6c36c", C13Magenta = "127cffb00df30a05f828ebf848b6cfbe57ebce852eaff88e8f1b76fed776fef3";
+
+    private static string Sha(byte[] b) => Convert.ToHexString(System.Security.Cryptography.SHA256.HashData(b)).ToLowerInvariant();
+
+    private static TextureClone.Mip Solid(int w, int h, byte r, byte g, byte b) => new(w, h, TextureClone.Solid(r, g, b)(w, h));
+
+    /// <summary>A 696×192 test image (UCL's size) with a gradient, so every byte position matters.</summary>
+    private static TextureClone.Mip Gradient(int w = 696, int h = 192)
+    {
+        var px = new byte[w * h * 4];
+        for (int y = 0; y < h; y++)
+            for (int x = 0; x < w; x++) { int i = (y * w + x) * 4; px[i] = (byte) x; px[i + 1] = (byte) y; px[i + 2] = (byte) (x ^ y); px[i + 3] = 255; }
+        return new TextureClone.Mip(w, h, px);
+    }
+
+    [TestMethod]
+    public void Resized_AtTheStockSize_ReproducesTheDeviceTestedC13Chunks()
+    {
+        var green = TextureClone.BuildResized(Source, Plate720, "DemoTitleUCL01", [Solid(2, 2, 0, 255, 0)]);
+        Assert.IsNotNull(green.Package, string.Join("\n", green.Refusals));
+        Assert.AreEqual(C13Green, Sha(green.Package.Chunk));
+        var magenta = TextureClone.BuildResized(Source, Plate0164F, "DemoTitleUCL01", [Solid(2, 2, 255, 0, 255), Solid(1, 1, 255, 0, 255)]);
+        Assert.IsNotNull(magenta.Package, string.Join("\n", magenta.Refusals));
+        Assert.AreEqual(C13Magenta, Sha(magenta.Package.Chunk));
+    }
+
+    [TestMethod]
+    public void Resized_ToUclSize_BothThemeCopies_DecodeBack()
+    {
+        var mip0 = Gradient();
+        foreach (var (path, mips) in new[] { (Plate720, new[] { mip0 }), (Plate0164F, new[] { mip0, TextureClone.Half(mip0) }) })
+        {
+            var r = TextureClone.BuildResized(Source, path, "DemoTitleUCL01", mips);
+            Console.WriteLine(string.Join("\n", r.Log));
+            Assert.IsNotNull(r.Package, string.Join("\n", r.Refusals));
+            var stock = Source.ReadPackageBytes(path).Bytes;
+            var stockPayload = path == Plate720 ? 16 : 16 + 4;
+            Assert.AreEqual(stock.Length - stockPayload + mips.Sum(m => m.Bgra.Length), r.Package.Chunk.Length);
+            Assert.IsTrue(r.Log.Any(l => l.Contains("ImportedSize.X")), "ImportedSize is rewritten too");
+        }
+        Assert.AreEqual(348, TextureClone.Half(mip0).Width);
+        Assert.AreEqual(96, TextureClone.Half(mip0).Height);
+    }
+
+    [TestMethod]
+    public void Resized_Refusals()
+    {
+        var mip0 = Gradient();
+        StringAssert.Contains(TextureClone.BuildResized(Source, Plate0164F, "DemoTitleUCL01", [mip0]).Refusals.Single(), "the mip count stays");
+        StringAssert.Contains(TextureClone.BuildResized(Source, Plate0164F, "DemoTitleUCL01", [mip0, mip0]).Refusals.Single(), "a mip chain halves each step");
+        StringAssert.Contains(TextureClone.BuildResized(Source, Plate720, "DemoTitleUCL01", [new TextureClone.Mip(696, 192, new byte[10])]).Refusals.Single(), "needs width × height × 4");
+        StringAssert.Contains(TextureClone.BuildResized(Source, Plate720, "DemoTitleUCL", [mip0]).Refusals.Single(), "must be as long as");
+    }
+
     // ---- the mod: three packages, two of them new ----
 
     [TestMethod]
