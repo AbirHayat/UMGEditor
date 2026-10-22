@@ -45,7 +45,7 @@ public sealed record RetocInfo(string Path, bool Exists, string Sha256)
 }
 
 /// <summary>A package of the project the dialog can export (it has saved edits).</summary>
-public sealed record ExportCandidate(string PackagePath, int SavedEdits, bool Dirty)
+public sealed record ExportCandidate(string PackagePath, int SavedEdits, bool Dirty, int TextureEdits = 0)
 {
     public string Name => GamePaths.ShortName(PackagePath);
 }
@@ -67,6 +67,10 @@ public sealed record ExportPlan(
     public bool Ok => Refusals.Count == 0;
     public string ModDir => Path.Combine(OutDir, "mod");
     public IReadOnlyList<ExportWarning> Unacknowledged => ImpactWarnings.Where(w => w.IsDanger && !Request.IsAcknowledged(w)).ToList();
+    /// <summary>The texture edits shipped (step 3): what each one re-points and clones</summary>
+    public IReadOnlyList<TextureEditInfo> Textures { get; init; } = [];
+    /// <summary>Each new texture package and the mip 0 it must decode to once mounted</summary>
+    public IReadOnlyList<(string PackagePath, byte[] Mip0)> ExpectedTextures { get; init; } = [];
 }
 
 /// <summary>Outcome of a background export. When not built, mod\ was removed (FAILED.txt says why) and nothing else is written.</summary>
@@ -99,7 +103,9 @@ public static class ModInstructions
     public static string HowToSee(string package) => Known.TryGetValue(package, out var k) ? k.How : "find this screen in game";
 
     /// <param name="isScreen">Whether a package is shown on its own (nothing embeds it); embedded parts show inside the screens</param>
-    public static string Build(ExportPlan plan, ModResult build, ImpactReport impact, Func<string, bool> isScreen, DateTime when)
+    /// <param name="embeddedBy">Every package that shows a package (for where texture edits are seen)</param>
+    public static string Build(ExportPlan plan, ModResult build, ImpactReport impact, Func<string, bool> isScreen, DateTime when,
+        Func<string, IReadOnlyCollection<string>>? embeddedBy = null)
     {
         var name = plan.Request.ModName;
         var container = plan.Request.ContainerName;
@@ -121,7 +127,7 @@ public static class ModInstructions
         L($"| Folder | `{build.ModDir}` (copy only these files; the predictions and this file stay here) |");
         L($"| Container | `{container}` ({plan.Packages.Count} package{(plan.Packages.Count == 1 ? "" : "s")}: {string.Join(", ", plan.Packages.Select(p => GamePaths.ShortName(p.PackagePath)))}) |");
         L($"| retoc | `{plan.Retoc.Path}` sha256 `{plan.Retoc.Sha256}` {(plan.Retoc.IsTested ? "(the tested build)" : "(**not** the tested build)")} |");
-        L("| Checks passed | retoc verify, CUE4Parse read-back of every package byte for byte |");
+        L($"| Checks passed | retoc verify, CUE4Parse read-back of every package byte for byte{(plan.ExpectedTextures.Count > 0 ? $"; the mod mounted on the game: {plan.ExpectedTextures.Count} new texture package(s) load by path and decode to the images" : "")} |");
         L();
         var warnings = ExportWarning.From(impact);
         L("## Warnings (Impact panel)");
@@ -138,6 +144,7 @@ public static class ModInstructions
         L("## Edits");
         L("| Package | Widget | Field | Stock → value | Bytes |");
         L("|---|---|---|---|---|");
+        if (plan.Edits.Count == 0) L("| (no layout or animation values) | | | | |");
         foreach (var e in plan.Edits)
             L($"| {e.Package} | {e.Widget} | {e.Field} | {SlotEditor.Format(e.Stock)} → **{SlotEditor.Format(e.Value)}** | `{e.OldHex}` → `{e.NewHex}` @ {e.OffsetHex} |");
         if (plan.Edits.Any(e => e.Field.StartsWith("animation ", StringComparison.Ordinal)))
@@ -150,13 +157,38 @@ public static class ModInstructions
         }
         if (parts.Count > 0)
             L($"\n{string.Join(", ", parts.Select(p => p.Name))} {(parts.Count == 1 ? "is" : "are")} embedded in the screens below, so {(parts.Count == 1 ? "it changes" : "they change")} inside them.");
+        if (plan.Textures.Count > 0)
+        {
+            L();
+            L("## Textures");
+            L("Each image is in new texture packages (both theme folders where the game has them) and the widget's texture path is re-pointed to them. " +
+              "Checked before the build: every clone decodes back to the image, every re-point is an exact byte diff + re-parse, every package's layers add up against stock; " +
+              "after it: the mod mounted on top of the game loads each new package by path with the image's pixels.");
+            L();
+            L("| Widget | Stock texture → new | Size | New packages | Re-pointed in | Margins 0 |");
+            L("|---|---|---|---|---|---|");
+            foreach (var t in plan.Textures)
+                L($"| {GamePaths.ShortName(t.Edit.Package)}/{t.Edit.Widget} | {GamePaths.ShortName(t.Edit.Texture)} → **{t.Edit.NewName}**{(t.Edit.Mode == TextureEditMode.White ? " (white)" : "")} | " +
+                  $"{t.StockWidth}x{t.StockHeight} → {t.Width}x{t.Height} | {string.Join(", ", t.ClonePaths.Select(p => p[(p.IndexOf("/Widget/", StringComparison.Ordinal) + 8)..]))} | " +
+                  $"{string.Join(", ", t.Storing.Select(GamePaths.ShortName))} | {(t.Edit.MarginsZero ? "yes" : "no")} |");
+            foreach (var w in plan.Textures.SelectMany(t => t.Warnings).Distinct())
+                L($"- {w}");
+        }
         L();
         L("## Steps");
         L($"1. Force-stop eFootball. In the folder with `pc0010_mobile_and.*`, delete any old `{container}.*`, then copy the {build.Files.Count} files from `{build.ModDir}`.");
         L($"2. Offline match vs AI. Screenshots (1920×1080, same LDPlayer setup) into `ss\\`:");
+        // texture edits change no box, so the Impact panel lists no screen for them: the screens that show a re-pointed package
+        var textureScreens = plan.Textures.SelectMany(t => t.Storing.SelectMany(p => (embeddedBy?.Invoke(p) ?? []).Append(p))
+                .Where(p => isScreen(p) && !p.Contains("/MatchTimeConnection/", StringComparison.OrdinalIgnoreCase))
+                .Select(p => (Package: GamePaths.ShortName(p), Widget: $"{GamePaths.ShortName(t.Edit.Package)}/{t.Edit.Widget}", t.Edit.NewName)))
+            .GroupBy(s => s.Package).ToDictionary(g => g.Key, g => g.Select(s => $"{s.Widget} ({s.NewName})").Distinct().ToList());
+        string Images(string screen) => textureScreens.TryGetValue(screen, out var list) ? $": the new image{(list.Count == 1 ? "" : "s")} on {string.Join(", ", list)}" : "";
         foreach (var p in offline)
-            L($"   - `{Shot(name, p.Name)}`: the {ScreenName(p.Name)} ({p.Name}), {HowToSee(p.Name)}" + (p.Boxes.Count == 0 ? " (no box changes predicted)" : ""));
-        if (offline.Count == 0) L("   - (no offline screen changes)");
+            L($"   - `{Shot(name, p.Name)}`: the {ScreenName(p.Name)} ({p.Name}), {HowToSee(p.Name)}" + (p.Boxes.Count == 0 ? " (no box changes predicted)" : "") + Images(p.Name));
+        foreach (var screen in textureScreens.Keys.Where(k => offline.All(o => o.Name != k)))
+            L($"   - `{Shot(name, screen)}`: the {ScreenName(screen)} ({screen}), {HowToSee(screen)}{Images(screen)}");
+        if (offline.Count == 0 && textureScreens.Count == 0) L("   - (no offline screen changes)");
         L($"3. **{OnlineWarning}**: delete the {build.Files.Count} files again before playing online.");
         L();
         L("## Every affected screen");

@@ -1,4 +1,3 @@
-using CUE4Parse.UE4.Assets.Exports.Texture;
 using UmgEditor.Core.Patching;
 
 namespace UmgEditor.Core.Modding;
@@ -108,26 +107,21 @@ public static class UclC16
         // both theme copies, resized to the art (the 0164F copy keeps its own mip count)
         bool CloneBoth(string folderPath, string stockName, string newName, TextureClone.Mip art)
         {
-            foreach (var folder in new[] { "Tex720", "0164F/Tex720" })
+            foreach (var folder in TextureEdits.ThemeFolders)
             {
                 var stockPath = $"{folderPath}{folder}/{stockName}";
-                var mips = MipCount(source, stockPath);
-                var chain = new List<TextureClone.Mip> { art };
-                while (chain.Count < mips) chain.Add(TextureClone.Half(chain[^1]));
-                if (!Clone(TextureClone.BuildResized(source, stockPath, newName, chain), $"{folder}/{newName} ({art.Width}x{art.Height}, {mips} mip{(mips == 1 ? "" : "s")})", art.Bgra)) return false;
+                var mips = TextureEdits.MipCount(source, stockPath);
+                if (!Clone(TextureEdits.CloneImage(source, stockPath, newName, art), $"{folder}/{newName} ({art.Width}x{art.Height}, {mips} mip{(mips == 1 ? "" : "s")})", art.Bgra)) return false;
             }
             return true;
         }
         // both theme copies, same size, the stock pixels with RGB = white (alpha kept)
         bool WhiteBoth(string stockName, string newName)
         {
-            foreach (var folder in new[] { "Tex720", "0164F/Tex720" })
+            foreach (var folder in TextureEdits.ThemeFolders)
             {
-                var stockPath = $"{MT}{folder}/{stockName}";
-                var stockMips = source.LoadPackage(stockPath).GetExports().OfType<UTexture2D>().Single().PlatformData.Mips;
-                byte[] Whiten(byte[] bgra) { var w = bgra.ToArray(); for (int i = 0; i < w.Length; i += 4) w[i] = w[i + 1] = w[i + 2] = 255; return w; }
-                var r = TextureClone.Build(source, stockPath, newName, (w, h) => Whiten(stockMips.Single(m => m.SizeX == w && m.SizeY == h).BulkData!.Data!));
-                if (!Clone(r, $"{folder}/{newName} (white, stock alpha)", Whiten(stockMips[0].BulkData!.Data!))) return false;
+                var (r, mip0) = TextureEdits.CloneWhite(source, $"{MT}{folder}/{stockName}", newName);
+                if (!Clone(r, $"{folder}/{newName} (white, stock alpha)", mip0)) return false;
             }
             return true;
         }
@@ -359,9 +353,6 @@ public static class UclC16
             return Navy();
         }
     }
-
-    private static int MipCount(GameSource source, string texturePath) =>
-        source.LoadPackage(texturePath).GetExports().OfType<UTexture2D>().Single().PlatformData.Mips.Length;
 
     private static string Short(string path) => path[(path.LastIndexOf('/') + 1)..];
 

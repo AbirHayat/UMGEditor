@@ -6,7 +6,8 @@ namespace UmgEditor.Core.Modding;
 /// <summary>
 /// Re-points a soft object path (e.g. a uiImage's texture) in one stock package to another object of the same path
 /// length: the path is a name in the Zen name map, so this is a same-length name rename (NameRenamePatch: exact byte
-/// diff, and the re-parse may differ only by the rename). Branch experiment, canary C13.
+/// diff, and the re-parse may differ only by the rename). Branch experiment, canary C13. Step 3 (texture edits): the
+/// input can be an earlier layer of the package (e.g. its saved edit-set chunk) instead of stock.
 /// </summary>
 public static class SoftPathRepoint
 {
@@ -15,9 +16,11 @@ public static class SoftPathRepoint
     /// <param name="from">The stock object path, e.g. "/Game/…/Tex720/DemoTitlePlate.DemoTitlePlate"</param>
     /// <param name="values">Stored values to change too (export name, path, new value), e.g. Img_Plate's Margin.Left → 0:
     /// planned by BytePlanner (tag walk, stock value, location proof) and required to read back</param>
-    public static Result Build(GameSource source, string packagePath, string from, string to, IReadOnlyList<(string Export, string Path, double Value)>? values = null)
+    /// <param name="input">The package bytes to start from (default: stock); values are planned and checked on these</param>
+    public static Result Build(GameSource source, string packagePath, string from, string to, IReadOnlyList<(string Export, string Path, double Value)>? values = null, byte[]? input = null)
     {
-        var (fileKey, stock) = source.ReadPackageBytes(packagePath);
+        var (fileKey, stockBytes) = source.ReadPackageBytes(packagePath);
+        var stock = input ?? stockBytes;
         var log = new List<string>();
         var writes = new List<(int Offset, byte[] Bytes, string What)>();
         var expected = new Dictionary<(int Export, string Path), string>();

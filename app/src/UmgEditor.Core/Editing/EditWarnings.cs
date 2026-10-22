@@ -25,6 +25,8 @@ public enum WarningKind
     OthersMove,
     /// <summary>The edit gives a value that isn't stored: saving adds a new tag and the package grows (branch experiment).</summary>
     SizeChange,
+    /// <summary>A texture edit: other widgets or packages that show (or keep) the texture (step 3).</summary>
+    SharedTexture,
 }
 
 public enum Severity { Info, Warning, Danger }

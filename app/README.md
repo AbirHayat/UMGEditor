@@ -128,6 +128,14 @@ umgmod show-anim <package> [--anim REGEX] [--widget NAME] [--bytes]
 umgmod [--set NAME] anim-flatten <package> <anim,anim...> [--parts width,visibility,positions] [--normal-from Info_Hide] [--check Show] [--yes]
 umgmod [--set NAME] anim-key <package> <anim> <widget> <channel> <key#> <value|frame|interp> <new> [--yes]
 umgmod [--set NAME] anim-end <package> <anim> <oldEndTicks> <newEndTicks> [--yes]
+umgmod tex-info <package> <widget>
+umgmod tex-users <texture>
+umgmod tex-sources <package> <widget>
+umgmod tex-preview <package> <widget> <image.png> <out.png> [--in SCREEN] [--margins0] [--all-users]
+umgmod [--set NAME] tex <package> <widget> <image.png> [--name NEW] [--source TEXTURE] [--margins0] [--all-users] [--yes]
+umgmod [--set NAME] tex-white <package> <widget> [--name NEW] [--all-users] [--yes]
+umgmod [--set NAME] tex-show
+umgmod [--set NAME] tex-reset <package> <widget>
 ```
 
 - `edit` applies one SlotEditor edit to the package's PatchSession and saves it (`work\edits[\NAME]\<package path>`).
@@ -173,5 +181,31 @@ umgmod [--set NAME] anim-end <package> <anim> <oldEndTicks> <newEndTicks> [--yes
   marked like in the instructions) and the warning count, and writes
   `work\out\mods\_predictions\<set>\<Package>[.stock].json` for `validate_layout.py`.
 - `--set NAME` keeps independent edits of the same package apart (e.g. one per canary).
+- Branch `experiment`, textures (step 3): an image widget (uiImage) names its texture by a soft path stored in the
+  package that holds the widget. Replacing it makes **new** texture packages (same-length new name, in both theme
+  folders `Tex720` and `0164F/Tex720` where the game has them; the image any size, the mip chain halved from it) and
+  renames that path to the new package. The stock texture is never touched.
+  - `tex-info` shows what a widget draws (size, format, theme copies, its 9-slice margins), every widget in any
+    package that names the same texture, and where each is shown (embedding packages; `[online]`).
+    `tex-users <texture>` lists the same for a texture (path or unique suffix; the `Tex720` copy is meant).
+  - Only uncompressed B8G8R8A8 textures can be cloned. For an ETC2 one (the scoreboard logo) `tex-sources` lists
+    B8G8R8A8 textures whose clone path has the same length; pass one with `--source` (C16 cloned the logo from
+    `ExtraLoginBonusInfo`).
+  - `tex-preview` draws the screen (default: the widget's package; `--in` another, e.g. `MatchTime/MatchTimeGoal`)
+    stock above and with the image below, cropped around the boxes that change. Software drawing: images only,
+    texts as outlines, no tint. Nothing is saved.
+  - `tex` imports the PNG into the project (`work\edits[\NAME]\_art\<sha256>.png`) and adds the edit to
+    `textures.json`. Without `--name` it picks a free same-length name and prints it. `--margins0` sets the stored
+    Margin of every image that follows the re-point to 0 (a real image isn't 9-sliced). `--all-users` re-points every
+    package naming the texture instead of only this widget's package. Every image in the same package that names the
+    texture follows too (one name-map string per package); the plan says which. First edit of a package: exit 3
+    until `--yes`. `tex-white` = the stock pixels with RGB white (alpha kept), as C16's white plates.
+  - `tex-show` plans every texture edit of the set: the paths, the new packages, the warnings (other users that keep
+    the stock image, embedding packages) and the refusals. `tex-reset` removes one.
+  - `build` adds the set's texture packages by itself. A re-pointed package that also has saved layout edits ships
+    both (its saved chunk plus the re-point, checked against stock as one). After packing, the mod is mounted on top of
+    the game and every new texture package must load by path and decode to the image, or `mod\` is removed.
+    `TEST_INSTRUCTIONS.md` gets a Textures table and the screens to photograph.
+  - Anchor: C16's texture packages made this way from PNGs are byte-identical to the device-tested chunks.
 - `<package>` is a `/Game/...` path or a unique suffix (`MatchTime/MatchTimeBase`). `<field>` may omit
   `LayoutData.` (`Offsets.Right`).

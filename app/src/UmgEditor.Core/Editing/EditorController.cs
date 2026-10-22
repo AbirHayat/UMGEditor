@@ -3,6 +3,7 @@ using System.Text.RegularExpressions;
 using UmgEditor.Core.Layout;
 using UmgEditor.Core.Modding;
 using UmgEditor.Core.Patching;
+using UmgEditor.Core.Textures;
 
 namespace UmgEditor.Core.Editing;
 
@@ -124,10 +125,17 @@ public sealed class EditorController
     private readonly Dictionary<string, PatchSession> _sessions = new(StringComparer.OrdinalIgnoreCase);
     private readonly Stack<string> _undo = new(), _redo = new();
     private FirstEditGate _gate = new();
+    private readonly Lazy<TextureUsage> _textureUsage;
+    private IReadOnlyList<TextureEdit> _textures = [], _texturesSaved = [];
+    private readonly Stack<IReadOnlyList<TextureEdit>> _texturesUndo = new(), _texturesRedo = new();
+    /// <summary>The project-wide undo stack's entry for a texture-edit step (the others are package paths).</summary>
+    public const string TexturesStep = "textures";
 
+    /// <param name="textureUsage">Which widgets name which texture (default: built from the UI index, cached in work\cache)</param>
     public EditorController(GameSource source, UsageGraph usage, LayoutEngine engine, Func<string, WidgetPackageTree> loadTree,
-        int viewportWidth = 1786, int viewportHeight = 1000, string project = DefaultProject)
+        int viewportWidth = 1786, int viewportHeight = 1000, string project = DefaultProject, Func<TextureUsage>? textureUsage = null)
     {
+        _textureUsage = new Lazy<TextureUsage>(textureUsage ?? (() => TextureUsage.LoadOrBuild(source, UiAssetIndex.LoadOrBuild(source))));
         _source = source;
         _usage = usage;
         _engine = engine;
@@ -168,6 +176,8 @@ public sealed class EditorController
         _sessions.Clear();
         _undo.Clear();
         _redo.Clear();
+        _texturesUndo.Clear();
+        _texturesRedo.Clear();
         _gate = new FirstEditGate();
         LoadProjectSessions();
         Changed?.Invoke(this, EventArgs.Empty);
@@ -190,6 +200,7 @@ public sealed class EditorController
     /// <summary>Opens a session for every package that has saved edits in this project, so their edits show everywhere.</summary>
     private void LoadProjectSessions()
     {
+        _textures = _texturesSaved = Directory.Exists(ProjectFolder) ? TextureEditStore.Load(ProjectFolder) : [];
         if (!Directory.Exists(ProjectFolder)) return;
         // the default project's packages live under edits\Assets\…; named projects are folders next to it and are skipped
         IEnumerable<string> roots = Project == DefaultProject
@@ -215,10 +226,10 @@ public sealed class EditorController
 
     public IReadOnlyCollection<PatchSession> Sessions => _sessions.Values;
     public IEnumerable<PatchSession> DirtySessions => _sessions.Values.Where(s => s.IsDirty);
-    public bool AnyDirty => _sessions.Values.Any(s => s.IsDirty);
+    public bool AnyDirty => _sessions.Values.Any(s => s.IsDirty) || TexturesDirty;
     public bool IsDirty(string package) => _sessions.TryGetValue(package, out var s) && s.IsDirty;
     /// <summary>"MatchTimeBase, MatchTime": the packages with unsaved edits, for prompts.</summary>
-    public string UnsavedPackagesText => string.Join(", ", DirtySessions.Select(s => GamePaths.ShortName(s.PackagePath)));
+    public string UnsavedPackagesText => string.Join(", ", DirtySessions.Select(s => GamePaths.ShortName(s.PackagePath)).Concat(TexturesDirty ? ["texture edits"] : []));
 
     /// <summary>All current edits of the project (every package), for layout: an edited child shows inside its users.</summary>
     public EditSet Edits => _sessions.Values.Aggregate(EditSet.Empty, (all, s) => all.With(s.Current.Values.Select(kv => new FieldChange(kv.Key, double.NaN, kv.Value)), _ => null));
@@ -415,6 +426,14 @@ public sealed class EditorController
     /// <summary>Undoes the last edit in the project, whichever package it was in.</summary>
     public bool Undo()
     {
+        if (_undo.Count > 0 && _undo.Peek() == TexturesStep)
+        {
+            _texturesRedo.Push(_textures);
+            _textures = _texturesUndo.Pop();
+            _redo.Push(_undo.Pop());
+            Changed?.Invoke(this, EventArgs.Empty);
+            return true;
+        }
         if (_undo.Count == 0 || !Session(_undo.Peek()).Undo()) return false;
         _redo.Push(_undo.Pop());
         Changed?.Invoke(this, EventArgs.Empty);
@@ -423,6 +442,14 @@ public sealed class EditorController
 
     public bool Redo()
     {
+        if (_redo.Count > 0 && _redo.Peek() == TexturesStep)
+        {
+            _texturesUndo.Push(_textures);
+            _textures = _texturesRedo.Pop();
+            _undo.Push(_redo.Pop());
+            Changed?.Invoke(this, EventArgs.Empty);
+            return true;
+        }
         if (_redo.Count == 0 || !Session(_redo.Peek()).Redo()) return false;
         _undo.Push(_redo.Pop());
         Changed?.Invoke(this, EventArgs.Empty);
@@ -433,6 +460,7 @@ public sealed class EditorController
     public IReadOnlyList<(string Package, SaveResult Result)> SaveAll()
     {
         var results = DirtySessions.ToList().Select(s => (s.PackagePath, s.Save())).ToList();
+        SaveTextureEdits();
         Changed?.Invoke(this, EventArgs.Empty);
         return results;
     }
@@ -500,6 +528,118 @@ public sealed class EditorController
         return names.GetValueOrDefault(slotExport);
     }
 
+    // ---- step 3: texture edits ----
+
+    public TextureUsage TextureUsage => _textureUsage.Value;
+    /// <summary>The project's texture edits as they are now (textures.json plus unsaved changes).</summary>
+    public IReadOnlyList<TextureEdit> TextureEdits => _textures;
+    public bool TexturesDirty => !_textures.SequenceEqual(_texturesSaved);
+
+    /// <summary>The texture a widget names (a uiImage's stored soft path), or null.</summary>
+    public TextureRef? TextureOf(string package, string widget) => TextureUsage.Of(package, widget) is { IsImageTexture: true } r ? r : null;
+
+    /// <summary>Every stored reference to a texture, in any package.</summary>
+    public IReadOnlyList<TextureRef> TextureUsers(string texture) => TextureUsage.UsersOf(texture);
+
+    /// <summary>The packages that show a package: it embedded somewhere, directly or through others.</summary>
+    public IReadOnlyCollection<string> EmbeddedBy(string package) => _usage.AllUsers(package);
+
+    public TextureEdit? TextureEditOf(string package, string widget) =>
+        _textures.FirstOrDefault(e => e.Package.Equals(package, StringComparison.OrdinalIgnoreCase) && e.Widget == widget);
+
+    /// <summary>
+    /// A new texture edit for a widget (not applied yet): the PNG is copied into the project's _art folder (named by its
+    /// sha256, so importing never changes an existing edit), the name defaults to a free same-length one.
+    /// </summary>
+    public (TextureEdit? Edit, DecodedImage? Image, string? Why) PrepareTextureEdit(string package, string widget, TextureEditMode mode,
+        string? png = null, string? newName = null, string? source = null, bool marginsZero = false, TextureEditScope scope = TextureEditScope.Widget)
+    {
+        if (TextureOf(package, widget) is not { } current) return (null, null, $"{widget} in {GamePaths.ShortName(package)} isn't a uiImage with a stored texture");
+        string? relative = null, sha = null;
+        DecodedImage? image = null;
+        if (mode == TextureEditMode.Image)
+        {
+            if (png == null) return (null, null, "pick a PNG image");
+            string? why;
+            (relative, sha, image, why) = TextureEditStore.Import(_guard, ProjectFolder, png);
+            if (relative == null) return (null, null, why);
+        }
+        var sourceTexture = source ?? current.Texture;
+        var taken = _textures.Where(e => !(e.Package == package && e.Widget == widget)).Select(e => e.NewName);
+        newName ??= Modding.TextureEdits.SuggestName(_source, sourceTexture, taken);
+        return (new TextureEdit(package, widget, current.Texture, mode, newName, scope, relative, sha, source, marginsZero), image, null);
+    }
+
+    /// <summary>
+    /// Plans texture edits (default: the current ones) on top of each package's saved edit-set chunk, so the result is
+    /// what an export ships.
+    /// </summary>
+    public TexturePlan PlanTextures(IReadOnlyList<TextureEdit>? edits = null) =>
+        Modding.TextureEdits.Plan(_source, TextureUsage, ProjectFolder, edits ?? _textures,
+            p => _sessions.TryGetValue(p, out var s) && s.Saved.Count > 0 ? s.ReadSavedChunk().Chunk : null,
+            p => _usage.AllUsers(p));
+
+    /// <summary>
+    /// Adds a texture edit (or replaces the widget's earlier one) after planning it: a refusal of the tools refuses it.
+    /// The first texture edit of a package asks first (it lists who shows the change). One undo step.
+    /// </summary>
+    public EditOutcome ApplyTextureEdit(TextureEdit edit, bool confirmed = false)
+    {
+        var others = _textures.Where(e => !(e.Package.Equals(edit.Package, StringComparison.OrdinalIgnoreCase) && e.Widget == edit.Widget)).ToList();
+        var next = others.Append(edit).ToList();
+        var plan = PlanTextures(next);
+        if (!plan.Ok) return EditOutcome.Refused(string.Join("\n", plan.Refusals));
+        if (next.SequenceEqual(_textures)) return new EditOutcome(false, null, null, []);
+        var info = plan.Items[^1];
+        var firstEdit = _gate.NeedsConfirmation(edit.Package) && !_textures.Any(e => e.Package.Equals(edit.Package, StringComparison.OrdinalIgnoreCase))
+            && !(_sessions.TryGetValue(edit.Package, out var s) && (s.Current.Count > 0 || s.Saved.Count > 0));
+        if (firstEdit && !confirmed)
+            return new EditOutcome(false, null, TextureConfirmation(info), []);
+        _gate.Confirm(edit.Package);
+        PushTextures(next);
+        return new EditOutcome(true, null, null, info.Warnings.Select(w => new EditWarning(WarningKind.SharedTexture, Severity.Info, w)).ToList());
+    }
+
+    /// <summary>Removes a widget's texture edit (one undo step). False when it has none.</summary>
+    public bool RemoveTextureEdit(string package, string widget)
+    {
+        if (TextureEditOf(package, widget) is not { } edit) return false;
+        PushTextures(_textures.Where(e => !ReferenceEquals(e, edit)).ToList());
+        return true;
+    }
+
+    /// <summary>Writes textures.json when the texture edits changed since the last save. Returns whether it wrote.</summary>
+    public bool SaveTextureEdits()
+    {
+        if (!TexturesDirty) return false;
+        TextureEditStore.Save(_guard, ProjectFolder, _textures);
+        _texturesSaved = _textures;
+        return true;
+    }
+
+    private void PushTextures(IReadOnlyList<TextureEdit> next)
+    {
+        _texturesUndo.Push(_textures);
+        _textures = next;
+        _texturesRedo.Clear();
+        _undo.Push(TexturesStep);
+        _redo.Clear();
+        Changed?.Invoke(this, EventArgs.Empty);
+    }
+
+    private static string TextureConfirmation(TextureEditInfo info)
+    {
+        var e = info.Edit;
+        var lines = new List<string>
+        {
+            $"Replace {GamePaths.ShortName(e.Texture)} on {e.Widget} ({GamePaths.ShortName(e.Package)}) with {(e.Mode == TextureEditMode.White ? "a white copy" : $"your image ({info.Width}x{info.Height})")}?",
+            $"New texture package{(info.ClonePaths.Count == 1 ? "" : "s")}: {string.Join(", ", info.ClonePaths.Select(p => p[(p.IndexOf("/Widget/", StringComparison.Ordinal) + 1)..]))}.",
+            $"Re-pointed: {string.Join(", ", info.Storing.Select(GamePaths.ShortName))}.",
+        };
+        lines.AddRange(info.Warnings);
+        return string.Join("\n", lines);
+    }
+
     // ---- impact and mods ----
 
     /// <summary>Every package the current edits reach (edited + embedding packages), stock vs edited.</summary>
@@ -515,10 +655,23 @@ public sealed class EditorController
     // ---- 6g: export ----
 
     /// <summary>The project's packages with saved edits (what the export dialog lists).</summary>
-    public IReadOnlyList<ExportCandidate> ExportCandidates() =>
-        _sessions.Values.Where(s => s.Saved.Count > 0 || s.IsDirty)
-            .OrderBy(s => GamePaths.ShortName(s.PackagePath), StringComparer.OrdinalIgnoreCase)
-            .Select(s => new ExportCandidate(s.PackagePath, s.Saved.Count, s.IsDirty)).ToList();
+    public IReadOnlyList<ExportCandidate> ExportCandidates()
+    {
+        var withEdits = _sessions.Values.Where(s => s.Saved.Count > 0 || s.IsDirty).Select(s => s.PackagePath);
+        var textured = _textures.SelectMany(StoringPackages);
+        return withEdits.Union(textured, StringComparer.OrdinalIgnoreCase)
+            .OrderBy(GamePaths.ShortName, StringComparer.OrdinalIgnoreCase)
+            .Select(p => new ExportCandidate(p, _sessions.TryGetValue(p, out var s) ? s.Saved.Count : 0, IsDirty(p),
+                _textures.Count(e => StoringPackages(e).Contains(p, StringComparer.OrdinalIgnoreCase)))).ToList();
+    }
+
+    /// <summary>The packages a texture edit re-points: the picked widget's, or every package naming the texture.</summary>
+    public IReadOnlyList<string> StoringPackages(TextureEdit edit)
+    {
+        if (edit.Scope == TextureEditScope.Widget) return [edit.Package];
+        var from = TextureUsage.Of(edit.Package, edit.Widget)?.NameMapPath;
+        return TextureUsage.UsersOf(edit.Texture).Where(r => r.NameMapPath == from).Select(r => r.Package).Distinct(StringComparer.OrdinalIgnoreCase).ToList();
+    }
 
     /// <summary>
     /// Checks an export and reads what it ships (call on the editor's thread). Refused while anything in the project is
@@ -548,17 +701,30 @@ public sealed class EditorController
         var packages = new List<ModPackage>();
         var edits = new List<ExportEdit>();
         var saved = EditSet.Empty;
-        foreach (var path in request.Packages.Distinct(StringComparer.OrdinalIgnoreCase))
+        // texture edits ship with the packages they re-point (all of them, so a picked edit is never half shipped), plus their clones
+        var picked = request.Packages.Distinct(StringComparer.OrdinalIgnoreCase).ToList();
+        var textureEdits = _textures.Where(e => StoringPackages(e).Any(p => picked.Contains(p, StringComparer.OrdinalIgnoreCase))).ToList();
+        foreach (var e in textureEdits)
+            foreach (var missing in StoringPackages(e).Where(p => !picked.Contains(p, StringComparer.OrdinalIgnoreCase)))
+                refusals.Add($"The texture edit on {e.Widget} ({GamePaths.ShortName(e.Package)}) also re-points {GamePaths.ShortName(missing)}: pick it too.");
+        var textures = textureEdits.Count > 0 && !AnyDirty ? PlanTextures(textureEdits) : null;
+        if (textures != null) refusals.AddRange(textures.Refusals);
+        var textured = textureEdits.SelectMany(StoringPackages).ToHashSet(StringComparer.OrdinalIgnoreCase);
+        foreach (var path in picked)
         {
-            if (!_sessions.TryGetValue(path, out var s) || s.Saved.Count == 0)
+            var hasEdits = _sessions.TryGetValue(path, out var s) && s.Saved.Count > 0;
+            if (!hasEdits && !textured.Contains(path))
             {
                 refusals.Add($"{GamePaths.ShortName(path)} has no saved edits in project {Project}.");
                 continue;
             }
             if (AnyDirty) continue; // refused above: a refused plan carries nothing to ship
-            var (chunk, why) = s.ReadSavedChunk();
+            if (textures?.Packages.FirstOrDefault(p => p.PackagePath.Equals(path, StringComparison.OrdinalIgnoreCase)) is { } repointed)
+                packages.Add(repointed); // its saved edit-set chunk plus the re-point layers, checked against stock
+            if (!hasEdits) continue;
+            var (chunk, why) = s!.ReadSavedChunk();
             if (chunk == null) { refusals.Add(why!); continue; }
-            packages.Add(new ModPackage(s.PackagePath, s.FileKey, s.ChunkIdHex, chunk));
+            if (!textured.Contains(path)) packages.Add(new ModPackage(s.PackagePath, s.FileKey, s.ChunkIdHex, chunk));
             saved = saved.With(s.Saved.Values.Select(kv => new FieldChange(kv.Key, s.BaseValue(kv.Key) ?? double.NaN, kv.Value)), _ => null);
             string Slot(int export, string slotName) => WidgetOf(s.PackagePath, export) is { } w ? $"{w} ({slotName})" : slotName;
             var plan = s.Plan();
@@ -569,6 +735,7 @@ public sealed class EditorController
             edits.AddRange(plan.Insertions.Select(i => new ExportEdit(GamePaths.ShortName(s.PackagePath), Slot(i.ExportIndex, i.SlotName),
                 i.Path.Replace("LayoutData.", "") + " (new tag)", i.Key is { } k ? s.BaseValue(k) ?? 0 : 0, i.Value, $"{i.InsertAtHex} (inserted before {i.Before}, +{TagInserter.FloatTagSize} bytes)", "(not stored)", i.TagHex)));
         }
+        if (textures is { Ok: true }) packages.AddRange(textures.Clones);
         var impactWarnings = saved.Count == 0 ? [] : ExportWarning.From(ExportImpact(saved));
         var unticked = impactWarnings.Where(w => w.IsDanger && !request.IsAcknowledged(w)).ToList();
         if (unticked.Count > 0)
@@ -576,7 +743,11 @@ public sealed class EditorController
                          $"({(unticked.Count == 1 ? "tick it below" : "tick each below")}; umgmod build: --ack-danger): {string.Join("; ", unticked.Select(w => w.Package + ": " + w.Warning.Message))}");
         if (refusals.Count == 0 && Directory.Exists(outDir))
             warnings.Add($"{outDir} exists and will be replaced.");
-        return new ExportPlan(request with { ModName = name, ContainerName = request.ContainerName.Trim() }, Project, outDir, retoc, refusals, warnings, packages, saved, edits, impactWarnings);
+        return new ExportPlan(request with { ModName = name, ContainerName = request.ContainerName.Trim() }, Project, outDir, retoc, refusals, warnings, packages, saved, edits, impactWarnings)
+        {
+            Textures = textures?.Items ?? [],
+            ExpectedTextures = textures?.Expected ?? [],
+        };
     }
 
     private (string Key, ImpactReport Report)? _exportImpact;
@@ -609,6 +780,18 @@ public sealed class EditorController
             return new ExportResult(false, build.Refusals, build.OutDir, [], build.Log, null, [], null);
         }
         foreach (var f in build.Files) log?.Report($"  {f.Name}  {f.Size:N0} bytes  sha256 {f.Sha256}");
+        if (plan.ExpectedTextures.Count > 0)
+        {
+            log?.Report($"Mounting the mod on top of the game: {plan.ExpectedTextures.Count} new texture package(s) must load by path and decode to the imported pixels…");
+            if (TextureMountCheck(plan, build.ModDir) is { } problem)
+            {
+                var guard = WriteGuard.ForMods(_source.Config);
+                guard.DeleteDirectory(build.ModDir);
+                guard.WriteAllText(Path.Combine(plan.OutDir, "FAILED.txt"), problem + Environment.NewLine + build.Log);
+                log?.Report("FAILED: " + problem);
+                return new ExportResult(false, [problem], build.OutDir, [], build.Log, null, [], null);
+            }
+        }
 
         log?.Report("Laying out every package the saved edits reach (stock vs edited)…");
         var mods = WriteGuard.ForMods(_source.Config);
@@ -628,11 +811,38 @@ public sealed class EditorController
         foreach (var w in ExportWarning.From(report))
             log?.Report($"  {w.Text}{(w.IsDanger ? " (acknowledged)" : "")}");
         var instructions = Path.Combine(plan.OutDir, ModInstructions.FileName);
-        mods.WriteAllText(instructions, ModInstructions.Build(plan, build, report, p => _usage.DirectUsers(p).Count == 0, DateTime.Now));
+        mods.WriteAllText(instructions, ModInstructions.Build(plan, build, report, p => _usage.DirectUsers(p).Count == 0, DateTime.Now, p => _usage.AllUsers(p)));
         log?.Report($"{files.Count} prediction files in {predictions}");
         log?.Report($"Test instructions: {instructions}");
         log?.Report($"Done. Copy the {build.Files.Count} files in {build.ModDir} to the device. {ModInstructions.OnlineWarning}.");
         return new ExportResult(true, [], plan.OutDir, build.Files, build.Log, instructions, files, report);
+    }
+
+    /// <summary>
+    /// With the built mod mounted on top of the stock game (as the canaries were checked): every new texture package loads by
+    /// path and its mip 0 is the imported pixels, and every re-pointed package names its new texture. Returns the problem, or null.
+    /// </summary>
+    private string? TextureMountCheck(ExportPlan plan, string modDir)
+    {
+        try
+        {
+            using var withMod = GameSource.Open(_source.Config with { ExtraPaksDirs = [modDir] });
+            foreach (var (path, mip0) in plan.ExpectedTextures)
+            {
+                var tex = withMod.LoadPackage(path).GetExports().OfType<CUE4Parse.UE4.Assets.Exports.Texture.UTexture2D>().SingleOrDefault();
+                if (tex == null || !(tex.PlatformData.Mips[0].BulkData?.Data ?? []).AsSpan().SequenceEqual(mip0))
+                    return $"mounted: {path} {(tex == null ? "doesn't load" : "doesn't decode to the imported pixels")}";
+            }
+            foreach (var item in plan.Textures)
+                foreach (var package in item.Storing)
+                {
+                    var named = withMod.LoadPackage(package).GetExports().Select(WidgetTreeReader.StoredValues)
+                        .Count(v => v.Values.Any(x => TextureUsage.NameMapForm(x) == item.To));
+                    if (named == 0) return $"mounted: no widget in {GamePaths.ShortName(package)} names {item.To}";
+                }
+            return null;
+        }
+        catch (Exception e) { return $"mounted: the game with the mod can't be read ({e.GetType().Name}: {e.Message})"; }
     }
 
     /// <summary>Packs the saved edits of every package in the project. Refused while anything is unsaved.</summary>

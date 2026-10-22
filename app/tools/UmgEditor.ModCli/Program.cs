@@ -10,6 +10,14 @@
 //   umgmod [--set NAME] anim-flatten <package> <anim,anim...> [--parts width,visibility,positions] [--normal-from Info_Hide] [--check Show] [--yes]
 //   umgmod [--set NAME] anim-key <package> <anim> <widget> <channel> <key#> <value|frame|interp> <new> [--yes]
 //   umgmod [--set NAME] anim-end <package> <anim> <oldEndTicks> <newEndTicks> [--yes]
+//   umgmod tex-info <package> <widget>          what a uiImage shows, every widget naming that texture, where it's shown
+//   umgmod tex-users <texture>                  every widget naming a texture (path or unique suffix)
+//   umgmod tex-sources <package> <widget>       B8G8R8A8 textures a clone can come from (fitting path length)
+//   umgmod tex-preview <package> <widget> <image.png> <out.png> [--in SCREEN] [--margins0] [--all-users]
+//   umgmod [--set NAME] tex <package> <widget> <image.png> [--name NEW] [--source TEXTURE] [--margins0] [--all-users] [--yes]
+//   umgmod [--set NAME] tex-white <package> <widget> [--name NEW] [--all-users] [--yes]
+//   umgmod [--set NAME] tex-show
+//   umgmod [--set NAME] tex-reset <package> <widget>
 // <package> is a /Game/... path or a unique suffix such as MatchTime/MatchTimeBase. Edits are saved PatchSessions in
 // work\edits[\NAME]\<package path>; build packs their saved chunks into work\out\mods\<modName>\mod (the export
 // dialog's plan and run: predictions\ and TEST_INSTRUCTIONS.md next to it). Exit 0 = done, 2 = refused, 3 = needs
@@ -47,7 +55,12 @@ var withBytes = Flag("--bytes");
 var parts = Option("--parts");
 var normalFrom = Option("--normal-from") ?? "Info_Hide";
 var crossCheck = Option("--check") ?? "Show";
-if (argv.Count < 2) return Usage();
+var newName = Option("--name");
+var cloneSource = Option("--source");
+var screenArg = Option("--in");
+var marginsZero = Flag("--margins0");
+var allUsers = Flag("--all-users");
+if (argv.Count == 0 || argv.Count < 2 && argv[0] != "tex-show") return Usage();
 
 var config = GameConfig.LoadOrDefault(Path.Combine(AppContext.BaseDirectory, "umgeditor.json"));
 using var source = GameSource.Open(config);
@@ -99,6 +112,76 @@ LayoutEngine NewEngine()
 }
 
 static string Num(double v) => v.ToString("0.######", CultureInfo.InvariantCulture);
+
+EditorController Controller() =>
+    new(source, new UsageGraph(index), NewEngine(), p => WidgetTreeReader.Build(source, p), W, H, editSet ?? EditorController.DefaultProject,
+        () => TextureUsage.LoadOrBuild(source, index));
+
+string ResolveTexture(string arg)
+{
+    if (arg.StartsWith("/Game/", StringComparison.OrdinalIgnoreCase)) return GamePaths.PackageOf(arg);
+    var hits = index.Where(e => e.Kind == UiAssetKind.Texture).Select(e => GamePaths.ToPackagePath(e.Path))
+        .Where(p => p.EndsWith("/" + arg.Trim('/'), StringComparison.OrdinalIgnoreCase)).Distinct().ToList();
+    // the widgets name the Tex720 copy; its 0164F theme copy matches the same suffix
+    if (hits.Count > 1 && !arg.Contains("0164F")) hits = hits.Where(p => !p.Contains("/0164F/")).ToList();
+    if (hits.Count == 1) return hits[0];
+    throw new ArgumentException(hits.Count == 0 ? $"no texture package ends with \"{arg}\"" : $"\"{arg}\" is ambiguous: {string.Join(", ", hits.Take(5))}");
+}
+
+void PrintUsers(EditorController c, string texture, string? package = null, string? widget = null)
+{
+    var users = c.TextureUsers(texture);
+    Console.WriteLine($"named by {users.Count} widget{(users.Count == 1 ? "" : "s")}:");
+    foreach (var u in users)
+    {
+        var shown = c.EmbeddedBy(u.Package);
+        var online = u.Package.Contains("/MatchTimeConnection/", StringComparison.OrdinalIgnoreCase) ? " [online]" : "";
+        var mark = u.Package == package && u.Export == widget ? "  <- this one" : "";
+        Console.WriteLine($"  {GamePaths.ShortName(u.Package)}/{u.Export} ({u.ExportClass}.{u.Property}){online}{mark}" +
+                          (shown.Count > 0 ? $"\n      shown in {shown.Count}: {string.Join(", ", shown.Select(GamePaths.ShortName).Order(StringComparer.OrdinalIgnoreCase))}" : ""));
+    }
+}
+
+void PrintTexturePlan(TexturePlan plan)
+{
+    foreach (var i in plan.Items)
+    {
+        var e = i.Edit;
+        Console.WriteLine($"{GamePaths.ShortName(e.Package)}/{e.Widget}: {GamePaths.ShortName(e.Texture)} {i.StockWidth}x{i.StockHeight} -> {e.NewName} {i.Width}x{i.Height}" +
+                          $"{(e.Mode == TextureEditMode.White ? " (white)" : "")}{(e.MarginsZero ? ", margins 0" : "")}{(e.Source != null ? $", cloned from {GamePaths.ShortName(e.Source)}" : "")}");
+        Console.WriteLine($"  path {i.From}\n    -> {i.To}");
+        Console.WriteLine($"  new packages: {string.Join(", ", i.ClonePaths)}");
+        Console.WriteLine($"  re-pointed: {string.Join(", ", i.Storing.Select(GamePaths.ShortName))}");
+        foreach (var w in i.Warnings) Console.WriteLine($"  [Info] {w}");
+    }
+    foreach (var p in plan.Packages) Console.WriteLine($"  package {GamePaths.ShortName(p.PackagePath)}: {p.Chunk.Length:N0} bytes, chunk {p.ChunkIdHex}");
+    foreach (var p in plan.Clones) Console.WriteLine($"  clone {p.PackagePath[(p.PackagePath.IndexOf("/Widget/", StringComparison.Ordinal) + 8)..]}: {p.Chunk.Length:N0} bytes, chunk {p.ChunkIdHex}");
+    foreach (var r in plan.Refusals) Console.WriteLine($"  REFUSED {r}");
+}
+
+int TextureEdit(TextureEditMode mode, string packageArg, string widget, string? png)
+{
+    var c = Controller();
+    var package = ResolvePackage(packageArg);
+    var (edit, image, why) = c.PrepareTextureEdit(package, widget, mode, png, newName, cloneSource is { } src ? ResolveTexture(src) : null, marginsZero,
+        allUsers ? TextureEditScope.AllUsers : TextureEditScope.Widget);
+    if (edit == null) { Console.Error.WriteLine($"refused: {why}"); return 2; }
+    if (newName == null) Console.WriteLine($"name: {edit.NewName} (suggested; --name to pick another of the same length)");
+    if (image != null) Console.WriteLine($"image: {png} ({image.Format}, {image.Width}x{image.Height}) -> {edit.Image}");
+    var outcome = c.ApplyTextureEdit(edit, yes);
+    if (outcome.Refusal != null) { Console.Error.WriteLine($"refused:\n{outcome.Refusal}"); return 2; }
+    if (outcome.NeedsConfirmation)
+    {
+        Console.WriteLine(outcome.ConfirmationText);
+        Console.WriteLine($"First edit of {GamePaths.ShortName(package)}{(editSet != null ? $" in set {editSet}" : "")}: read the above, then re-run with --yes.");
+        return 3;
+    }
+    c.SaveTextureEdits();
+    Console.WriteLine($"saved {Path.Combine(c.ProjectFolder, TextureEditStore.FileName)}");
+    var plan = c.PlanTextures();
+    PrintTexturePlan(plan);
+    return plan.Ok ? 0 : 2;
+}
 
 try
 {
@@ -155,12 +238,15 @@ try
             Console.WriteLine(saved.Summary);
             return saved.Saved ? 0 : 2;
         }
-        case "build" when argv.Count >= 3:
+        case "build" when argv.Count >= 2:
         {
             // the export dialog's checks (unsaved edits, names, the Impact panel's Danger warnings, ...) and outputs
-            var controller = new EditorController(source, new UsageGraph(index), NewEngine(), p => WidgetTreeReader.Build(source, p), W, H,
-                editSet ?? EditorController.DefaultProject);
-            var request = new ExportRequest(argv[1], container, argv.Skip(2).Select(ResolvePackage).ToList(), config.RetocPath);
+            var controller = Controller();
+            // the set's texture edits ship with the packages they re-point: add those packages
+            var packages = argv.Skip(2).Select(ResolvePackage).Concat(controller.TextureEdits.SelectMany(controller.StoringPackages))
+                .Distinct(StringComparer.OrdinalIgnoreCase).ToList();
+            if (controller.TextureEdits.Count > 0) Console.WriteLine($"with {controller.TextureEdits.Count} texture edit(s): {string.Join(", ", packages.Select(GamePaths.ShortName))}");
+            var request = new ExportRequest(argv[1], container, packages, config.RetocPath);
             return BuildCommand.Run(controller, request, ackDanger, new RetocProcess(config.RetocPath), Console.Out, Console.Error);
         }
         case "predict" when argv.Count >= 2:
@@ -286,6 +372,80 @@ try
             }
             return 0;
         }
+        case "tex-info" when argv.Count >= 3:
+        {
+            var c = Controller();
+            var package = ResolvePackage(argv[1]);
+            if (c.TextureOf(package, argv[2]) is not { } current) { Console.Error.WriteLine($"refused: {argv[2]} in {GamePaths.ShortName(package)} isn't a uiImage with a stored texture"); return 2; }
+            var tex = TextureEdits.LoadTexture(source, current.Texture);
+            Console.WriteLine($"{GamePaths.ShortName(package)}/{argv[2]} shows {current.Texture}");
+            Console.WriteLine($"  {(tex == null ? "not a Texture2D" : $"{tex.PlatformData.SizeX}x{tex.PlatformData.SizeY} {tex.PlatformData.PixelFormat}, {tex.PlatformData.Mips.Length} mip(s)")}; " +
+                              $"theme copies: {string.Join(", ", TextureEdits.ThemeCopies(source, current.Texture).Select(p => p[..p.LastIndexOf('/')][(p.IndexOf("/Widget/", StringComparison.Ordinal) + 8)..]))}");
+            Console.WriteLine($"  name-map path {current.NameMapPath} ({current.NameMapPath.Length} characters)");
+            Console.WriteLine($"  {TextureEdits.SourceRefusal(source, current.Texture) ?? "can be cloned (B8G8R8A8)"}");
+            var margins = UmgEditor.Core.Layout.PreviewRaster.StoredMargins(WidgetTreeReader.Build(source, package).Find(argv[2])!);
+            if (margins.Any) Console.WriteLine($"  9-slice margins {Num(margins.Left)}/{Num(margins.Top)}/{Num(margins.Right)}/{Num(margins.Bottom)} (a real image wants --margins0)");
+            PrintUsers(c, current.Texture, package, argv[2]);
+            if (c.TextureEditOf(package, argv[2]) is { } edit) Console.WriteLine($"edited in this project: -> {edit.NewName} ({edit.Mode}{(edit.Image != null ? ", " + edit.Image : "")})");
+            return 0;
+        }
+        case "tex-users" when argv.Count >= 2:
+        {
+            var texture = ResolveTexture(argv[1]);
+            Console.WriteLine(texture);
+            PrintUsers(Controller(), texture);
+            return 0;
+        }
+        case "tex-sources" when argv.Count >= 3:
+        {
+            var c = Controller();
+            var package = ResolvePackage(argv[1]);
+            if (c.TextureOf(package, argv[2]) is not { } current) { Console.Error.WriteLine($"refused: {argv[2]} isn't a uiImage with a stored texture"); return 2; }
+            var sources = TextureEdits.Sources(source, index, current);
+            Console.WriteLine($"{sources.Count} B8G8R8A8 texture(s) whose clone path is {current.NameMapPath.Length} characters like {GamePaths.ShortName(current.Texture)}'s (same folder first):");
+            foreach (var s in sources.Take(40))
+            {
+                var t = TextureEdits.LoadTexture(source, s)!;
+                Console.WriteLine($"  {s}  ({t.PlatformData.SizeX}x{t.PlatformData.SizeY}, {t.PlatformData.Mips.Length} mip(s); a clone's name is {GamePaths.ShortName(s).Length} characters)");
+            }
+            return 0;
+        }
+        case "tex-preview" when argv.Count >= 5:
+        {
+            var c = Controller();
+            var package = ResolvePackage(argv[1]);
+            if (c.TextureOf(package, argv[2]) is not { } current) { Console.Error.WriteLine($"refused: {argv[2]} isn't a uiImage with a stored texture"); return 2; }
+            var (image, why) = PngReader.Read(argv[3]);
+            if (image == null) { Console.Error.WriteLine($"refused: {why}"); return 2; }
+            var screen = WidgetTreeReader.Build(source, screenArg != null ? ResolvePackage(screenArg) : package);
+            var repointed = allUsers ? c.TextureUsers(current.Texture).Where(r => r.NameMapPath == current.NameMapPath).Select(r => r.Package).Distinct().ToList() : [package];
+            var result = TexturePreview.Render(source, p => WidgetTreeReader.Build(source, p, readOnly: true), screen, current.Texture, repointed, image, marginsZero, W, H);
+            PngWriter.Write(argv[4], result.Image);
+            Console.WriteLine($"{argv[4]}: {GamePaths.ShortName(screen.PackagePath)} at {W}x{H}, {result.Boxes} box(es) with {GamePaths.ShortName(current.Texture)}; stock above, the image below" +
+                              (result.ShowsHidden ? " (hidden at rest: drawn with every hidden widget)" : "") + (result.Boxes == 0 ? $" (the texture isn't on {GamePaths.ShortName(screen.PackagePath)}; try --in)" : ""));
+            return 0;
+        }
+        case "tex" when argv.Count >= 4:
+            return TextureEdit(TextureEditMode.Image, argv[1], argv[2], argv[3]);
+        case "tex-white" when argv.Count >= 3:
+            return TextureEdit(TextureEditMode.White, argv[1], argv[2], null);
+        case "tex-show":
+        {
+            var c = Controller();
+            Console.WriteLine($"{c.TextureEdits.Count} texture edit{(c.TextureEdits.Count == 1 ? "" : "s")} in {Path.Combine(c.ProjectFolder, TextureEditStore.FileName)}");
+            if (c.TextureEdits.Count == 0) return 0;
+            var plan = c.PlanTextures();
+            PrintTexturePlan(plan);
+            return plan.Ok ? 0 : 2;
+        }
+        case "tex-reset" when argv.Count >= 3:
+        {
+            var c = Controller();
+            if (!c.RemoveTextureEdit(ResolvePackage(argv[1]), argv[2])) { Console.Error.WriteLine($"refused: no texture edit on {argv[2]}"); return 2; }
+            c.SaveTextureEdits();
+            Console.WriteLine($"removed; {c.TextureEdits.Count} texture edit(s) left");
+            return 0;
+        }
         default:
             return Usage();
     }
@@ -333,6 +493,14 @@ static int Usage()
           umgmod [--set NAME] anim-flatten <package> <anim,anim...> [--parts width,visibility,positions] [--normal-from Info_Hide] [--check Show] [--yes]
           umgmod [--set NAME] anim-key <package> <anim> <widget> <channel> <key#> <value|frame|interp> <new> [--yes]
           umgmod [--set NAME] anim-end <package> <anim> <oldEndTicks> <newEndTicks> [--yes]
+          umgmod tex-info <package> <widget>
+          umgmod tex-users <texture>
+          umgmod tex-sources <package> <widget>
+          umgmod tex-preview <package> <widget> <image.png> <out.png> [--in SCREEN] [--margins0] [--all-users]
+          umgmod [--set NAME] tex <package> <widget> <image.png> [--name NEW] [--source TEXTURE] [--margins0] [--all-users] [--yes]
+          umgmod [--set NAME] tex-white <package> <widget> [--name NEW] [--all-users] [--yes]
+          umgmod [--set NAME] tex-show
+          umgmod [--set NAME] tex-reset <package> <widget>
         <package>: /Game/... path or a unique suffix (MatchTime/MatchTimeBase); <field>: e.g. Offsets.Right
         """);
     return 1;
