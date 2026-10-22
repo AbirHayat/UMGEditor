@@ -303,6 +303,19 @@
                                     </TextBlock>
                                 </DockPanel>
                             </Border>
+                            <!-- step 3: an imported image shown before it's injected -->
+                            <Border x:Name="TrialBanner" Margin="0,0,0,6" Padding="8,5" Background="#FDF4FF" BorderBrush="#E879F9" BorderThickness="1" CornerRadius="3"
+                                    Visibility="{Binding TrialText, Converter={StaticResource NullToVis}}">
+                                <DockPanel>
+                                    <StackPanel DockPanel.Dock="Right" Orientation="Horizontal" VerticalAlignment="Top"
+                                                DataContext="{Binding DataContext, RelativeSource={RelativeSource AncestorType=Window}}">
+                                        <Button x:Name="BannerInjectButton" Content="Inject" Padding="8,0" Command="{Binding InjectTextureCommand}"
+                                                ToolTip="Make the trial a texture edit of the project (one undo step; Ctrl+S saves)" />
+                                        <Button x:Name="BannerDiscardButton" Content="Discard" Padding="8,0" Margin="4,0,0,0" Command="{Binding DiscardTrialCommand}" />
+                                    </StackPanel>
+                                    <TextBlock x:Name="TrialBannerText" TextWrapping="Wrap" Text="{Binding TrialText}" />
+                                </DockPanel>
+                            </Border>
                             <WrapPanel>
                                 <ComboBox Width="290" ItemsSource="{Binding Presets}" SelectedItem="{Binding SelectedPreset}" />
                                 <TextBox Width="56" Margin="8,0,0,0" Padding="2" Text="{Binding ViewportWidth, UpdateSourceTrigger=LostFocus}" ToolTip="Viewport width (px)" />
@@ -385,13 +398,34 @@
                         <DockPanel DockPanel.Dock="Top">
                             <Button x:Name="CopyBytesButton" DockPanel.Dock="Right" Content="Copy all" Padding="10,1" Margin="8,0,0,0" VerticalAlignment="Top"
                                     Command="{Binding CopyBytesCommand}" ToolTip="Copy the whole report as text (the field's bytes in [ ])" />
-                            <TextBlock x:Name="BytesSummaryText" TextWrapping="Wrap" FontWeight="SemiBold" Text="{Binding Bytes.Summary, FallbackValue='Loading…'}" />
+                            <TextBlock x:Name="BytesSummaryText" TextWrapping="Wrap" FontWeight="SemiBold" Text="{Binding BytesSummary}" />
                         </DockPanel>
                         <TextBlock DockPanel.Dock="Top" Margin="0,4,0,0" Foreground="#B91C1C" TextWrapping="Wrap" Text="{Binding BytesError}"
                                    Visibility="{Binding BytesError, Converter={StaticResource NullToVis}}" />
                         <TextBlock DockPanel.Dock="Top" Margin="0,4,0,6" FontSize="11" Foreground="#666" TextWrapping="Wrap"
                                    Text="Planned on each package's stock copy after every edit, undo and save. Offsets are in the raw Zen chunk (the .uasset under work\edits). In the ±32-byte stock context the field's bytes are highlighted; red bytes are the ones the patch changes. Copy (one value) and Copy all put the same report on the clipboard as text, with the field's bytes in [ ]." />
                         <ScrollViewer VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Auto">
+                          <StackPanel>
+                            <!-- step 3: texture edits = new packages + re-points (whole packages, not values) -->
+                            <TextBlock x:Name="TextureBytesStatusText" Margin="0,0,0,4" Foreground="#991B1B" TextWrapping="Wrap" Text="{Binding TextureBytesStatus}"
+                                       Visibility="{Binding TextureBytesStatus, Converter={StaticResource NullToVis}}" />
+                            <ItemsControl x:Name="TextureBytesList" ItemsSource="{Binding TextureBytes}">
+                                <ItemsControl.ItemTemplate>
+                                    <DataTemplate>
+                                        <Border Margin="0,0,0,8" Padding="8,6" Background="#FDF4FF" BorderBrush="#F0ABFC" BorderThickness="1" CornerRadius="3"
+                                                AutomationProperties.Name="{Binding Widget}">
+                                            <StackPanel>
+                                                <TextBlock TextWrapping="Wrap" FontWeight="SemiBold">
+                                                    <Run Text="Texture  " Foreground="#A21CAF" /><Run Text="{Binding Widget, Mode=OneWay}" /><Run Text="  ·  " Foreground="#888" /><Run Text="{Binding Change, Mode=OneWay}" Foreground="#1D4ED8" />
+                                                </TextBlock>
+                                                <TextBox Style="{StaticResource Value}" FontFamily="Consolas" FontSize="11" Text="{Binding Path, Mode=OneWay}" />
+                                                <TextBox Style="{StaticResource Value}" FontFamily="Consolas" FontSize="11" Text="{Binding Packages, Mode=OneWay}" />
+                                                <TextBlock Foreground="#666" FontSize="11" TextWrapping="Wrap" Text="{Binding Notes}" />
+                                            </StackPanel>
+                                        </Border>
+                                    </DataTemplate>
+                                </ItemsControl.ItemTemplate>
+                            </ItemsControl>
                             <ItemsControl x:Name="BytesList" ItemsSource="{Binding Bytes.Packages}">
                                 <ItemsControl.ItemTemplate>
                                     <DataTemplate>
@@ -544,6 +578,7 @@
                                     </DataTemplate>
                                 </ItemsControl.ItemTemplate>
                             </ItemsControl>
+                          </StackPanel>
                         </ScrollViewer>
                     </DockPanel>
                 </TabItem>
@@ -591,6 +626,100 @@
                     <TextBlock Margin="0,6,0,0" TextWrapping="Wrap" Text="{Binding NodeSource}" />
                     <TextBlock Margin="0,4,0,0" Foreground="#666" Text="{Binding InspectionStatus}"
                                Visibility="{Binding InspectionStatus, Converter={StaticResource NullToVis}}" />
+
+                    <!-- step 3: what an image widget draws, who else draws it, and replacing it -->
+                    <StackPanel x:Name="TextureSection" Visibility="{Binding TextureInfo, Converter={StaticResource NullToVis}}">
+                        <TextBlock Style="{StaticResource Section}" Text="Texture" />
+                        <StackPanel Orientation="Horizontal">
+                            <Border Width="104" Height="104" Background="#2A2A30" BorderBrush="#D1D5DB" BorderThickness="1" ToolTip="The stock texture (first mip)">
+                                <Image x:Name="TextureThumb" Source="{Binding TextureThumbnail}" Stretch="Uniform" Margin="2" />
+                            </Border>
+                            <TextBlock Text="→" FontSize="20" Margin="8,0" VerticalAlignment="Center" Foreground="#888"
+                                       Visibility="{Binding EditThumbnail, Converter={StaticResource NullToVis}}" />
+                            <Border Width="104" Height="104" Background="#2A2A30" BorderBrush="#E879F9" BorderThickness="1" ToolTip="The replacement (the trial, or the project's edit)"
+                                    Visibility="{Binding EditThumbnail, Converter={StaticResource NullToVis}}">
+                                <Image x:Name="EditThumb" Source="{Binding EditThumbnail}" Stretch="Uniform" Margin="2" />
+                            </Border>
+                        </StackPanel>
+                        <TextBlock x:Name="TextureNameText" Margin="0,4,0,0" FontWeight="SemiBold" TextWrapping="Wrap" Text="{Binding TextureInfo.Name}" ToolTip="{Binding TextureInfo.Texture}" />
+                        <TextBlock x:Name="TextureSizeText" Foreground="#444" Text="{Binding TextureInfo.SizeText}" />
+                        <TextBlock Foreground="#666" FontSize="11" TextWrapping="Wrap" Text="{Binding TextureInfo.ThemeText}" />
+                        <TextBlock Foreground="#92400E" FontSize="11" TextWrapping="Wrap" Text="{Binding TextureInfo.MarginsText}"
+                                   Visibility="{Binding TextureInfo.MarginsText, Converter={StaticResource NullToVis}}" />
+                        <TextBlock Foreground="#991B1B" FontSize="11" TextWrapping="Wrap" Text="{Binding TextureInfo.CloneRefusal, StringFormat='{}{0}: the clone comes from the source picked below.'}"
+                                   Visibility="{Binding TextureInfo.CloneRefusal, Converter={StaticResource NullToVis}}" />
+                        <TextBlock Foreground="#991B1B" TextWrapping="Wrap" Text="{Binding TextureInfo.Blocked}"
+                                   Visibility="{Binding TextureInfo.Blocked, Converter={StaticResource NullToVis}}" />
+                        <TextBlock x:Name="TextureEditText" Margin="0,4,0,0" Foreground="#1D4ED8" TextWrapping="Wrap" Text="{Binding TextureInfo.EditText}"
+                                   Visibility="{Binding TextureInfo.EditText, Converter={StaticResource NullToVis}}" />
+
+                        <TextBlock x:Name="TextureUsersHeader" Margin="0,8,0,2" FontWeight="SemiBold" Text="{Binding TextureInfo.UsersHeader}" />
+                        <ItemsControl x:Name="TextureUsersList" ItemsSource="{Binding TextureInfo.Users}">
+                            <ItemsControl.ItemTemplate>
+                                <DataTemplate>
+                                    <DockPanel Margin="0,1" AutomationProperties.Name="{Binding Label}">
+                                        <Button DockPanel.Dock="Right" Content="Open" Padding="6,0" FontSize="11" VerticalAlignment="Top"
+                                                Command="{Binding DataContext.OpenTextureUserCommand, RelativeSource={RelativeSource AncestorType=Window}}" CommandParameter="{Binding}"
+                                                AutomationProperties.AutomationId="{Binding Id, StringFormat='OpenUser_{0}'}" ToolTip="Open this package and select the widget" />
+                                        <StackPanel>
+                                            <StackPanel Orientation="Horizontal">
+                                                <TextBlock x:Name="L" Text="{Binding Label}" FontWeight="SemiBold" />
+                                                <Border Style="{StaticResource Badge}" Background="#7C3AED" Visibility="{Binding IsOnline, Converter={StaticResource BoolToVis}}">
+                                                    <TextBlock Style="{StaticResource BadgeText}" Text="online" />
+                                                </Border>
+                                                <TextBlock Foreground="#1D4ED8" Margin="6,0,0,0" FontSize="11" VerticalAlignment="Center" Text="{Binding Note}" />
+                                            </StackPanel>
+                                            <TextBlock Margin="10,0,0,0" Foreground="#666" FontSize="11" TextWrapping="Wrap" Text="{Binding ShownIn}"
+                                                       Visibility="{Binding ShownIn, Converter={StaticResource NullToVis}}" />
+                                        </StackPanel>
+                                    </DockPanel>
+                                </DataTemplate>
+                            </ItemsControl.ItemTemplate>
+                        </ItemsControl>
+
+                        <WrapPanel Margin="0,8,0,0">
+                            <Button x:Name="ImportTextureButton" Content="Import image…" Padding="8,1" Command="{Binding ImportTextureCommand}"
+                                    ToolTip="Pick a PNG: it shows in the Preview tab as a trial; nothing changes in the project until you inject it" />
+                            <Button x:Name="WhiteTextureButton" Content="White copy" Padding="8,1" Margin="6,0,0,0" Command="{Binding WhiteTextureCommand}"
+                                    ToolTip="The stock pixels with RGB white and the alpha kept (C16's white plates), as a trial" />
+                            <Button x:Name="RemoveTextureEditButton" Content="Remove replacement" Padding="8,1" Margin="6,0,0,0" Command="{Binding RemoveTextureEditCommand}"
+                                    ToolTip="Drop this widget's texture edit from the project (one undo step)" />
+                        </WrapPanel>
+
+                        <Border x:Name="TrialPanel" Margin="0,8,0,0" Padding="8,6" Background="#FDF4FF" BorderBrush="#E879F9" BorderThickness="1" CornerRadius="3"
+                                Visibility="{Binding TrialForSelected, Converter={StaticResource BoolToVis}}">
+                            <StackPanel>
+                                <TextBlock FontWeight="SemiBold" TextWrapping="Wrap" Text="Trial: shown in the Preview tab, not in the project yet" />
+                                <DockPanel Margin="0,6,0,0">
+                                    <TextBlock Text="New texture name " VerticalAlignment="Center" Foreground="#444" />
+                                    <TextBox x:Name="TrialNameBox" Padding="2" Text="{Binding TrialName, UpdateSourceTrigger=LostFocus}"
+                                             ToolTip="Same length as the source texture's name, with the same _N ending; must not exist in the game" />
+                                </DockPanel>
+                                <StackPanel Margin="0,4,0,0" Visibility="{Binding TextureInfo.CloneRefusal, Converter={StaticResource NullToVis}}">
+                                    <TextBlock Foreground="#444" FontSize="11" TextWrapping="Wrap" Text="Clone source (a B8G8R8A8 texture whose path fits):" />
+                                    <ComboBox x:Name="TrialSourcePicker" ItemsSource="{Binding TextureInfo.Sources}" SelectedItem="{Binding TrialSource}" />
+                                </StackPanel>
+                                <CheckBox x:Name="TrialMarginsCheck" Margin="0,6,0,0" Content="Margins 0: stretch the whole image (no 9-slice)" IsChecked="{Binding TrialMarginsZero}" />
+                                <CheckBox x:Name="TrialAllUsersCheck" Margin="0,2,0,0" Content="Every package that names this texture (not only this widget's)" IsChecked="{Binding TrialAllUsers}" />
+                                <TextBlock x:Name="TrialCheckText" Margin="0,6,0,0" TextWrapping="Wrap" FontSize="11" Text="{Binding TrialCheck}">
+                                    <TextBlock.Style>
+                                        <Style TargetType="TextBlock">
+                                            <Setter Property="Foreground" Value="#14532D" />
+                                            <Style.Triggers>
+                                                <DataTrigger Binding="{Binding TrialRefused}" Value="True">
+                                                    <Setter Property="Foreground" Value="#991B1B" />
+                                                </DataTrigger>
+                                            </Style.Triggers>
+                                        </Style>
+                                    </TextBlock.Style>
+                                </TextBlock>
+                                <WrapPanel Margin="0,6,0,0">
+                                    <Button x:Name="InjectTextureButton" Content="Inject into project" Padding="8,1" Command="{Binding InjectTextureCommand}" />
+                                    <Button x:Name="DiscardTrialButton" Content="Discard" Padding="8,1" Margin="6,0,0,0" Command="{Binding DiscardTrialCommand}" />
+                                </WrapPanel>
+                            </StackPanel>
+                        </Border>
+                    </StackPanel>
 
                     <!-- 6b: inspector (read-only) -->
                     <StackPanel x:Name="Inspector" DataContext="{Binding Inspection}" Visibility="{Binding Converter={StaticResource NullToVis}}">

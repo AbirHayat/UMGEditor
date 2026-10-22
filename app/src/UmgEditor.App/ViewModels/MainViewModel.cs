@@ -1,11 +1,13 @@
 using System.IO;
 using System.Windows;
 using System.Windows.Input;
+using System.Windows.Media.Imaging;
 using System.Windows.Threading;
 using UmgEditor.App.Preview;
 using UmgEditor.Core;
 using UmgEditor.Core.Editing;
 using UmgEditor.Core.Layout;
+using UmgEditor.Core.Modding;
 using UmgEditor.Core.Textures;
 
 namespace UmgEditor.App.ViewModels;
@@ -41,6 +43,12 @@ public sealed class MainViewModel : ObservableObject
         ShowOpenPackageCommand = new RelayCommand(() => Preview.Show(_openTree), () => Preview.IsImpact);
         CopyBytesCommand = new RelayCommand(() => { if (Bytes is { } b) CopyText(b.ToText(), $"the bytes to patch ({b.ValueCount} value{(b.ValueCount == 1 ? "" : "s")})"); },
             () => Bytes is { IsEmpty: false });
+        ImportTextureCommand = new RelayCommand(ImportTexture, () => CanReplaceTexture);
+        WhiteTextureCommand = new RelayCommand(() => PrepareTrial(TextureEditMode.White, null), () => CanReplaceTexture && TextureInfo?.CloneRefusal == null);
+        InjectTextureCommand = new RelayCommand(InjectTrial, () => _trial != null && !TrialRefused && !_trialChecking);
+        DiscardTrialCommand = new RelayCommand(() => DiscardTrial("Trial discarded."), () => _trial != null);
+        RemoveTextureEditCommand = new RelayCommand(RemoveTextureEdit, () => TextureInfo?.Edit != null);
+        OpenTextureUserCommand = new RelayCommand<TextureUserRow>(OpenTextureUser, r => r is { IsThis: false });
     }
 
     public PreviewViewModel Preview { get; }
@@ -141,6 +149,7 @@ public sealed class MainViewModel : ObservableObject
             Preview.Selected = value?.Node;
             UpdateHandles();
             OnPropertyChanged(nameof(NodeSource));
+            OnPropertyChanged(nameof(TrialForSelected));
             ClearEditMessage();
             _ = InspectAsync();
         }
@@ -181,8 +190,12 @@ public sealed class MainViewModel : ObservableObject
     }
 
     public string ProjectInfo => _controller == null ? "" :
-        (_controller.Edits.Count == 0 ? $"no edits ({_controller.ProjectFolder})"
-        : $"{_controller.Edits.Count} edit{(_controller.Edits.Count == 1 ? "" : "s")} in {string.Join(", ", _controller.Sessions.Where(s => s.Current.Count > 0).Select(s => GamePaths.ShortName(s.PackagePath)))}")
+        (_controller.Edits.Count == 0 && _controller.TextureEdits.Count == 0 ? $"no edits ({_controller.ProjectFolder})"
+        : string.Join(" + ", new[]
+        {
+            _controller.Edits.Count == 0 ? null : $"{_controller.Edits.Count} edit{(_controller.Edits.Count == 1 ? "" : "s")} in {string.Join(", ", _controller.Sessions.Where(s => s.Current.Count > 0).Select(s => GamePaths.ShortName(s.PackagePath)))}",
+            _controller.TextureEdits.Count == 0 ? null : $"{_controller.TextureEdits.Count} texture{(_controller.TextureEdits.Count == 1 ? "" : "s")}",
+        }.OfType<string>()))
         + (_controller.AnyDirty ? $" · unsaved: {_controller.UnsavedPackagesText}" : "");
 
     public string Title => "eFootball Mobile UMG Editor — " + _project + (_controller?.AnyDirty == true ? " *" : "");
@@ -265,6 +278,228 @@ public sealed class MainViewModel : ObservableObject
         return true;
     }
 
+    // ---- step 3: textures (see, import, preview as a trial, inject) ----
+
+    private TextureCache? _textures;
+    public RelayCommand ImportTextureCommand { get; }
+    public RelayCommand WhiteTextureCommand { get; }
+    public RelayCommand InjectTextureCommand { get; }
+    public RelayCommand DiscardTrialCommand { get; }
+    public RelayCommand RemoveTextureEditCommand { get; }
+    public RelayCommand<TextureUserRow> OpenTextureUserCommand { get; }
+
+    private TextureInspection? _textureInfo;
+    /// <summary>The selected image widget's texture, who else draws it and its edit (null for other widgets).</summary>
+    public TextureInspection? TextureInfo
+    {
+        get => _textureInfo;
+        private set { if (Set(ref _textureInfo, value)) { OnPropertyChanged(nameof(CanReplaceTexture)); OnPropertyChanged(nameof(TrialForSelected)); CommandManager.InvalidateRequerySuggested(); } }
+    }
+
+    private BitmapSource? _textureThumbnail;
+    public BitmapSource? TextureThumbnail { get => _textureThumbnail; private set => Set(ref _textureThumbnail, value); }
+
+    private BitmapSource? _editThumbnail;
+    /// <summary>The image the project's edit (or the trial) puts on this widget.</summary>
+    public BitmapSource? EditThumbnail { get => _editThumbnail; private set => Set(ref _editThumbnail, value); }
+
+    public bool CanReplaceTexture => _controller != null && TextureInfo is { Blocked: null };
+
+    // the trial: an imported image shown in the preview but not in the project yet
+    private (TextureEdit Edit, DecodedImage Image, string? File, TextureEditMode Mode)? _trial;
+    private int _trialVersion;
+    private bool _trialChecking;
+    public bool HasTrial => _trial != null;
+    /// <summary>The trial belongs to the selected widget (its controls show in the inspector).</summary>
+    public bool TrialForSelected => _trial is { } t && SelectedNode?.Node is { } n && t.Edit.Package.Equals(n.PackagePath, StringComparison.OrdinalIgnoreCase) && t.Edit.Widget == n.Name;
+
+    private string _trialName = "";
+    /// <summary>The new texture's short name (same length as the source's; pre-filled with a free one).</summary>
+    public string TrialName { get => _trialName; set { if (Set(ref _trialName, value ?? "")) RePrepareTrial(); } }
+
+    private bool _trialMarginsZero;
+    public bool TrialMarginsZero { get => _trialMarginsZero; set { if (Set(ref _trialMarginsZero, value)) RePrepareTrial(); } }
+
+    private bool _trialAllUsers;
+    public bool TrialAllUsers { get => _trialAllUsers; set { if (Set(ref _trialAllUsers, value)) RePrepareTrial(); } }
+
+    private string? _trialSource;
+    /// <summary>The B8G8R8A8 texture the clone comes from when the widget's own texture can't be cloned.</summary>
+    public string? TrialSource { get => _trialSource; set { if (Set(ref _trialSource, value)) RePrepareTrial(); } }
+
+    private string? _trialCheck;
+    /// <summary>What the trial would do (new packages, re-points, warnings) or why it's refused.</summary>
+    public string? TrialCheck { get => _trialCheck; private set => Set(ref _trialCheck, value); }
+
+    private bool _trialRefused;
+    public bool TrialRefused { get => _trialRefused; private set => Set(ref _trialRefused, value); }
+
+    private void ImportTexture()
+    {
+        if (TextureInfo == null) return;
+        var dlg = new Microsoft.Win32.OpenFileDialog { Filter = "PNG images|*.png", Title = $"Image for {SelectedNode?.Name} (replaces {TextureInfo.Name})" };
+        if (dlg.ShowDialog() != true) return;
+        PrepareTrial(TextureEditMode.Image, dlg.FileName);
+    }
+
+    /// <summary>Makes a trial for the selected widget: imports the PNG, shows it in the preview, checks it in the background.</summary>
+    private void PrepareTrial(TextureEditMode mode, string? file, bool keepName = false)
+    {
+        if (_controller is not { } c || SelectedNode?.Node is not { } node || TextureInfo is not { } info) return;
+        var source = info.CloneRefusal == null ? null : _trialSource ?? info.Sources.FirstOrDefault();
+        if (info.CloneRefusal != null && source == null) { SetTrialRefused($"{info.CloneRefusal}, and no B8G8R8A8 texture has a fitting path."); return; }
+        var name = keepName && _trialName.Trim().Length > 0 ? _trialName.Trim() : null;
+        var (edit, image, why) = c.PrepareTextureEdit(node.PackagePath, node.Name, mode, file, name, source, _trialMarginsZero,
+            _trialAllUsers ? TextureEditScope.AllUsers : TextureEditScope.Widget);
+        if (edit == null) { SetTrialRefused(why!); return; }
+        image ??= c.ImageOf(edit);
+        if (image == null) { SetTrialRefused("the white copy can't be made: the texture isn't B8G8R8A8"); return; }
+        _trial = (edit, image, file, mode);
+        _trialName = edit.NewName; OnPropertyChanged(nameof(TrialName));
+        if (source != _trialSource) { _trialSource = source; OnPropertyChanged(nameof(TrialSource)); }
+        EditThumbnail = PreviewRenderer.ToBitmap(image);
+        Preview.TrialLabel = $"{(file != null ? Path.GetFileName(file) : "white copy")} {image.Width}×{image.Height} on {GamePaths.ShortName(edit.Package)} › {edit.Widget}";
+        RefreshOverrides();
+        OnTrialChanged();
+        MiddleTabIndex = PreviewTabIndex;
+        _ = CheckTrialAsync();
+    }
+
+    private void RePrepareTrial()
+    {
+        if (_trial is { } t && TrialForSelected) PrepareTrial(t.Mode, t.File, keepName: true);
+    }
+
+    private void SetTrialRefused(string why)
+    {
+        TrialCheck = why;
+        TrialRefused = true;
+        CommandManager.InvalidateRequerySuggested();
+    }
+
+    /// <summary>Plans the project's texture edits with the trial in the background: the tools' own checks, nothing written.</summary>
+    private async Task CheckTrialAsync()
+    {
+        if (_controller is not { } c || _trial is not { } t) return;
+        var version = ++_trialVersion;
+        var edits = c.TextureEdits.Where(e => !(e.Package.Equals(t.Edit.Package, StringComparison.OrdinalIgnoreCase) && e.Widget == t.Edit.Widget)).Append(t.Edit).ToList();
+        var saved = c.SavedChunks(edits); // on the UI thread: sessions aren't thread-safe
+        _trialChecking = true;
+        TrialCheck = "Checking (clones, re-point, union with the saved edits)…";
+        TrialRefused = false;
+        CommandManager.InvalidateRequerySuggested();
+        try
+        {
+            var plan = await Task.Run(() => c.PlanTextures(edits, saved));
+            if (version != _trialVersion) return;
+            if (!plan.Ok) { SetTrialRefused(string.Join("\n", plan.Refusals)); return; }
+            var item = plan.Items[^1];
+            TrialCheck = $"OK: {item.StockWidth}×{item.StockHeight} → {item.Width}×{item.Height}. New package{(item.ClonePaths.Count == 1 ? "" : "s")}: {string.Join(", ", item.ClonePaths.Select(GamePaths.ShortName).Distinct())} " +
+                         $"({string.Join(", ", item.ClonePaths.Select(p => p.Contains("/0164F/") ? "0164F" : "Tex720"))}). Re-pointed: {string.Join(", ", item.Storing.Select(GamePaths.ShortName))}." +
+                         (item.Warnings.Count > 0 ? "\n" + string.Join("\n", item.Warnings) : "");
+            TrialRefused = false;
+        }
+        catch (Exception e)
+        {
+            if (version == _trialVersion) SetTrialRefused("Check failed: " + e.Message);
+        }
+        finally
+        {
+            if (version == _trialVersion) { _trialChecking = false; CommandManager.InvalidateRequerySuggested(); }
+        }
+    }
+
+    private void InjectTrial()
+    {
+        if (_controller is not { } c || _trial is not { } t || SelectedNode?.Node is not { } node) return;
+        var what = $"{t.Edit.Widget} texture → {t.Edit.NewName}";
+        if (RunEdit(node, what, confirmed => c.ApplyTextureEdit(t.Edit, confirmed), () => $"{what} ({t.Image.Width}×{t.Image.Height})"))
+        {
+            _trial = null;
+            Preview.TrialLabel = null;
+            OnTrialChanged();
+            RefreshOverrides();
+            SetAction($"Injected the image into project {c.Project}: {what} (unsaved; Ctrl+S saves).");
+        }
+    }
+
+    private void DiscardTrial(string? message)
+    {
+        if (_trial == null) return;
+        _trial = null;
+        ++_trialVersion;
+        _trialChecking = false;
+        TrialCheck = null;
+        TrialRefused = false;
+        Preview.TrialLabel = null;
+        OnTrialChanged();
+        RefreshOverrides();
+        _ = InspectAsync();
+        if (message != null) SetAction(message);
+    }
+
+    private void OnTrialChanged()
+    {
+        OnPropertyChanged(nameof(HasTrial));
+        OnPropertyChanged(nameof(TrialForSelected));
+        CommandManager.InvalidateRequerySuggested();
+    }
+
+    private void RemoveTextureEdit()
+    {
+        if (_controller is not { } c || SelectedNode?.Node is not { } node) return;
+        if (c.RemoveTextureEdit(node.PackagePath, node.Name))
+        {
+            EditMessage = $"{node.Name}: texture edit removed (unsaved; Ctrl+Z brings it back).";
+            EditRefused = false;
+            SetAction($"Removed the texture edit of {node.Name}.");
+        }
+    }
+
+    /// <summary>The preview draws the project's texture edits and the trial.</summary>
+    private void RefreshOverrides()
+    {
+        if (_controller is not { } c) return;
+        Preview.TextureOverrides = c.OverridesOf(null, _trial is { } t ? (t.Edit, t.Image) : null);
+    }
+
+    /// <summary>"Used by" row click: opens that package and selects the widget.</summary>
+    private void OpenTextureUser(TextureUserRow? row)
+    {
+        if (row == null) return;
+        var entry = _all.FirstOrDefault(e => GamePaths.ToPackagePath(e.Path).Equals(row.Package, StringComparison.OrdinalIgnoreCase));
+        if (entry == null) { SetAction($"{row.PackageName} isn't in the package list."); return; }
+        if (_openTree?.PackagePath.Equals(row.Package, StringComparison.OrdinalIgnoreCase) == true) { SelectByName(row.Widget); return; }
+        _selectAfterOpen = row.Widget;
+        Selected = entry;
+    }
+
+    private string? _selectAfterOpen;
+
+    private void SelectByName(string widget)
+    {
+        foreach (var root in TreeRoots)
+            if (FindByName(root, widget) is { } vm)
+            {
+                ExpandParents(TreeRoots, vm);
+                vm.IsSelected = true;
+                // a row whose container isn't realized yet doesn't raise the tree's selection event: select it here too
+                SelectedNode = vm;
+                MiddleTabIndex = TreeTabIndex;
+                return;
+            }
+
+        static WidgetNodeViewModel? FindByName(WidgetNodeViewModel v, string name) =>
+            v.Node is { IsReadOnly: false } n && n.Name == name ? v : v.Children.Select(c => FindByName(c, name)).FirstOrDefault(x => x != null);
+
+        static bool ExpandParents(IEnumerable<WidgetNodeViewModel> list, WidgetNodeViewModel target)
+        {
+            foreach (var v in list)
+                if (v == target || ExpandParents(v.Children, target)) { if (v != target) v.IsExpanded = true; return true; }
+            return false;
+        }
+    }
+
     // ---- 6f: dragging and nudging in the preview ----
 
     private SlotDrag? _drag;
@@ -325,14 +560,14 @@ public sealed class MainViewModel : ObservableObject
     {
         if (_controller is not { } c || c.NextUndo is not { } package || !c.Undo()) return;
         ClearEditMessage();
-        SetAction($"Undid an edit in {GamePaths.ShortName(package)}.");
+        SetAction(package == EditorController.TexturesStep ? "Undid a texture edit." : $"Undid an edit in {GamePaths.ShortName(package)}.");
     }
 
     private void Redo()
     {
         if (_controller is not { } c || c.NextRedo is not { } package || !c.Redo()) return;
         ClearEditMessage();
-        SetAction($"Redid an edit in {GamePaths.ShortName(package)}.");
+        SetAction(package == EditorController.TexturesStep ? "Redid a texture edit." : $"Redid an edit in {GamePaths.ShortName(package)}.");
     }
 
     private void Save() => SaveAndReport(null);
@@ -344,10 +579,13 @@ public sealed class MainViewModel : ObservableObject
     private bool SaveAndReport(string? package)
     {
         if (_controller is not { } c) return false;
+        var textures = package == null && c.TexturesDirty ? c.TextureEdits.Count : -1;
         var results = package == null ? c.SaveAll() : c.SavePackage(package);
         var report = EditorController.SaveReport(results);
         var ok = results.All(r => r.Result.Saved);
-        SetAction(EditorController.SaveStatus(results), report);
+        // texture edits are one file for the project (textures.json), saved with everything else
+        var texturesText = textures < 0 ? "" : $"Saved {textures} texture edit{(textures == 1 ? "" : "s")} ({Path.Combine(c.ProjectFolder, TextureEditStore.FileName)}).";
+        SetAction(results.Count == 0 && textures >= 0 ? texturesText : EditorController.SaveStatus(results) + (texturesText.Length > 0 ? " " + texturesText : ""), report);
         if (!ok) Ask(report, "Save refused", MessageBoxButton.OK, MessageBoxImage.Error);
         return ok;
     }
@@ -499,10 +737,27 @@ public sealed class MainViewModel : ObservableObject
     public BytesReport? Bytes
     {
         get => _bytes;
-        private set { if (Set(ref _bytes, value)) OnPropertyChanged(nameof(BytesTabHeader)); }
+        private set { if (Set(ref _bytes, value)) { OnPropertyChanged(nameof(BytesTabHeader)); OnPropertyChanged(nameof(BytesSummary)); } }
     }
 
-    public string BytesTabHeader => Bytes is { IsEmpty: false } b ? $"Bytes to patch ({b.ValueCount})" : "Bytes to patch";
+    public string BytesTabHeader => Bytes is { IsEmpty: false } b ? $"Bytes to patch ({b.ValueCount}{(TextureBytes.Count > 0 ? $" + {TextureBytes.Count} texture{(TextureBytes.Count == 1 ? "" : "s")}" : "")})"
+        : TextureBytes.Count > 0 ? $"Bytes to patch ({TextureBytes.Count} texture{(TextureBytes.Count == 1 ? "" : "s")})" : "Bytes to patch";
+
+    /// <summary>The Bytes tab's headline: the values to patch, or the texture edits when there are only those.</summary>
+    public string BytesSummary => Bytes is { IsEmpty: true } && TextureBytes.Count > 0
+        ? $"{TextureBytes.Count} texture edit{(TextureBytes.Count == 1 ? "" : "s")} in project {_controller?.Project}: new texture packages and re-pointed paths below (no values to patch)."
+        : Bytes?.Summary ?? "Loading…";
+
+    private IReadOnlyList<TextureBytesRow> _textureBytes = [];
+    /// <summary>Step 3: one row per texture edit (new packages, re-points).</summary>
+    public IReadOnlyList<TextureBytesRow> TextureBytes
+    {
+        get => _textureBytes;
+        private set { if (Set(ref _textureBytes, value)) { OnPropertyChanged(nameof(BytesTabHeader)); OnPropertyChanged(nameof(BytesSummary)); } }
+    }
+
+    private string? _textureBytesStatus;
+    public string? TextureBytesStatus { get => _textureBytesStatus; private set => Set(ref _textureBytesStatus, value); }
 
     private string? _bytesError;
     public string? BytesError { get => _bytesError; private set => Set(ref _bytesError, value); }
@@ -541,6 +796,22 @@ public sealed class MainViewModel : ObservableObject
             Bytes = null;
             BytesError = "Couldn't plan the bytes to patch: " + e.Message;
         }
+        // step 3: the texture edits (clones + re-points), planned in the background on the saved edit sets
+        var edits = c.TextureEdits;
+        if (edits.Count == 0) { TextureBytes = []; TextureBytesStatus = null; return; }
+        var saved = c.SavedChunks(edits);
+        TextureBytesStatus = "Planning the texture edits…";
+        try
+        {
+            var plan = await Task.Run(() => c.PlanTextures(edits, saved));
+            if (version != _bytesVersion) return;
+            TextureBytes = TextureBytesRow.Of(plan);
+            TextureBytesStatus = plan.Ok ? null : "Refused: " + string.Join("\n", plan.Refusals);
+        }
+        catch (Exception e)
+        {
+            if (version == _bytesVersion) TextureBytesStatus = "Couldn't plan the texture edits: " + e.Message;
+        }
     }
 
     private static MessageBoxResult Ask(string text, string caption, MessageBoxButton buttons, MessageBoxImage icon) =>
@@ -556,8 +827,8 @@ public sealed class MainViewModel : ObservableObject
     private async Task InspectAsync()
     {
         var version = ++_inspectVersion;
-        var (controller, tree, node) = (_controller, _openTree, SelectedNode?.Node);
-        if (controller == null || tree == null || node == null) { Inspection = null; InspectionStatus = ""; return; }
+        var (controller, tree, node, textures) = (_controller, _openTree, SelectedNode?.Node, _textures);
+        if (controller == null || tree == null || node == null) { Inspection = null; TextureInfo = null; InspectionStatus = ""; return; }
         InspectionStatus = "Checking…";
         try
         {
@@ -565,6 +836,16 @@ public sealed class MainViewModel : ObservableObject
             if (version != _inspectVersion) return;
             Inspection = result;
             InspectionStatus = "";
+            // step 3: the texture section (usage index, clone sources) and its thumbnails
+            var texture = await Task.Run(() => controller.InspectTexture(node));
+            if (version != _inspectVersion) return;
+            TextureInfo = texture;
+            var stock = texture != null && textures != null ? await Task.Run(() => textures.Get(texture.Texture)) : null;
+            if (version != _inspectVersion) return;
+            TextureThumbnail = stock is { IsPlaceholder: false } ? PreviewRenderer.ToBitmap(stock) : null;
+            var edited = TrialForSelected ? _trial!.Value.Image : texture?.Edit is { } e ? controller.ImageOf(e) : null;
+            EditThumbnail = edited != null ? PreviewRenderer.ToBitmap(edited) : null;
+            if (texture?.CloneRefusal != null && _trialSource == null) { _trialSource = texture.Sources.FirstOrDefault(); OnPropertyChanged(nameof(TrialSource)); }
         }
         catch (Exception e)
         {
@@ -577,6 +858,7 @@ public sealed class MainViewModel : ObservableObject
     private void OnProjectChanged()
     {
         if (_controller == null) return;
+        RefreshOverrides();
         Preview.Edits = _controller.Edits;
         UpdateHandles();
         OnPropertyChanged(nameof(ProjectInfo));
@@ -638,6 +920,7 @@ public sealed class MainViewModel : ObservableObject
 
     private async Task OpenTreeAsync(UiAssetEntry? entry)
     {
+        DiscardTrial(null);
         SelectedNode = null;
         TreeRoots = [];
         PackageBoards = "";
@@ -660,6 +943,7 @@ public sealed class MainViewModel : ObservableObject
             TreeRoots = roots;
             _openTree = tree;
             Preview.Show(tree);
+            if (_selectAfterOpen is { } widget) { _selectAfterOpen = null; SelectByName(widget); }
             var animated = tree.All().Count(n => n.IsAnimated);
             TreeStatus = tree.Root == null
                 ? $"{entry.Name} has no layout of its own (empty WidgetTree): a base/template class filled in by subclasses or code."
@@ -682,12 +966,13 @@ public sealed class MainViewModel : ObservableObject
             var source = _source;
             _all = await Task.Run(() => rebuild ? RebuildCache(source, progress) : UiAssetIndex.LoadOrBuild(source, progress));
             _usage = new UsageGraph(_all);
-            var textures = new TextureCache(source, new AssetRipperTextureDecoder());
+            var textures = _textures = new TextureCache(source, new AssetRipperTextureDecoder());
             var scale = await Task.Run(() => UiScaleSettings.Load(source));
-            var engine = new LayoutEngine(scale,
-                p => { try { return LoadTree(p, readOnly: true).GetAwaiter().GetResult(); } catch { return null; } },
-                t => textures.Get(t) is { IsPlaceholder: false } img ? (img.Width, img.Height) : null);
-            Preview.Attach(engine, new PreviewRenderer(textures.Get));
+            WidgetPackageTree? Embedded(string p) { try { return LoadTree(p, readOnly: true).GetAwaiter().GetResult(); } catch { return null; } }
+            (int, int)? Stock(string t) => textures.Get(t) is { IsPlaceholder: false } img ? (img.Width, img.Height) : null;
+            var engine = new LayoutEngine(scale, Embedded, Stock);
+            // the preview's engine also sees replacement images (an auto-sized image takes their size); the controller's stays stock
+            Preview.Attach(new LayoutEngine(scale, Embedded, t => Preview.SizeOverride(t) ?? Stock(t)), new PreviewRenderer(textures.Get));
             var usage = _usage;
             _controller = await Task.Run(() => new EditorController(source, usage, engine, p => LoadTree(p, readOnly: false).GetAwaiter().GetResult()));
             _controller.Changed += (_, _) => OnProjectChanged();

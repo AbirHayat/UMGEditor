@@ -25,6 +25,16 @@ files are only read. Edits go to `work\edits`, mods to `work\out\mods`.
 4. Check **Impact** (every screen the edit reaches, stock vs edited, and its warnings) and **Bytes** (exactly which
    bytes change). Undo/redo with Ctrl+Z / Ctrl+Y. **Save** (Ctrl+S) writes the patched copy.
 
+### 2b. Replace a texture (branch `experiment`)
+Select an image widget (e.g. MatchTime › … › `Img_Logo`). The inspector's **Texture** section shows what it draws (size,
+format, theme copies, 9-slice margins) and **Used by**: every widget in any package that draws the same texture, with
+where each is shown (`Open` jumps there). **Import image…** takes a PNG and shows it in the Preview tab as a *trial*
+(magenta dashes, a banner; Stock hides it); the section checks it in the background (new packages, re-points,
+warnings) and lets you change the new name, the clone source (for an ETC2 texture), Margins 0 and "every package".
+**Inject into project** makes it a texture edit (first edit of a package asks first; Ctrl+Z, Ctrl+S); **White copy**
+does the same with the stock pixels whitened. The Bytes tab lists each texture edit, the export dialog and
+`TEST_INSTRUCTIONS.md` ship and describe it. Command line: `umgmod tex-*` (below).
+
 ### 3. Export a mod
 **Export mod…** → mod name, container (keep `pc9999_mobile_and_P`), tick the packages, check the retoc line (green =
 the tested build). Read the **layout warnings**: each Danger one (something will vanish in game) needs its tick

@@ -96,6 +96,10 @@
                             Visibility="{Binding WarningsText, Converter={StaticResource NullToVis}}">
                         <TextBlock x:Name="ExportWarnings" TextWrapping="Wrap" Foreground="#92400E" Text="{Binding WarningsText}" />
                     </Border>
+                    <Border Margin="0,8,0,0" Padding="8,6" Background="#FDF4FF" BorderBrush="#F0ABFC" BorderThickness="1" CornerRadius="3"
+                            Visibility="{Binding TexturesText, Converter={StaticResource NullToVis}}">
+                        <TextBlock x:Name="ExportTextures" TextWrapping="Wrap" Foreground="#701A75" Text="{Binding TexturesText}" />
+                    </Border>
 
                     <!-- the Impact panel's warnings for the picked edits; each Danger one needs its tick before Build -->
                     <TextBlock x:Name="ExportImpactWarningsHeader" Style="{StaticResource Label}" Text="{Binding ImpactWarningsHeader}"

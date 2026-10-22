@@ -293,6 +293,55 @@ public class TextureEditTests
     }
 
     [TestMethod]
+    public void InspectTexture_TheLogo_UsersSourcesAndOverrides()
+    {
+        var project = "zztest" + Guid.NewGuid().ToString("N")[..10];
+        try
+        {
+            var c = Controller(project);
+            var board = WidgetTreeReader.Build(Source, MT + "MatchTime");
+            Assert.IsNull(c.InspectTexture(board.Find("Text_Score_Home")!), "only image widgets have a texture section");
+            var logo = c.InspectTexture(board.Find("Img_Logo")!)!;
+            Assert.AreEqual(MT + "Tex720/MatchTimeLogo", logo.Texture);
+            Assert.AreEqual((80, 80, "PF_ETC2_RGB"), (logo.Width, logo.Height, logo.Format));
+            StringAssert.Contains(logo.CloneRefusal, "only PF_B8G8R8A8");
+            CollectionAssert.Contains(logo.Sources.ToList(), Logo + "ExtraLoginBonusInfo");
+            Assert.AreEqual(2, logo.Users.Count);
+            Assert.IsTrue(logo.Users[0].IsThis, "this widget first");
+            Assert.IsTrue(logo.Users[1].IsOnline && logo.Users[1].PackageName == "MatchTimeConnection");
+            Assert.IsNull(logo.Edit);
+
+            // the plate in MatchTimeBase: shown in 8 packages; stored 9-slice margins
+            var plate = c.InspectTexture(WidgetTreeReader.Build(Source, MT + "MatchTimeBase").Find("Img_Plate")!)!;
+            Assert.IsNull(plate.CloneRefusal);
+            Assert.IsTrue(plate.Margins.Any);
+            StringAssert.Contains(plate.Users.Single(u => u.IsThis).ShownIn, "shown in 8:");
+            Assert.AreEqual(5, plate.Users.Count, "MatchTimePlate_0's five references");
+
+            // overrides: a trial on the logo draws only on MatchTime's boxes; an applied white plate shows its white pixels
+            var png = Path.Combine(_scratch, "logo.png");
+            PngWriter.Write(png, new DecodedImage(8, 8, Solid(8, 8, 1, 2, 3), "test"));
+            var (trial, image, why) = c.PrepareTextureEdit(MT + "MatchTime", "Img_Logo", TextureEditMode.Image, png, source: Logo + "ExtraLoginBonusInfo");
+            Assert.IsNotNull(trial, why);
+            var (white, _, why2) = c.PrepareTextureEdit(MT + "MatchTimeBase_1", "Img_Plate", TextureEditMode.White);
+            Assert.IsNotNull(white, why2);
+            Assert.IsTrue(c.ApplyTextureEdit(white, confirmed: true).Applied);
+            var overrides = c.OverridesOf(null, (trial, image!));
+            Assert.AreEqual(2, overrides.Count);
+            var layout = Engine.Arrange(board, 1786, 1000);
+            var logoBox = layout.Find("Img_Logo")!;
+            Assert.IsTrue(overrides.For(logoBox) is { IsTrial: true } o && ReferenceEquals(o.Image, image));
+            var whiteImage = overrides.All.Single(x => !x.IsTrial).Image;
+            Assert.IsTrue(whiteImage.Bgra.Where((_, i) => i % 4 != 3).All(b => b == 255), "white: RGB 255");
+            Assert.AreEqual(TextureEditMode.White, c.InspectTexture(WidgetTreeReader.Build(Source, MT + "MatchTimeBase_1").Find("Img_Plate")!)!.Edit?.Mode);
+
+            // the plan is cached: the same edits on the same saved edit sets give the same object
+            Assert.AreSame(c.PlanTextures(), c.PlanTextures());
+        }
+        finally { Guard.DeleteDirectory(Path.Combine(Guard.Root, project)); }
+    }
+
+    [TestMethod]
     public void Export_AnAllUsersEdit_NeedsEveryPackageItRepoints()
     {
         var project = "zztest" + Guid.NewGuid().ToString("N")[..10];

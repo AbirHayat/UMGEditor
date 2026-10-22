@@ -8,6 +8,7 @@ using UmgEditor.App.ViewModels;
 using UmgEditor.Core;
 using UmgEditor.Core.Editing;
 using UmgEditor.Core.Layout;
+using UmgEditor.Core.Textures;
 
 namespace UmgEditor.App.Preview;
 
@@ -58,6 +59,7 @@ public sealed class PreviewViewModel : ObservableObject
     {
         _engine = engine;
         Renderer = renderer;
+        Renderer.Overrides = Effective;
         OnPropertyChanged(nameof(Renderer));
         Rearrange();
     }
@@ -175,7 +177,37 @@ public sealed class PreviewViewModel : ObservableObject
 
     private bool _showStock;
     /// <summary>Lay out without the project's edits (stock), to compare with the edited layout.</summary>
-    public bool ShowStock { get => _showStock; set { if (Set(ref _showStock, value)) Rearrange(); } }
+    public bool ShowStock { get => _showStock; set { if (Set(ref _showStock, value)) ApplyOverrides(); } }
+
+    // ---- step 3: replacement textures ----
+
+    private TextureOverrides _overrides = TextureOverrides.None;
+    /// <summary>The project's texture edits plus a trial import, drawn instead of the stock textures (not while Stock is ticked).</summary>
+    public TextureOverrides TextureOverrides
+    {
+        get => _overrides;
+        set { _overrides = value ?? TextureOverrides.None; OnPropertyChanged(nameof(TrialText)); ApplyOverrides(); }
+    }
+
+    private TextureOverrides Effective => _showStock ? TextureOverrides.None : _overrides;
+
+    /// <summary>The size an auto-sized image takes with the replacements shown (the layout engine asks; null = stock).</summary>
+    public (int W, int H)? SizeOverride(string texture) => Effective.SizeOf(texture);
+
+    private string? _trialLabel;
+    /// <summary>What the trial is ("logo.png 80×80 on MatchTime › Img_Logo"); null when there is none.</summary>
+    public string? TrialLabel { get => _trialLabel; set { if (Set(ref _trialLabel, value)) OnPropertyChanged(nameof(TrialText)); } }
+
+    /// <summary>The banner over the preview while a trial is shown.</summary>
+    public string? TrialText => TrialLabel == null || !_overrides.All.Any(o => o.IsTrial) ? null
+        : $"Trial (not in the project yet): {TrialLabel}. Magenta dashes mark it. Inject keeps it; Discard drops it." + (_showStock ? " Stock is ticked: the trial isn't drawn." : "");
+
+    private void ApplyOverrides()
+    {
+        if (Renderer != null) Renderer.Overrides = Effective;
+        OnPropertyChanged(nameof(TrialText));
+        Rearrange();
+    }
 
     private EditSet? _edits;
     /// <summary>The current project's edits, laid out on top of the stock values (an edited child shows in its users too).</summary>

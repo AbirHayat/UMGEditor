@@ -11,7 +11,12 @@ public sealed class PackageChoice(ExportCandidate candidate, Action changed) : O
 {
     public string PackagePath => candidate.PackagePath;
     public string Name => candidate.Name;
-    public string Note => candidate.Dirty ? "unsaved changes: save first" : $"{candidate.SavedEdits} saved edit{(candidate.SavedEdits == 1 ? "" : "s")}";
+    public string Note => candidate.Dirty ? "unsaved changes: save first"
+        : string.Join(" + ", new[]
+        {
+            candidate.SavedEdits > 0 ? $"{candidate.SavedEdits} saved edit{(candidate.SavedEdits == 1 ? "" : "s")}" : null,
+            candidate.TextureEdits > 0 ? $"{candidate.TextureEdits} texture{(candidate.TextureEdits == 1 ? "" : "s")}" : null,
+        }.OfType<string>());
 
     private bool _checked = !candidate.Dirty;
     public bool IsChecked { get => _checked; set { if (Set(ref _checked, value)) changed(); } }
@@ -132,6 +137,7 @@ public sealed class ExportViewModel : ObservableObject
         SyncImpactWarnings();
         OnPropertyChanged(nameof(RefusalsText));
         OnPropertyChanged(nameof(WarningsText));
+        OnPropertyChanged(nameof(TexturesText));
         OnPropertyChanged(nameof(OutDirText));
         OnPropertyChanged(nameof(RetocText));
         OnPropertyChanged(nameof(RetocTested));
@@ -140,6 +146,10 @@ public sealed class ExportViewModel : ObservableObject
 
     public string? RefusalsText => Plan.Refusals.Count == 0 ? null : string.Join("\n", Plan.Refusals.Select(r => "• " + r));
     public string? WarningsText => Plan.Warnings.Count == 0 ? null : string.Join("\n", Plan.Warnings.Select(w => "• " + w));
+    /// <summary>Step 3: the texture edits the picked packages carry, and the new texture packages they add to the mod.</summary>
+    public string? TexturesText => Plan.Textures.Count == 0 ? null : "Textures:\n" + string.Join("\n", Plan.Textures.Select(t =>
+        $"• {GamePaths.ShortName(t.Edit.Package)} › {t.Edit.Widget}: {GamePaths.ShortName(t.Edit.Texture)} → {t.Edit.NewName} {t.Width}×{t.Height} " +
+        $"(+{t.ClonePaths.Count} new package{(t.ClonePaths.Count == 1 ? "" : "s")}; re-points {string.Join(", ", t.Storing.Select(GamePaths.ShortName))})"));
     public string OutDirText => $"{Plan.OutDir}  (mod\\ = the files for the device; predictions\\ and {ModInstructions.FileName} next to it)";
     public string RetocText => Plan.Retoc.Text;
     public bool RetocTested => Plan.Retoc.IsTested;

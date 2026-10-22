@@ -544,6 +544,78 @@ public sealed class EditorController
     /// <summary>The packages that show a package: it embedded somewhere, directly or through others.</summary>
     public IReadOnlyCollection<string> EmbeddedBy(string package) => _usage.AllUsers(package);
 
+    /// <summary>
+    /// The inspector's Texture section for a uiImage widget (null for any other widget): its texture, every widget naming
+    /// it with where each is shown, clone sources when it can't be cloned, and its edit in the project.
+    /// </summary>
+    public TextureInspection? InspectTexture(WidgetNode node)
+    {
+        if (node.ClassName != "uiImage_C" || TextureOf(node.PackagePath, node.Name) is not { } current) return null;
+        var tex = Modding.TextureEdits.LoadTexture(_source, current.Texture);
+        var refusal = Modding.TextureEdits.SourceRefusal(_source, current.Texture);
+        var users = TextureUsers(current.Texture).Select(u =>
+        {
+            var shown = _usage.AllUsers(u.Package);
+            return new TextureUserRow
+            {
+                Package = u.Package, Widget = u.Export, What = $"{u.ExportClass}.{u.Property}",
+                IsThis = u.Package.Equals(node.PackagePath, StringComparison.OrdinalIgnoreCase) && u.Export == node.Name,
+                Follows = u.Package.Equals(node.PackagePath, StringComparison.OrdinalIgnoreCase) && u.Export != node.Name && u.NameMapPath == current.NameMapPath,
+                IsOnline = u.Package.Contains("/MatchTimeConnection/", StringComparison.OrdinalIgnoreCase),
+                ShownIn = shown.Count == 0 ? "" : $"shown in {shown.Count}: {string.Join(", ", shown.Select(GamePaths.ShortName).Order(StringComparer.OrdinalIgnoreCase))}",
+            };
+        }).OrderByDescending(r => r.IsThis).ThenByDescending(r => r.Follows).ThenBy(r => r.IsOnline).ThenBy(r => r.Label, StringComparer.OrdinalIgnoreCase).ToList();
+        return new TextureInspection
+        {
+            Ref = current,
+            Width = tex?.PlatformData.SizeX ?? 0, Height = tex?.PlatformData.SizeY ?? 0,
+            Format = tex?.PlatformData.PixelFormat ?? "not a Texture2D", Mips = tex?.PlatformData.Mips.Length ?? 0,
+            ThemeCopies = Modding.TextureEdits.ThemeCopies(_source, current.Texture),
+            CloneRefusal = refusal,
+            Sources = refusal == null ? [] : Modding.TextureEdits.Sources(_source, UiAssetIndex.LoadOrBuild(_source), current),
+            Margins = Layout.PreviewRaster.StoredMargins(node),
+            Users = users,
+            Blocked = GamePaths.IsLibrary(node.PackagePath) ? "This image belongs to a library widget, shared by the whole game: replace it in the widget that uses it." : null,
+            Edit = TextureEditOf(node.PackagePath, node.Name),
+        };
+    }
+
+    private readonly Dictionary<string, DecodedImage?> _overrideImages = new();
+
+    /// <summary>
+    /// What a preview draws for texture edits (default: the current ones) plus an optional trial (an import not applied
+    /// yet): each edit's image on the boxes of the packages it re-points. An edit whose image can't be read is left out.
+    /// </summary>
+    public TextureOverrides OverridesOf(IReadOnlyList<TextureEdit>? edits = null, (TextureEdit Edit, DecodedImage Image)? trial = null)
+    {
+        var list = new List<TextureOverride>();
+        foreach (var e in (edits ?? _textures).Where(e => trial == null || !(e.Package == trial.Value.Edit.Package && e.Widget == trial.Value.Edit.Widget)))
+            if (ImageOf(e) is { } image)
+                list.Add(new TextureOverride(e.Texture, StoringPackages(e).ToHashSet(StringComparer.OrdinalIgnoreCase), image, e.MarginsZero));
+        if (trial is var (t, img))
+            list.Add(new TextureOverride(t.Texture, StoringPackages(t).ToHashSet(StringComparer.OrdinalIgnoreCase), img, t.MarginsZero, IsTrial: true));
+        return new TextureOverrides(list);
+    }
+
+    /// <summary>An edit's pixels as the clone's mip 0 will hold them (the imported PNG, or the stock pixels whitened).</summary>
+    public DecodedImage? ImageOf(TextureEdit e)
+    {
+        var key = e.Mode == TextureEditMode.White ? "white:" + e.SourceTexture : $"{ProjectFolder}|{e.Image}|{e.ImageSha256}";
+        lock (_overrideImages)
+        {
+            if (_overrideImages.TryGetValue(key, out var cached)) return cached;
+            DecodedImage? image = null;
+            if (e.Mode == TextureEditMode.Image) image = TextureEditStore.ReadImage(ProjectFolder, e).Image;
+            else if (Modding.TextureEdits.LoadTexture(_source, e.SourceTexture) is { PlatformData.PixelFormat: "PF_B8G8R8A8" } t && t.PlatformData.Mips[0].BulkData?.Data is { } data)
+            {
+                var white = data.ToArray();
+                for (int i = 0; i < white.Length; i += 4) white[i] = white[i + 1] = white[i + 2] = 255;
+                image = new DecodedImage(t.PlatformData.Mips[0].SizeX, t.PlatformData.Mips[0].SizeY, white, "white");
+            }
+            return _overrideImages[key] = image;
+        }
+    }
+
     public TextureEdit? TextureEditOf(string package, string widget) =>
         _textures.FirstOrDefault(e => e.Package.Equals(package, StringComparison.OrdinalIgnoreCase) && e.Widget == widget);
 
@@ -574,10 +646,37 @@ public sealed class EditorController
     /// Plans texture edits (default: the current ones) on top of each package's saved edit-set chunk, so the result is
     /// what an export ships.
     /// </summary>
-    public TexturePlan PlanTextures(IReadOnlyList<TextureEdit>? edits = null) =>
-        Modding.TextureEdits.Plan(_source, TextureUsage, ProjectFolder, edits ?? _textures,
-            p => _sessions.TryGetValue(p, out var s) && s.Saved.Count > 0 ? s.ReadSavedChunk().Chunk : null,
-            p => _usage.AllUsers(p));
+    public TexturePlan PlanTextures(IReadOnlyList<TextureEdit>? edits = null)
+    {
+        edits ??= _textures;
+        // the export dialog re-plans on every keystroke: the same edits on the same saved edit sets give the same plan
+        var inputs = edits.SelectMany(StoringPackages).Distinct(StringComparer.OrdinalIgnoreCase)
+            .Select(p => _sessions.TryGetValue(p, out var s) && s.Saved.Count > 0 ? (object) s.Saved : null).ToList();
+        if (_texturePlan is { } cached && cached.Edits.SequenceEqual(edits) && cached.Inputs.SequenceEqual(inputs, ReferenceEqualityComparer.Instance)
+            && cached.Folder == ProjectFolder)
+            return cached.Plan;
+        var plan = PlanTextures(edits, SavedChunks(edits));
+        _texturePlan = (edits.ToList(), inputs, ProjectFolder, plan);
+        return plan;
+    }
+
+    private (List<TextureEdit> Edits, List<object?> Inputs, string Folder, TexturePlan Plan)? _texturePlan;
+
+    /// <summary>
+    /// Plans texture edits on given saved chunks (no session access, so it may run in the background: take the chunks
+    /// with <see cref="SavedChunks"/> on the editor's thread).
+    /// </summary>
+    public TexturePlan PlanTextures(IReadOnlyList<TextureEdit> edits, IReadOnlyDictionary<string, byte[]> saved) =>
+        Modding.TextureEdits.Plan(_source, TextureUsage, ProjectFolder, edits, p => saved.GetValueOrDefault(p), p => _usage.AllUsers(p));
+
+    /// <summary>The saved edit-set chunk of every package the edits re-point that has one (call on the editor's thread).</summary>
+    public IReadOnlyDictionary<string, byte[]> SavedChunks(IEnumerable<TextureEdit> edits)
+    {
+        var chunks = new Dictionary<string, byte[]>(StringComparer.OrdinalIgnoreCase);
+        foreach (var p in edits.SelectMany(StoringPackages).Distinct(StringComparer.OrdinalIgnoreCase))
+            if (_sessions.TryGetValue(p, out var s) && s.Saved.Count > 0 && s.ReadSavedChunk().Chunk is { } chunk) chunks[p] = chunk;
+        return chunks;
+    }
 
     /// <summary>
     /// Adds a texture edit (or replaces the widget's earlier one) after planning it: a refusal of the tools refuses it.
