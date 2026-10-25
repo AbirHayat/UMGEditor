@@ -202,6 +202,38 @@ public class TextureEditTests
         Assert.AreEqual(sources.Count, sources.Distinct().Count());
     }
 
+    private const string Coop = "/Game/Assets/ui/Data/Widget/Mode/lobby/MatchMainMenuCoop/Tex720/";
+
+    /// <summary>
+    /// Stage 1 of 2026-10-25: 61 widgets defaulted to MatchMainMenuCoopPlate_OwnerCircleLine / _StatusAway, whose file
+    /// key says Mode/lobby while the package stores Mode/Lobby, so the clone's renames don't match. A source must now
+    /// pass the copy step's own name check.
+    /// </summary>
+    [TestMethod]
+    public void Sources_LeaveOutTexturesWhoseNamesCantBeCloned_TheLetterCaseCase()
+    {
+        foreach (var bad in new[] { Coop + "MatchMainMenuCoopPlate_OwnerCircleLine", Coop + "MatchMainMenuCoopPlate_StatusAway" })
+        {
+            var why = TextureClone.NameRefusal(Source, bad);
+            Console.WriteLine(why);
+            StringAssert.Contains(why, "the letter case differs");
+            StringAssert.Contains(why, "/Mode/Lobby/");
+            StringAssert.Contains(TextureEdits.SourceRefusal(Source, bad), "the letter case differs");
+            Assert.IsFalse(Formats.Of(bad)!.Cloneable);
+        }
+        Assert.IsNull(TextureClone.NameRefusal(Source, Logo + "ExtraLoginBonusInfo"));
+
+        // every listed source passes the name check; the failing widget's default source now plans
+        var credit = Usage.Refs.Single(r => r.Package.EndsWith("/MainMenuLegalAndPrivacyChoice") && r.Export == "Img_Credit" && r.IsImageTexture);
+        var sources = TextureEdits.Sources(Source, Formats, credit);
+        Console.WriteLine($"{GamePaths.ShortName(credit.Package)}/Img_Credit: {sources.Count} sources, first {sources[0]}");
+        Assert.IsFalse(sources.Any(s => s.Contains("MatchMainMenuCoopPlate_OwnerCircleLine")));
+        foreach (var s in sources.Take(25)) Assert.IsNull(TextureClone.NameRefusal(Source, s), s);
+        var edit = new TextureEdit(credit.Package, credit.Export, credit.Texture, TextureEditMode.White, TextureEdits.SuggestName(Source, sources[0], []), Source: sources[0]);
+        var plan = TextureEdits.Plan(Source, Usage, _folder, [edit]);
+        Assert.IsTrue(plan.Ok, string.Join("\n", plan.Refusals));
+    }
+
     // ---- appended + pointed paths (a widget alone, or a path of another length) ----
 
     private const string Special = Tv + "MatchMemberChangeSpecial/";

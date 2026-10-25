@@ -153,7 +153,8 @@ public static class TextureEdits
 
     /// <summary>
     /// Why a texture can't be a clone source (only uncompressed B8G8R8A8 with inline mips can, in every theme folder it
-    /// has: a clone is made from each copy), or null.
+    /// has: a clone is made from each copy, and each copy's names must be renameable, <see cref="TextureClone.NameRefusal"/>),
+    /// or null.
     /// </summary>
     public static string? SourceRefusal(GameSource source, string texture)
     {
@@ -162,6 +163,8 @@ public static class TextureEdits
         foreach (var copy in ThemeCopies(source, texture).Skip(1))
             if (LoadTexture(source, copy) is not { PlatformData.PixelFormat: "PF_B8G8R8A8" } c)
                 return $"{GamePaths.ShortName(texture)}'s theme copy {copy[(copy.LastIndexOf("/0164F/", StringComparison.Ordinal) + 1)..]} is {LoadTexture(source, copy)?.PlatformData.PixelFormat ?? "not a Texture2D"}; only PF_B8G8R8A8 textures can be cloned (pick another source)";
+        foreach (var copy in ThemeCopies(source, texture))
+            if (TextureClone.NameRefusal(source, copy) is { } names) return $"{names} (pick another source)";
         return null;
     }
 

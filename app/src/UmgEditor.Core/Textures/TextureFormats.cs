@@ -3,19 +3,23 @@ using System.Text.Json;
 
 namespace UmgEditor.Core.Textures;
 
-/// <summary>One texture package's pixel format, size and mip count (inline B8G8R8A8 = can be a clone source).</summary>
-public sealed record TextureFormat(string Texture, string PixelFormat, int Width, int Height, int Mips, bool InlineMips)
+/// <summary>
+/// One texture package's pixel format, size and mip count, and why its names can't be cloned
+/// (<see cref="Modding.TextureClone.NameRefusal"/>; null = they can). Inline B8G8R8A8 with clonable names = a clone source.
+/// </summary>
+public sealed record TextureFormat(string Texture, string PixelFormat, int Width, int Height, int Mips, bool InlineMips, string? NameProblem = null)
 {
-    public bool Cloneable => PixelFormat == "PF_B8G8R8A8" && InlineMips;
+    public bool Cloneable => PixelFormat == "PF_B8G8R8A8" && InlineMips && NameProblem == null;
 }
 
 /// <summary>
 /// The format of every UI texture package (step 3: clone sources for textures that can't be cloned themselves, e.g.
-/// ETC2). Built once per game fingerprint by loading each texture of the UI index; cached in work/cache.
+/// ETC2). Built once per game fingerprint by loading each texture of the UI index (and, for B8G8R8A8 ones, checking
+/// that their names can be cloned); cached in work/cache.
 /// </summary>
 public sealed class TextureFormats
 {
-    private const int FormatVersion = 1;
+    private const int FormatVersion = 2; // 2: NameProblem
 
     public IReadOnlyList<TextureFormat> All { get; }
     private readonly Dictionary<string, TextureFormat> _byTexture;
@@ -48,7 +52,9 @@ public sealed class TextureFormats
             if (Modding.TextureEdits.LoadTexture(source, texture) is not { } t) return;
             var p = t.PlatformData;
             var inline = p.Mips.Length > 0 && p.Mips.All(m => m.BulkData is { } b && b.BulkDataFlags.HasFlag(CUE4Parse.UE4.Assets.Objects.EBulkDataFlags.BULKDATA_ForceInlinePayload) && b.Data != null);
-            found.Add(new TextureFormat(texture, p.PixelFormat, p.SizeX, p.SizeY, p.Mips.Length, inline));
+            // only a B8G8R8A8 texture can be a source, so only those need the (slower) name check
+            var names = p.PixelFormat == "PF_B8G8R8A8" && inline ? Modding.TextureClone.NameRefusal(source, texture) : null;
+            found.Add(new TextureFormat(texture, p.PixelFormat, p.SizeX, p.SizeY, p.Mips.Length, inline, names));
         });
         return found.OrderBy(f => f.Texture, StringComparer.OrdinalIgnoreCase).ToList();
     }

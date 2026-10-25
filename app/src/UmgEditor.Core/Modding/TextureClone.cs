@@ -302,6 +302,21 @@ public static class TextureClone
     }
 
     /// <summary>
+    /// Why <see cref="Build"/>/<see cref="BuildResized"/> would refuse to clone this stock package because of its names
+    /// (read only; the format is <see cref="TextureEdits.SourceRefusal"/>'s check): the name map must hold the package
+    /// path exactly as <paramref name="stockPath"/> spells it, plus the export name, and nothing else holding the name.
+    /// A file key whose folder differs in letter case from the path the package stores (e.g. Mode/lobby vs Mode/Lobby)
+    /// fails here. Null when it can be cloned.
+    /// </summary>
+    public static string? NameRefusal(GameSource source, string stockPath)
+    {
+        byte[] stock;
+        try { stock = source.ReadPackageBytes(stockPath).Bytes; }
+        catch (Exception e) { return $"{stockPath} can't be read ({e.Message})"; }
+        return NameRenames(stock, stockPath, stockPath[(stockPath.LastIndexOf('/') + 1)..], out _);
+    }
+
+    /// <summary>
     /// The name-map renames that give a texture package its new short name: the package path and the export name, as
     /// the name map stores them (without an FName number suffix, which must be the same on both sides). Every name
     /// holding the old base must be one of those two. Returns why not, or null.
@@ -315,7 +330,12 @@ public static class TextureClone
         if (oldSuffix != newSuffix) return $"\"{newShortName}\" must end like \"{oldBase}{oldSuffix}\" (FName number suffix \"{oldSuffix}\")";
         var holders = ZenNameMap.Read(stock).Where(n => n.Text.Contains(oldBase, StringComparison.Ordinal)).Select(n => n.Text).ToList();
         if (!holders.Order(StringComparer.Ordinal).SequenceEqual(new[] { folder + oldBase, oldBase }.Order(StringComparer.Ordinal)))
+        {
+            // the commonest cause: the package stores its path in another letter case than its file key (Mode/Lobby vs Mode/lobby)
+            if (holders.FirstOrDefault(h => h != folder + oldBase && h.Equals(folder + oldBase, StringComparison.OrdinalIgnoreCase)) is { } stored)
+                return $"{GamePaths.ShortName(stockPath)} stores its path as {stored}, its file as {folder + oldBase}: the letter case differs, so the clone's renames don't match";
             return $"names holding \"{oldBase}\": {string.Join(", ", holders)} (expected exactly the package path and the export name)";
+        }
         renames = [(folder + oldBase, folder + newBase), (oldBase, newBase)];
         return null;
     }
