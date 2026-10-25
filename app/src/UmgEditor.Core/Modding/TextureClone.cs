@@ -255,7 +255,7 @@ public static class TextureClone
         foreach (var key in a.Keys.Union(b.Keys))
         {
             var x = a.GetValueOrDefault(key); var y = b.GetValueOrDefault(key);
-            if (x == y || (x != null && y != null && y == x.Replace(stockPath, newPath).Replace(oldShortName, newShortName))) continue;
+            if (x == y || (x != null && y != null && y == NameRenamePatch.RenameText(x, [(stockPath, newPath), (oldShortName, newShortName)]))) continue;
             if (allowed.Contains(key) || (key.StartsWith("Mips[", StringComparison.Ordinal) && (key.EndsWith(".SizeX") || key.EndsWith(".SizeY") || key.Contains(".BulkData.")))) continue;
             return Refuse($"re-parse: unintended difference {key}: {x ?? "(missing)"} → {y ?? "(missing)"}");
         }

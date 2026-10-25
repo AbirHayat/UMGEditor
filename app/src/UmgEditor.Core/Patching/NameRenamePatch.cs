@@ -26,6 +26,21 @@ public static class NameRenamePatch
 
         var (renamed, why) = ZenNameMap.Rename(stock, renames);
         if (renamed == null) return Refuse(why!);
+        return Verify(source, fileKey, stock, renamed, renames, writes, expected);
+    }
+
+    /// <summary>
+    /// The checks of <see cref="Apply"/> on a chunk renamed elsewhere (the planned writes are applied to it first):
+    /// exact byte diff, then the re-parse against <see cref="RenameText"/> of each stock value. Also how a wrong rename
+    /// is shown to be refused.
+    /// </summary>
+    public static RenameResult Verify(GameSource source, string fileKey, byte[] stock, byte[] renamedChunk, IReadOnlyList<(string From, string To)> renames,
+        IReadOnlyList<(int Offset, byte[] Bytes, string What)>? writes = null, IReadOnlyDictionary<(int Export, string Path), string>? expected = null)
+    {
+        var log = new List<string>();
+        var refusals = new List<string>();
+        RenameResult Refuse(string why) { refusals.Add(why); return new RenameResult(null, refusals, log); }
+        var renamed = (byte[]) renamedChunk.Clone();
         var names = ZenNameMap.Read(stock);
         var allowed = new HashSet<int>();
         foreach (var (from, to) in renames)
@@ -50,8 +65,7 @@ public static class NameRenamePatch
         if (stray.Count > 0) return Refuse($"bytes outside the plan differ: {string.Join(", ", stray.Select(i => $"0x{i:X}"))}");
         log.Add($"{Enumerable.Range(0, stock.Length).Count(i => stock[i] != renamed[i])} bytes differ from stock, size {stock.Length} unchanged");
 
-        // 2. full re-parse: only renamed strings may differ
-        string Renamed(string s) { foreach (var (from, to) in renames.OrderByDescending(r => r.From.Length)) s = s.Replace(from, to, StringComparison.Ordinal); return s; }
+        // 2. full re-parse: only renamed strings may differ, each exactly as RenameText predicts
         try
         {
             var before = source.ParsePackage(fileKey, stock);
@@ -68,7 +82,7 @@ public static class NameRenamePatch
                     var x = a.GetValueOrDefault(k);
                     var y = b.GetValueOrDefault(k);
                     if (x == y) continue;
-                    if (x != null && y != null && y == Renamed(x)) { changed++; continue; }
+                    if (x != null && y != null && y == RenameText(x, renames)) { changed++; continue; }
                     if (expected != null && expected.TryGetValue((i, k), out var want) && y != null && Same(y, want))
                     { changed++; seen.Add((i, k)); continue; }
                     refusals.Add($"re-parse: unintended difference in export {i} ({before.ExportsLazy[i].Value.Name}) {k}: {x ?? "(missing)"} → {y ?? "(missing)"}");
@@ -80,6 +94,25 @@ public static class NameRenamePatch
         }
         catch (Exception e) { return Refuse($"re-parse failed: {e.GetType().Name}: {e.Message}"); }
         return refusals.Count > 0 ? new RenameResult(null, refusals, log) : new RenameResult(renamed, refusals, log);
+    }
+
+    /// <summary>
+    /// A stock value as the renamed package parses it: one pass left to right; at each position the longest name that
+    /// starts there is replaced, and the scan continues after the replacement, so replaced text is never renamed again
+    /// (a texture named like its folder, /…/CmnIconAlert/Tex720/CmnIconAlert, keeps the folder). Ordinal.
+    /// </summary>
+    public static string RenameText(string s, IReadOnlyList<(string From, string To)> renames)
+    {
+        var byLength = renames.Where(r => r.From.Length > 0).OrderByDescending(r => r.From.Length).ToList();
+        var o = new System.Text.StringBuilder(s.Length);
+        for (int i = 0; i < s.Length;)
+        {
+            var hit = byLength.FindIndex(r => s.AsSpan(i).StartsWith(r.From, StringComparison.Ordinal));
+            if (hit < 0) { o.Append(s[i++]); continue; }
+            o.Append(byLength[hit].To);
+            i += byLength[hit].From.Length;
+        }
+        return o.ToString();
     }
 
     /// <summary>A parsed value equals the planned one: as floats when both are numbers, else as text (quotes ignored).</summary>
