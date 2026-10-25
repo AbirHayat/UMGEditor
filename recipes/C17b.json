@@ -1,0 +1,2342 @@
+{
+  "Recipe": 1,
+  "Name": "C17b",
+  "Container": "pc9999_mobile_and_P",
+  "Inputs": {
+    "bar": {
+      "Path": "work/out/art/C16b/MatchTimeBarUC_0_699x96.bgra",
+      "Sha256": "a4138817212b0bd1d9d35424cd44d0523299383fac888a8eb9b217dd2c86e1da"
+    },
+    "logo": {
+      "Path": "work/out/art/C16b/ExtraLoginBonusUCLb_80x80.bgra",
+      "Sha256": "fecf0ddb758f1253b4036a4aaf37a1d50091ef6558dfe2139630a75b8d01aaf7"
+    },
+    "navy": {
+      "Path": "work/out/art/C16b/MatchTimeNavyG_0_512x64.bgra",
+      "Sha256": "34ea45babd5700d0f7878a3ffaa1541c2a9c2d7769f933b58565cd137985eb02"
+    },
+    "goal": {
+      "Path": "work/out/art/C16b/DemoTitleUCL01_696x192.bgra",
+      "Sha256": "2dde6aa0e4f53d0b3f198640f57122a0928d1ce030dd12db26ed83235f1c784e"
+    },
+    "font": {
+      "Path": "work/out/recipes/_inputs/C17/UCL_NotoSansThai-ExtraBold.ufont",
+      "Sha256": "be2671574c21254cb81f8aab9410e10dd30b2213075ae79acfcb72989a371f77"
+    }
+  },
+  "Packages": [
+    {
+      "Package": "/Game/Assets/ui/Data/Widget/TVGraphics/SwitchAssets_Original/MatchTime/MatchTime",
+      "StockSha256": "65ea9c621fa6f2f4069ea1427d4b9961add222cbc52e4258b019fe0911c85910",
+      "Values": [
+        {
+          "Export": 13,
+          "Slot": "CanvasPanelSlot_1",
+          "Path": "LayoutData.Offsets.Left",
+          "Stock": 552,
+          "Value": 378,
+          "Inserted": false
+        },
+        {
+          "Export": 14,
+          "Slot": "CanvasPanelSlot_11",
+          "Path": "LayoutData.Offsets.Left",
+          "Stock": 372,
+          "Value": -148,
+          "Inserted": false
+        },
+        {
+          "Export": 17,
+          "Slot": "CanvasPanelSlot_8",
+          "Path": "LayoutData.Offsets.Left",
+          "Stock": 492,
+          "Value": -208,
+          "Inserted": false
+        },
+        {
+          "Export": 18,
+          "Slot": "CanvasPanelSlot_0",
+          "Path": "LayoutData.Offsets.Left",
+          "Stock": 12,
+          "Value": 14,
+          "Inserted": false
+        },
+        {
+          "Export": 18,
+          "Slot": "CanvasPanelSlot_0",
+          "Path": "LayoutData.Offsets.Right",
+          "Stock": 108,
+          "Value": 96,
+          "Inserted": false
+        },
+        {
+          "Export": 19,
+          "Slot": "CanvasPanelSlot_1",
+          "Path": "LayoutData.Offsets.Left",
+          "Stock": 368,
+          "Value": -152,
+          "Inserted": false
+        },
+        {
+          "Export": 20,
+          "Slot": "CanvasPanelSlot_12",
+          "Path": "LayoutData.Offsets.Right",
+          "Stock": 372,
+          "Value": 0,
+          "Inserted": false
+        },
+        {
+          "Export": 22,
+          "Slot": "CanvasPanelSlot_26",
+          "Path": "LayoutData.Offsets.Left",
+          "Stock": 185,
+          "Value": 0,
+          "Inserted": false
+        },
+        {
+          "Export": 22,
+          "Slot": "CanvasPanelSlot_26",
+          "Path": "LayoutData.Offsets.Right",
+          "Stock": 2,
+          "Value": 372,
+          "Inserted": false
+        },
+        {
+          "Export": 22,
+          "Slot": "CanvasPanelSlot_26",
+          "Path": "ZOrder",
+          "Stock": 13,
+          "Value": 6,
+          "Inserted": false
+        },
+        {
+          "Export": 23,
+          "Slot": "CanvasPanelSlot_27",
+          "Path": "LayoutData.Offsets.Right",
+          "Stock": 120,
+          "Value": 0,
+          "Inserted": false
+        },
+        {
+          "Export": 30,
+          "Slot": "CanvasPanelSlot_6",
+          "Path": "LayoutData.Offsets.Left",
+          "Stock": 252,
+          "Value": 262,
+          "Inserted": false
+        },
+        {
+          "Export": 30,
+          "Slot": "CanvasPanelSlot_6",
+          "Path": "LayoutData.Offsets.Right",
+          "Stock": 108,
+          "Value": 96,
+          "Inserted": false
+        },
+        {
+          "Export": 31,
+          "Slot": "CanvasPanelSlot_3",
+          "Path": "LayoutData.Offsets.Left",
+          "Stock": 48,
+          "Value": 256,
+          "Inserted": false
+        },
+        {
+          "Export": 70,
+          "Slot": "MovieScene2DTransformSection_0",
+          "Path": "anim:Translation#0",
+          "Stock": -372,
+          "Value": 0,
+          "Inserted": false
+        },
+        {
+          "Export": 70,
+          "Slot": "MovieScene2DTransformSection_0",
+          "Path": "anim:Translation[1]#1",
+          "Stock": -60,
+          "Value": 0,
+          "Inserted": false
+        },
+        {
+          "Export": 70,
+          "Slot": "MovieScene2DTransformSection_0",
+          "Path": "anim:Translation[1]#2",
+          "Stock": -60,
+          "Value": 0,
+          "Inserted": false
+        },
+        {
+          "Export": 71,
+          "Slot": "MovieScene2DTransformSection_0",
+          "Path": "anim:Translation#0",
+          "Stock": -60,
+          "Value": 0,
+          "Inserted": false
+        },
+        {
+          "Export": 76,
+          "Slot": "MovieScene2DTransformSection_0",
+          "Path": "anim:Translation[1]#0",
+          "Stock": -60,
+          "Value": 0,
+          "Inserted": false
+        },
+        {
+          "Export": 77,
+          "Slot": "MovieScene2DTransformSection_0",
+          "Path": "anim:Translation#0",
+          "Stock": -372,
+          "Value": 0,
+          "Inserted": false
+        },
+        {
+          "Export": 78,
+          "Slot": "MovieScene2DTransformSection_0",
+          "Path": "anim:Translation#0",
+          "Stock": -402,
+          "Value": -30,
+          "Inserted": false
+        },
+        {
+          "Export": 81,
+          "Slot": "MovieScene2DTransformSection_0",
+          "Path": "anim:Translation[1]#0",
+          "Stock": 9,
+          "Value": 0,
+          "Inserted": false
+        },
+        {
+          "Export": 82,
+          "Slot": "MovieScene2DTransformSection_0",
+          "Path": "anim:Translation[1]#0",
+          "Stock": 9,
+          "Value": 0,
+          "Inserted": false
+        },
+        {
+          "Export": 83,
+          "Slot": "MovieScene2DTransformSection_0",
+          "Path": "anim:Translation#0",
+          "Stock": -372,
+          "Value": 0,
+          "Inserted": false
+        },
+        {
+          "Export": 84,
+          "Slot": "MovieScene2DTransformSection_0",
+          "Path": "anim:Translation#0",
+          "Stock": -60,
+          "Value": 0,
+          "Inserted": false
+        },
+        {
+          "Export": 89,
+          "Slot": "MovieScene2DTransformSection_0",
+          "Path": "anim:Translation[1]#0",
+          "Stock": -60,
+          "Value": 0,
+          "Inserted": false
+        },
+        {
+          "Export": 90,
+          "Slot": "MovieScene2DTransformSection_0",
+          "Path": "anim:Translation#0",
+          "Stock": -372,
+          "Value": 0,
+          "Inserted": false
+        },
+        {
+          "Export": 91,
+          "Slot": "MovieScene2DTransformSection_0",
+          "Path": "anim:Translation#0",
+          "Stock": -402,
+          "Value": -30,
+          "Inserted": false
+        },
+        {
+          "Export": 94,
+          "Slot": "MovieScene2DTransformSection_0",
+          "Path": "anim:Translation[1]#0",
+          "Stock": 9,
+          "Value": 0,
+          "Inserted": false
+        },
+        {
+          "Export": 95,
+          "Slot": "MovieScene2DTransformSection_0",
+          "Path": "anim:Translation[1]#0",
+          "Stock": 9,
+          "Value": 0,
+          "Inserted": false
+        },
+        {
+          "Export": 96,
+          "Slot": "MovieScene2DTransformSection_0",
+          "Path": "anim:Translation#1",
+          "Stock": -372,
+          "Value": 0,
+          "Inserted": false
+        },
+        {
+          "Export": 96,
+          "Slot": "MovieScene2DTransformSection_0",
+          "Path": "anim:Translation[1]#1",
+          "Stock": -60,
+          "Value": 0,
+          "Inserted": false
+        },
+        {
+          "Export": 96,
+          "Slot": "MovieScene2DTransformSection_0",
+          "Path": "anim:Translation[1]#2",
+          "Stock": -60,
+          "Value": 0,
+          "Inserted": false
+        },
+        {
+          "Export": 97,
+          "Slot": "MovieScene2DTransformSection_0",
+          "Path": "anim:Translation#1",
+          "Stock": -60,
+          "Value": 0,
+          "Inserted": false
+        },
+        {
+          "Export": 102,
+          "Slot": "MovieScene2DTransformSection_0",
+          "Path": "anim:Translation[1]#1",
+          "Stock": -60,
+          "Value": 0,
+          "Inserted": false
+        },
+        {
+          "Export": 103,
+          "Slot": "MovieScene2DTransformSection_0",
+          "Path": "anim:Translation#1",
+          "Stock": -372,
+          "Value": 0,
+          "Inserted": false
+        },
+        {
+          "Export": 104,
+          "Slot": "MovieScene2DTransformSection_0",
+          "Path": "anim:Translation#1",
+          "Stock": -402,
+          "Value": -30,
+          "Inserted": false
+        },
+        {
+          "Export": 107,
+          "Slot": "MovieScene2DTransformSection_0",
+          "Path": "anim:Translation[1]#1",
+          "Stock": 9,
+          "Value": 0,
+          "Inserted": false
+        },
+        {
+          "Export": 108,
+          "Slot": "MovieScene2DTransformSection_0",
+          "Path": "anim:Translation[1]#1",
+          "Stock": 9,
+          "Value": 0,
+          "Inserted": false
+        },
+        {
+          "Export": 977,
+          "Slot": "MovieSceneByteSection_0",
+          "Path": "anim:ByteCurve#0",
+          "Stock": 1,
+          "Value": 3,
+          "Inserted": false
+        },
+        {
+          "Export": 988,
+          "Slot": "MovieSceneByteSection_0",
+          "Path": "anim:ByteCurve#0",
+          "Stock": 1,
+          "Value": 3,
+          "Inserted": false
+        },
+        {
+          "Export": 989,
+          "Slot": "MovieSceneByteSection_0",
+          "Path": "anim:ByteCurve#0",
+          "Stock": 1,
+          "Value": 3,
+          "Inserted": false
+        },
+        {
+          "Export": 990,
+          "Slot": "MovieSceneByteSection_0",
+          "Path": "anim:ByteCurve#0",
+          "Stock": 1,
+          "Value": 3,
+          "Inserted": false
+        },
+        {
+          "Export": 991,
+          "Slot": "MovieSceneByteSection_0",
+          "Path": "anim:ByteCurve#0",
+          "Stock": 1,
+          "Value": 3,
+          "Inserted": false
+        },
+        {
+          "Export": 996,
+          "Slot": "MovieSceneByteSection_0",
+          "Path": "anim:ByteCurve#0",
+          "Stock": 1,
+          "Value": 3,
+          "Inserted": false
+        },
+        {
+          "Export": 997,
+          "Slot": "MovieSceneByteSection_0",
+          "Path": "anim:ByteCurve#0",
+          "Stock": 1,
+          "Value": 3,
+          "Inserted": false
+        },
+        {
+          "Export": 998,
+          "Slot": "MovieSceneByteSection_0",
+          "Path": "anim:ByteCurve#0",
+          "Stock": 1,
+          "Value": 3,
+          "Inserted": false
+        },
+        {
+          "Export": 999,
+          "Slot": "MovieSceneByteSection_0",
+          "Path": "anim:ByteCurve#0",
+          "Stock": 1,
+          "Value": 3,
+          "Inserted": false
+        },
+        {
+          "Export": 1000,
+          "Slot": "MovieSceneByteSection_0",
+          "Path": "anim:ByteCurve#0",
+          "Stock": 1,
+          "Value": 3,
+          "Inserted": false
+        },
+        {
+          "Export": 1001,
+          "Slot": "MovieSceneByteSection_0",
+          "Path": "anim:ByteCurve#0",
+          "Stock": 1,
+          "Value": 3,
+          "Inserted": false
+        },
+        {
+          "Export": 1003,
+          "Slot": "MovieSceneByteSection_0",
+          "Path": "anim:ByteCurve#0",
+          "Stock": 1,
+          "Value": 3,
+          "Inserted": false
+        },
+        {
+          "Export": 1004,
+          "Slot": "MovieSceneByteSection_0",
+          "Path": "anim:ByteCurve#0",
+          "Stock": 1,
+          "Value": 3,
+          "Inserted": false
+        },
+        {
+          "Export": 1005,
+          "Slot": "MovieSceneByteSection_0",
+          "Path": "anim:ByteCurve#0",
+          "Stock": 1,
+          "Value": 3,
+          "Inserted": false
+        },
+        {
+          "Export": 1006,
+          "Slot": "MovieSceneByteSection_0",
+          "Path": "anim:ByteCurve#0",
+          "Stock": 1,
+          "Value": 3,
+          "Inserted": false
+        },
+        {
+          "Export": 1007,
+          "Slot": "MovieSceneByteSection_0",
+          "Path": "anim:ByteCurve#0",
+          "Stock": 1,
+          "Value": 3,
+          "Inserted": false
+        },
+        {
+          "Export": 1008,
+          "Slot": "MovieSceneByteSection_0",
+          "Path": "anim:ByteCurve#0",
+          "Stock": 1,
+          "Value": 3,
+          "Inserted": false
+        },
+        {
+          "Export": 1009,
+          "Slot": "MovieSceneByteSection_0",
+          "Path": "anim:ByteCurve#0",
+          "Stock": 1,
+          "Value": 3,
+          "Inserted": false
+        },
+        {
+          "Export": 1011,
+          "Slot": "MovieSceneByteSection_0",
+          "Path": "anim:ByteCurve#1",
+          "Stock": 1,
+          "Value": 3,
+          "Inserted": false
+        },
+        {
+          "Export": 1013,
+          "Slot": "MovieSceneByteSection_0",
+          "Path": "anim:ByteCurve#1",
+          "Stock": 1,
+          "Value": 3,
+          "Inserted": false
+        },
+        {
+          "Export": 1014,
+          "Slot": "MovieSceneByteSection_0",
+          "Path": "anim:ByteCurve#1",
+          "Stock": 1,
+          "Value": 3,
+          "Inserted": false
+        },
+        {
+          "Export": 1015,
+          "Slot": "MovieSceneByteSection_0",
+          "Path": "anim:ByteCurve#1",
+          "Stock": 1,
+          "Value": 3,
+          "Inserted": false
+        },
+        {
+          "Export": 1016,
+          "Slot": "MovieSceneByteSection_0",
+          "Path": "anim:ByteCurve#1",
+          "Stock": 1,
+          "Value": 3,
+          "Inserted": false
+        },
+        {
+          "Export": 1018,
+          "Slot": "MovieSceneByteSection_0",
+          "Path": "anim:ByteCurve#1",
+          "Stock": 1,
+          "Value": 3,
+          "Inserted": false
+        },
+        {
+          "Export": 1019,
+          "Slot": "MovieSceneByteSection_0",
+          "Path": "anim:ByteCurve#1",
+          "Stock": 1,
+          "Value": 3,
+          "Inserted": false
+        },
+        {
+          "Export": 1023,
+          "Slot": "MovieSceneByteSection_0",
+          "Path": "anim:ByteCurve#1",
+          "Stock": 1,
+          "Value": 3,
+          "Inserted": false
+        },
+        {
+          "Export": 1024,
+          "Slot": "MovieSceneByteSection_0",
+          "Path": "anim:ByteCurve#1",
+          "Stock": 1,
+          "Value": 3,
+          "Inserted": false
+        },
+        {
+          "Export": 1025,
+          "Slot": "MovieSceneByteSection_0",
+          "Path": "anim:ByteCurve#1",
+          "Stock": 1,
+          "Value": 3,
+          "Inserted": false
+        },
+        {
+          "Export": 1026,
+          "Slot": "MovieSceneByteSection_0",
+          "Path": "anim:ByteCurve#1",
+          "Stock": 1,
+          "Value": 3,
+          "Inserted": false
+        },
+        {
+          "Export": 1027,
+          "Slot": "MovieSceneByteSection_0",
+          "Path": "anim:ByteCurve#1",
+          "Stock": 1,
+          "Value": 3,
+          "Inserted": false
+        },
+        {
+          "Export": 1028,
+          "Slot": "MovieSceneByteSection_0",
+          "Path": "anim:ByteCurve#1",
+          "Stock": 1,
+          "Value": 3,
+          "Inserted": false
+        },
+        {
+          "Export": 1029,
+          "Slot": "MovieSceneByteSection_0",
+          "Path": "anim:ByteCurve#1",
+          "Stock": 1,
+          "Value": 3,
+          "Inserted": false
+        },
+        {
+          "Export": 1030,
+          "Slot": "MovieSceneByteSection_0",
+          "Path": "anim:ByteCurve#1",
+          "Stock": 1,
+          "Value": 3,
+          "Inserted": false
+        },
+        {
+          "Export": 1291,
+          "Slot": "MovieSceneFloatSection_0",
+          "Path": "anim:FloatCurve#0",
+          "Stock": 0,
+          "Value": 1,
+          "Inserted": false
+        },
+        {
+          "Export": 1293,
+          "Slot": "MovieSceneFloatSection_0",
+          "Path": "anim:FloatCurve#2",
+          "Stock": 0,
+          "Value": 1,
+          "Inserted": false
+        },
+        {
+          "Export": 1326,
+          "Slot": "MovieSceneMarginSection_0",
+          "Path": "anim:LeftCurve#0",
+          "Stock": 48,
+          "Value": 256,
+          "Inserted": false
+        },
+        {
+          "Export": 1327,
+          "Slot": "MovieSceneMarginSection_0",
+          "Path": "anim:LeftCurve#0",
+          "Stock": 48,
+          "Value": 256,
+          "Inserted": false
+        },
+        {
+          "Export": 1328,
+          "Slot": "MovieSceneMarginSection_0",
+          "Path": "anim:LeftCurve#0",
+          "Stock": 96,
+          "Value": 304,
+          "Inserted": false
+        },
+        {
+          "Export": 1342,
+          "Slot": "MovieSceneMarginSection_0",
+          "Path": "anim:RightCurve#0",
+          "Stock": 180,
+          "Value": 492,
+          "Inserted": false
+        },
+        {
+          "Export": 1349,
+          "Slot": "MovieSceneMarginSection_0",
+          "Path": "anim:RightCurve#0",
+          "Stock": 180,
+          "Value": 492,
+          "Inserted": false
+        },
+        {
+          "Export": 1356,
+          "Slot": "MovieSceneMarginSection_0",
+          "Path": "anim:RightCurve#2",
+          "Stock": 180,
+          "Value": 492,
+          "Inserted": false
+        },
+        {
+          "Export": 1359,
+          "Slot": "MovieSceneMarginSection_0",
+          "Path": "anim:LeftCurve#0",
+          "Stock": 185,
+          "Value": 0,
+          "Inserted": false
+        },
+        {
+          "Export": 1359,
+          "Slot": "MovieSceneMarginSection_0",
+          "Path": "anim:LeftCurve#1",
+          "Stock": 185,
+          "Value": 0,
+          "Inserted": false
+        },
+        {
+          "Export": 1359,
+          "Slot": "MovieSceneMarginSection_0",
+          "Path": "anim:RightCurve#0",
+          "Stock": 2,
+          "Value": 372,
+          "Inserted": false
+        },
+        {
+          "Export": 1359,
+          "Slot": "MovieSceneMarginSection_0",
+          "Path": "anim:RightCurve#1",
+          "Stock": 2,
+          "Value": 372,
+          "Inserted": false
+        },
+        {
+          "Export": 1360,
+          "Slot": "MovieSceneMarginSection_0",
+          "Path": "anim:RightCurve#0",
+          "Stock": 120,
+          "Value": 0,
+          "Inserted": false
+        },
+        {
+          "Export": 1360,
+          "Slot": "MovieSceneMarginSection_0",
+          "Path": "anim:RightCurve#1",
+          "Stock": 120,
+          "Value": 0,
+          "Inserted": false
+        }
+      ],
+      "Layers": [
+        {
+          "Op": "Rename",
+          "Renames": [
+            {
+              "From": "/Game/Assets/ui/Data/Widget/TVGraphics/SwitchAssets_Original/MatchTime/Tex720/MatchTimePlate_0.MatchTimePlate",
+              "To": "/Game/Assets/ui/Data/Widget/TVGraphics/SwitchAssets_Original/MatchTime/Tex720/MatchTimeBarUC_0.MatchTimeBarUC"
+            },
+            {
+              "From": "/Game/Assets/ui/Data/Widget/TVGraphics/SwitchAssets_Original/MatchTime/Tex720/MatchTimeLogo.MatchTimeLogo",
+              "To": "/Game/Assets/ui/Data/Widget/General/Modals/ExtraLoginBonus/Tex720/ExtraLoginBonusUCLb.ExtraLoginBonusUCLb"
+            }
+          ],
+          "EnumSwaps": [
+            {
+              "Export": "Text_Score_Home",
+              "Property": "color",
+              "From": "ColorEnum_String::NewEnumerator87",
+              "To": "ColorEnum_String::NewEnumerator86"
+            },
+            {
+              "Export": "Text_Score_Away",
+              "Property": "color",
+              "From": "ColorEnum_String::NewEnumerator87",
+              "To": "ColorEnum_String::NewEnumerator86"
+            }
+          ]
+        },
+        {
+          "Op": "RemoveTag",
+          "Export": "Normal_Display",
+          "Tag": "Clipping",
+          "Stock": "EWidgetClipping::ClipToBounds"
+        },
+        {
+          "Op": "AppendNames",
+          "Names": [
+            "HeadlineBoldSub"
+          ]
+        },
+        {
+          "Op": "NameTag",
+          "Export": "Text_Score_Away",
+          "Struct": "_font",
+          "Member": "TypefaceFontName",
+          "Value": "HeadlineBoldSub",
+          "Anchor": {
+            "Package": "/Game/Assets/ui/Data/Widget/TVGraphics/SwitchAssets_Original/MatchTime/MatchTime",
+            "Export": "Text_TeamName_Home",
+            "Value": "HeadlineBold"
+          }
+        },
+        {
+          "Op": "NameTag",
+          "Export": "Text_Score_Home",
+          "Struct": "_font",
+          "Member": "TypefaceFontName",
+          "Value": "HeadlineBoldSub",
+          "Anchor": {
+            "Package": "/Game/Assets/ui/Data/Widget/TVGraphics/SwitchAssets_Original/MatchTime/MatchTime",
+            "Export": "Text_TeamName_Home",
+            "Value": "HeadlineBold"
+          }
+        },
+        {
+          "Op": "NameTag",
+          "Export": "Text_TeamName_Away",
+          "Struct": "_font",
+          "Member": "TypefaceFontName",
+          "Value": "HeadlineBoldSub",
+          "Stock": "HeadlineBold"
+        },
+        {
+          "Op": "NameTag",
+          "Export": "Text_TeamName_Home",
+          "Struct": "_font",
+          "Member": "TypefaceFontName",
+          "Value": "HeadlineBoldSub",
+          "Stock": "HeadlineBold"
+        }
+      ]
+    },
+    {
+      "Package": "/Game/Assets/ui/Data/Widget/TVGraphics/SwitchAssets_Original/MatchTime/MatchTimeTimer",
+      "StockSha256": "f4ed4a83abc6ad7c5859184bf8aa47697b596a07372ba8a57e1c9702762ac57d",
+      "Values": [],
+      "Layers": [
+        {
+          "Op": "AppendNames",
+          "Names": [
+            "TypefaceFontName",
+            "HeadlineBoldSub"
+          ]
+        },
+        {
+          "Op": "NameTag",
+          "Export": "Text_Colon",
+          "Struct": "_font",
+          "Member": "TypefaceFontName",
+          "Value": "HeadlineBoldSub",
+          "Anchor": {
+            "Package": "/Game/Assets/ui/Data/Widget/TVGraphics/SwitchAssets_Original/MatchTime/MatchTime",
+            "Export": "Text_TeamName_Home",
+            "Value": "HeadlineBold"
+          }
+        },
+        {
+          "Op": "NameTag",
+          "Export": "Text_Minute_1",
+          "Struct": "_font",
+          "Member": "TypefaceFontName",
+          "Value": "HeadlineBoldSub",
+          "Anchor": {
+            "Package": "/Game/Assets/ui/Data/Widget/TVGraphics/SwitchAssets_Original/MatchTime/MatchTime",
+            "Export": "Text_TeamName_Home",
+            "Value": "HeadlineBold"
+          }
+        },
+        {
+          "Op": "NameTag",
+          "Export": "Text_Minute_2",
+          "Struct": "_font",
+          "Member": "TypefaceFontName",
+          "Value": "HeadlineBoldSub",
+          "Anchor": {
+            "Package": "/Game/Assets/ui/Data/Widget/TVGraphics/SwitchAssets_Original/MatchTime/MatchTime",
+            "Export": "Text_TeamName_Home",
+            "Value": "HeadlineBold"
+          }
+        },
+        {
+          "Op": "NameTag",
+          "Export": "Text_Minute_3",
+          "Struct": "_font",
+          "Member": "TypefaceFontName",
+          "Value": "HeadlineBoldSub",
+          "Anchor": {
+            "Package": "/Game/Assets/ui/Data/Widget/TVGraphics/SwitchAssets_Original/MatchTime/MatchTime",
+            "Export": "Text_TeamName_Home",
+            "Value": "HeadlineBold"
+          }
+        },
+        {
+          "Op": "NameTag",
+          "Export": "Text_Second_1",
+          "Struct": "_font",
+          "Member": "TypefaceFontName",
+          "Value": "HeadlineBoldSub",
+          "Anchor": {
+            "Package": "/Game/Assets/ui/Data/Widget/TVGraphics/SwitchAssets_Original/MatchTime/MatchTime",
+            "Export": "Text_TeamName_Home",
+            "Value": "HeadlineBold"
+          }
+        },
+        {
+          "Op": "NameTag",
+          "Export": "Text_Second_2",
+          "Struct": "_font",
+          "Member": "TypefaceFontName",
+          "Value": "HeadlineBoldSub",
+          "Anchor": {
+            "Package": "/Game/Assets/ui/Data/Widget/TVGraphics/SwitchAssets_Original/MatchTime/MatchTime",
+            "Export": "Text_TeamName_Home",
+            "Value": "HeadlineBold"
+          }
+        }
+      ]
+    },
+    {
+      "Package": "/Game/Assets/ui/Data/Widget/TVGraphics/SwitchAssets_Original/MatchTime/MatchTimeAdditional",
+      "StockSha256": "19b7ee5a38acdf64fc8cc209aa458fc50b9262b476b75f14a9f716e536d092af",
+      "Values": [],
+      "Layers": [
+        {
+          "Op": "AppendNames",
+          "Names": [
+            "TypefaceFontName",
+            "HeadlineBoldSub"
+          ]
+        },
+        {
+          "Op": "NameTag",
+          "Export": "Text_AdditionalTime",
+          "Struct": "_font",
+          "Member": "TypefaceFontName",
+          "Value": "HeadlineBoldSub",
+          "Anchor": {
+            "Package": "/Game/Assets/ui/Data/Widget/TVGraphics/SwitchAssets_Original/MatchTime/MatchTime",
+            "Export": "Text_TeamName_Home",
+            "Value": "HeadlineBold"
+          }
+        }
+      ]
+    },
+    {
+      "Package": "/Game/Assets/ui/Data/Widget/TVGraphics/SwitchAssets_Original/MatchTime/MatchTimeAggregate",
+      "StockSha256": "3b536a40c3e1667b2bac6af788518a980af58053564ee8a6fa791f48a309e1de",
+      "Values": [],
+      "Layers": [
+        {
+          "Op": "AppendNames",
+          "Names": [
+            "TypefaceFontName",
+            "HeadlineBoldSub"
+          ]
+        },
+        {
+          "Op": "NameTag",
+          "Export": "Text_Aggregate_Away",
+          "Struct": "_font",
+          "Member": "TypefaceFontName",
+          "Value": "HeadlineBoldSub",
+          "Anchor": {
+            "Package": "/Game/Assets/ui/Data/Widget/TVGraphics/SwitchAssets_Original/MatchTime/MatchTime",
+            "Export": "Text_TeamName_Home",
+            "Value": "HeadlineBold"
+          }
+        },
+        {
+          "Op": "NameTag",
+          "Export": "Text_Aggregate_Home",
+          "Struct": "_font",
+          "Member": "TypefaceFontName",
+          "Value": "HeadlineBoldSub",
+          "Anchor": {
+            "Package": "/Game/Assets/ui/Data/Widget/TVGraphics/SwitchAssets_Original/MatchTime/MatchTime",
+            "Export": "Text_TeamName_Home",
+            "Value": "HeadlineBold"
+          }
+        }
+      ]
+    },
+    {
+      "Package": "/Game/Assets/ui/Color/ColorTable",
+      "StockSha256": "508f81c8ab666cc5cad668bb99c662639ddb5174743618e2c83e5853f7d3da9a",
+      "Values": [],
+      "Layers": [
+        {
+          "Op": "ColorRows",
+          "Rows": [
+            {
+              "Row": "STR_SWITCH_BRAND_1",
+              "Stock": "#FFFF00FF",
+              "Color": "#FFFFFFFF"
+            },
+            {
+              "Row": "STR_SWITCH_BRAND_2",
+              "Stock": "#000064FF",
+              "Color": "#000000FF"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "Package": "/Game/Assets/ui/Color/ColorTable0164F",
+      "StockSha256": "43a5ce0c46d976e390ce0426a7ec4c9ca122880d45501771d00e5c7ff256d30f",
+      "Values": [],
+      "Layers": [
+        {
+          "Op": "ColorRows",
+          "Rows": [
+            {
+              "Row": "STR_SWITCH_BRAND_1",
+              "Stock": "#00022BFF",
+              "Color": "#FFFFFFFF"
+            },
+            {
+              "Row": "STR_SWITCH_BRAND_2",
+              "Stock": "#998354FF",
+              "Color": "#000000FF"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "Package": "/Game/Assets/ui/Data/Widget/TVGraphics/SwitchAssets_Original/MatchTime/MatchTimeGoal",
+      "StockSha256": "346a9f82c2d036390d3985fd0c729dc0aa61ea81df33e541a2802e1e18b2f180",
+      "Values": [
+        {
+          "Export": 9,
+          "Slot": "CanvasPanelSlot_1",
+          "Path": "LayoutData.Offsets.Left",
+          "Stock": 24,
+          "Value": 3000,
+          "Inserted": false
+        },
+        {
+          "Export": 10,
+          "Slot": "CanvasPanelSlot_11",
+          "Path": "LayoutData.Offsets.Bottom",
+          "Stock": 48,
+          "Value": 60,
+          "Inserted": false
+        },
+        {
+          "Export": 10,
+          "Slot": "CanvasPanelSlot_11",
+          "Path": "LayoutData.Offsets.Left",
+          "Stock": 0,
+          "Value": 60,
+          "Inserted": true
+        },
+        {
+          "Export": 10,
+          "Slot": "CanvasPanelSlot_11",
+          "Path": "LayoutData.Offsets.Right",
+          "Stock": 552,
+          "Value": 0,
+          "Inserted": false
+        },
+        {
+          "Export": 10,
+          "Slot": "CanvasPanelSlot_11",
+          "Path": "LayoutData.Offsets.Top",
+          "Stock": 48,
+          "Value": 0,
+          "Inserted": false
+        },
+        {
+          "Export": 11,
+          "Slot": "CanvasPanelSlot_20",
+          "Path": "LayoutData.Offsets.Bottom",
+          "Stock": 48,
+          "Value": 120,
+          "Inserted": false
+        },
+        {
+          "Export": 11,
+          "Slot": "CanvasPanelSlot_20",
+          "Path": "LayoutData.Offsets.Right",
+          "Stock": 552,
+          "Value": 372,
+          "Inserted": false
+        },
+        {
+          "Export": 11,
+          "Slot": "CanvasPanelSlot_20",
+          "Path": "LayoutData.Offsets.Top",
+          "Stock": 0,
+          "Value": -60,
+          "Inserted": true
+        },
+        {
+          "Export": 12,
+          "Slot": "CanvasPanelSlot_3",
+          "Path": "LayoutData.Offsets.Left",
+          "Stock": 24,
+          "Value": 3000,
+          "Inserted": false
+        },
+        {
+          "Export": 13,
+          "Slot": "CanvasPanelSlot_5",
+          "Path": "LayoutData.Offsets.Bottom",
+          "Stock": 2,
+          "Value": 0,
+          "Inserted": false
+        },
+        {
+          "Export": 14,
+          "Slot": "CanvasPanelSlot_6",
+          "Path": "LayoutData.Offsets.Left",
+          "Stock": 72,
+          "Value": 12,
+          "Inserted": false
+        },
+        {
+          "Export": 14,
+          "Slot": "CanvasPanelSlot_6",
+          "Path": "LayoutData.Offsets.Right",
+          "Stock": 456,
+          "Value": 348,
+          "Inserted": false
+        },
+        {
+          "Export": 14,
+          "Slot": "CanvasPanelSlot_6",
+          "Path": "LayoutData.Offsets.Top",
+          "Stock": -3,
+          "Value": -58,
+          "Inserted": false
+        },
+        {
+          "Export": 15,
+          "Slot": "CanvasPanelSlot_7",
+          "Path": "LayoutData.Offsets.Bottom",
+          "Stock": 78,
+          "Value": 48,
+          "Inserted": false
+        },
+        {
+          "Export": 15,
+          "Slot": "CanvasPanelSlot_7",
+          "Path": "LayoutData.Offsets.Left",
+          "Stock": 561,
+          "Value": 6,
+          "Inserted": false
+        },
+        {
+          "Export": 15,
+          "Slot": "CanvasPanelSlot_7",
+          "Path": "LayoutData.Offsets.Right",
+          "Stock": 78,
+          "Value": 48,
+          "Inserted": false
+        },
+        {
+          "Export": 15,
+          "Slot": "CanvasPanelSlot_7",
+          "Path": "LayoutData.Offsets.Top",
+          "Stock": 9,
+          "Value": 6,
+          "Inserted": false
+        },
+        {
+          "Export": 15,
+          "Slot": "CanvasPanelSlot_7",
+          "Path": "ZOrder",
+          "Stock": 1,
+          "Value": 8,
+          "Inserted": false
+        },
+        {
+          "Export": 16,
+          "Slot": "CanvasPanelSlot_9",
+          "Path": "LayoutData.Offsets.Bottom",
+          "Stock": 96,
+          "Value": 60,
+          "Inserted": false
+        },
+        {
+          "Export": 16,
+          "Slot": "CanvasPanelSlot_9",
+          "Path": "LayoutData.Offsets.Left",
+          "Stock": 552,
+          "Value": 0,
+          "Inserted": false
+        },
+        {
+          "Export": 16,
+          "Slot": "CanvasPanelSlot_9",
+          "Path": "LayoutData.Offsets.Right",
+          "Stock": 96,
+          "Value": 0,
+          "Inserted": false
+        },
+        {
+          "Export": 18,
+          "Slot": "CanvasPanelSlot_0",
+          "Path": "LayoutData.Offsets.Bottom",
+          "Stock": 96,
+          "Value": 60,
+          "Inserted": false
+        },
+        {
+          "Export": 18,
+          "Slot": "CanvasPanelSlot_0",
+          "Path": "LayoutData.Offsets.Right",
+          "Stock": 648,
+          "Value": 372,
+          "Inserted": false
+        },
+        {
+          "Export": 19,
+          "Slot": "CanvasPanelSlot_0",
+          "Path": "LayoutData.Offsets.Bottom",
+          "Stock": 100,
+          "Value": 60,
+          "Inserted": false
+        },
+        {
+          "Export": 19,
+          "Slot": "CanvasPanelSlot_0",
+          "Path": "LayoutData.Offsets.Left",
+          "Stock": 48,
+          "Value": 256,
+          "Inserted": false
+        },
+        {
+          "Export": 19,
+          "Slot": "CanvasPanelSlot_0",
+          "Path": "LayoutData.Offsets.Right",
+          "Stock": 648,
+          "Value": 372,
+          "Inserted": false
+        },
+        {
+          "Export": 19,
+          "Slot": "CanvasPanelSlot_0",
+          "Path": "LayoutData.Offsets.Top",
+          "Stock": 87,
+          "Value": 27,
+          "Inserted": false
+        },
+        {
+          "Export": 31,
+          "Slot": "Show",
+          "Path": "range@48001",
+          "Stock": 48001,
+          "Value": 132001,
+          "Inserted": false
+        },
+        {
+          "Export": 32,
+          "Slot": "MovieScene2DTransformSection_0",
+          "Path": "anim:Translation[1]#0",
+          "Stock": 0,
+          "Value": 60,
+          "Inserted": false
+        },
+        {
+          "Export": 32,
+          "Slot": "MovieScene2DTransformSection_0",
+          "Path": "anim:Translation[1]#1",
+          "Stock": -96,
+          "Value": 180,
+          "Inserted": false
+        },
+        {
+          "Export": 37,
+          "Slot": "MovieScene2DTransformSection_0",
+          "Path": "anim:Translation[1]#1@interp",
+          "Stock": 2,
+          "Value": 1,
+          "Inserted": false
+        },
+        {
+          "Export": 37,
+          "Slot": "MovieScene2DTransformSection_0",
+          "Path": "anim:Translation[1]#2",
+          "Stock": 0,
+          "Value": 60,
+          "Inserted": false
+        },
+        {
+          "Export": 37,
+          "Slot": "MovieScene2DTransformSection_0",
+          "Path": "anim:Translation[1]#2@frame",
+          "Stock": 48000,
+          "Value": 108000,
+          "Inserted": false
+        },
+        {
+          "Export": 37,
+          "Slot": "MovieScene2DTransformSection_0",
+          "Path": "range@48000",
+          "Stock": 48000,
+          "Value": 132000,
+          "Inserted": false
+        },
+        {
+          "Export": 38,
+          "Slot": "MovieScene2DTransformSection_0",
+          "Path": "range@48000",
+          "Stock": 48000,
+          "Value": 132000,
+          "Inserted": false
+        },
+        {
+          "Export": 39,
+          "Slot": "MovieScene2DTransformSection_0",
+          "Path": "range@48000",
+          "Stock": 48000,
+          "Value": 132000,
+          "Inserted": false
+        },
+        {
+          "Export": 91,
+          "Slot": "MovieSceneByteSection_0",
+          "Path": "range@48000",
+          "Stock": 48000,
+          "Value": 132000,
+          "Inserted": false
+        },
+        {
+          "Export": 92,
+          "Slot": "MovieSceneByteSection_0",
+          "Path": "range@48000",
+          "Stock": 48000,
+          "Value": 132000,
+          "Inserted": false
+        },
+        {
+          "Export": 93,
+          "Slot": "MovieSceneByteSection_0",
+          "Path": "range@48000",
+          "Stock": 48000,
+          "Value": 132000,
+          "Inserted": false
+        },
+        {
+          "Export": 108,
+          "Slot": "CompiledData",
+          "Path": "range@48000",
+          "Stock": 48000,
+          "Value": 132000,
+          "Inserted": false
+        },
+        {
+          "Export": 109,
+          "Slot": "MovieSceneMarginSection_0",
+          "Path": "anim:LeftCurve#0",
+          "Stock": 48,
+          "Value": 256,
+          "Inserted": false
+        },
+        {
+          "Export": 110,
+          "Slot": "MovieSceneMarginSection_0",
+          "Path": "anim:LeftCurve#0",
+          "Stock": 48,
+          "Value": 256,
+          "Inserted": false
+        },
+        {
+          "Export": 111,
+          "Slot": "MovieSceneMarginSection_0",
+          "Path": "anim:LeftCurve#0",
+          "Stock": 96,
+          "Value": 304,
+          "Inserted": false
+        }
+      ],
+      "Layers": [
+        {
+          "Op": "Rename",
+          "EnumSwaps": [
+            {
+              "Export": "Text_PlayerName",
+              "Property": "color",
+              "From": "ColorEnum_String::NewEnumerator87",
+              "To": "ColorEnum_String::NewEnumerator86"
+            }
+          ]
+        },
+        {
+          "Op": "ClassSwap",
+          "Export": "MatchTimeBase_1",
+          "To": "/Game/Assets/ui/Data/Widget/TVGraphics/SwitchAssets_Original/DemoTitle/DemoTitleBase"
+        },
+        {
+          "Op": "AppendNames",
+          "Names": [
+            "Justification",
+            "ETextJustify",
+            "ETextJustify::Center"
+          ]
+        },
+        {
+          "Op": "EnumInsert",
+          "Export": "Text_PlayerName",
+          "After": "VerticalAlignment",
+          "Tag": "Justification",
+          "Type": "ByteProperty",
+          "Enum": "ETextJustify",
+          "Value": "ETextJustify::Center",
+          "Anchor": {
+            "Package": "/Game/Assets/ui/Data/Widget/TVGraphics/SwitchAssets_Original/MatchTime/MatchTime",
+            "Export": "Text_TeamName_Home"
+          }
+        },
+        {
+          "Op": "AppendNames",
+          "Names": [
+            "TypefaceFontName",
+            "HeadlineBoldSub"
+          ]
+        },
+        {
+          "Op": "NameTag",
+          "Export": "Text_Item",
+          "Struct": "_font",
+          "Member": "TypefaceFontName",
+          "Value": "HeadlineBoldSub",
+          "Anchor": {
+            "Package": "/Game/Assets/ui/Data/Widget/TVGraphics/SwitchAssets_Original/MatchTime/MatchTime",
+            "Export": "Text_TeamName_Home",
+            "Value": "HeadlineBold"
+          }
+        },
+        {
+          "Op": "NameTag",
+          "Export": "Text_PlayerName",
+          "Struct": "_font",
+          "Member": "TypefaceFontName",
+          "Value": "HeadlineBoldSub",
+          "Anchor": {
+            "Package": "/Game/Assets/ui/Data/Widget/TVGraphics/SwitchAssets_Original/MatchTime/MatchTime",
+            "Export": "Text_TeamName_Home",
+            "Value": "HeadlineBold"
+          }
+        },
+        {
+          "Op": "NameTag",
+          "Export": "Text_PlayerNumber",
+          "Struct": "_font",
+          "Member": "TypefaceFontName",
+          "Value": "HeadlineBoldSub",
+          "Anchor": {
+            "Package": "/Game/Assets/ui/Data/Widget/TVGraphics/SwitchAssets_Original/MatchTime/MatchTime",
+            "Export": "Text_TeamName_Home",
+            "Value": "HeadlineBold"
+          }
+        }
+      ]
+    },
+    {
+      "Package": "/Game/Assets/ui/Data/Widget/TVGraphics/SwitchAssets_Original/MatchTime/MatchTimeCard",
+      "StockSha256": "7c7ce1120cc616e808874432c7d800c8d92af0d9f47658a5678acb48e9a4a9a5",
+      "Values": [
+        {
+          "Export": 9,
+          "Slot": "CanvasPanelSlot_1",
+          "Path": "LayoutData.Offsets.Bottom",
+          "Stock": 108,
+          "Value": 60,
+          "Inserted": false
+        },
+        {
+          "Export": 9,
+          "Slot": "CanvasPanelSlot_1",
+          "Path": "LayoutData.Offsets.Right",
+          "Stock": 468,
+          "Value": 372,
+          "Inserted": false
+        },
+        {
+          "Export": 10,
+          "Slot": "CanvasPanelSlot_10",
+          "Path": "LayoutData.Offsets.Left",
+          "Stock": 24,
+          "Value": 12,
+          "Inserted": false
+        },
+        {
+          "Export": 10,
+          "Slot": "CanvasPanelSlot_10",
+          "Path": "LayoutData.Offsets.Right",
+          "Stock": 291,
+          "Value": 348,
+          "Inserted": false
+        },
+        {
+          "Export": 10,
+          "Slot": "CanvasPanelSlot_10",
+          "Path": "LayoutData.Offsets.Top",
+          "Stock": 56,
+          "Value": -58,
+          "Inserted": false
+        },
+        {
+          "Export": 11,
+          "Slot": "CanvasPanelSlot_11",
+          "Path": "LayoutData.Offsets.Right",
+          "Stock": 108,
+          "Value": 0,
+          "Inserted": false
+        },
+        {
+          "Export": 12,
+          "Slot": "CanvasPanelSlot_16",
+          "Path": "LayoutData.Offsets.Bottom",
+          "Stock": 48,
+          "Value": 60,
+          "Inserted": false
+        },
+        {
+          "Export": 12,
+          "Slot": "CanvasPanelSlot_16",
+          "Path": "LayoutData.Offsets.Right",
+          "Stock": 360,
+          "Value": 372,
+          "Inserted": false
+        },
+        {
+          "Export": 12,
+          "Slot": "CanvasPanelSlot_16",
+          "Path": "LayoutData.Offsets.Top",
+          "Stock": 60,
+          "Value": -60,
+          "Inserted": false
+        },
+        {
+          "Export": 13,
+          "Slot": "CanvasPanelSlot_22",
+          "Path": "LayoutData.Offsets.Left",
+          "Stock": 327,
+          "Value": 60,
+          "Inserted": false
+        },
+        {
+          "Export": 13,
+          "Slot": "CanvasPanelSlot_22",
+          "Path": "LayoutData.Offsets.Top",
+          "Stock": 69,
+          "Value": 15,
+          "Inserted": false
+        },
+        {
+          "Export": 14,
+          "Slot": "CanvasPanelSlot_7",
+          "Path": "LayoutData.Offsets.Right",
+          "Stock": 360,
+          "Value": 372,
+          "Inserted": false
+        },
+        {
+          "Export": 15,
+          "Slot": "CanvasPanelSlot_8",
+          "Path": "LayoutData.Offsets.Left",
+          "Stock": 24,
+          "Value": 96,
+          "Inserted": false
+        },
+        {
+          "Export": 15,
+          "Slot": "CanvasPanelSlot_8",
+          "Path": "LayoutData.Offsets.Right",
+          "Stock": 312,
+          "Value": 264,
+          "Inserted": false
+        },
+        {
+          "Export": 16,
+          "Slot": "CanvasPanelSlot_9",
+          "Path": "LayoutData.Offsets.Bottom",
+          "Stock": 84,
+          "Value": 48,
+          "Inserted": false
+        },
+        {
+          "Export": 16,
+          "Slot": "CanvasPanelSlot_9",
+          "Path": "LayoutData.Offsets.Left",
+          "Stock": 372,
+          "Value": 6,
+          "Inserted": false
+        },
+        {
+          "Export": 16,
+          "Slot": "CanvasPanelSlot_9",
+          "Path": "LayoutData.Offsets.Right",
+          "Stock": 84,
+          "Value": 48,
+          "Inserted": false
+        },
+        {
+          "Export": 16,
+          "Slot": "CanvasPanelSlot_9",
+          "Path": "LayoutData.Offsets.Top",
+          "Stock": 12,
+          "Value": 6,
+          "Inserted": false
+        },
+        {
+          "Export": 16,
+          "Slot": "CanvasPanelSlot_9",
+          "Path": "ZOrder",
+          "Stock": 1,
+          "Value": 8,
+          "Inserted": false
+        },
+        {
+          "Export": 17,
+          "Slot": "CanvasPanelSlot_0",
+          "Path": "LayoutData.Offsets.Bottom",
+          "Stock": 108,
+          "Value": 60,
+          "Inserted": false
+        },
+        {
+          "Export": 17,
+          "Slot": "CanvasPanelSlot_0",
+          "Path": "LayoutData.Offsets.Left",
+          "Stock": 228,
+          "Value": 256,
+          "Inserted": false
+        },
+        {
+          "Export": 17,
+          "Slot": "CanvasPanelSlot_0",
+          "Path": "LayoutData.Offsets.Right",
+          "Stock": 468,
+          "Value": 372,
+          "Inserted": false
+        },
+        {
+          "Export": 30,
+          "Slot": "Show",
+          "Path": "range@48001",
+          "Stock": 48001,
+          "Value": 132001,
+          "Inserted": false
+        },
+        {
+          "Export": 31,
+          "Slot": "MovieScene2DTransformSection_0",
+          "Path": "anim:Translation[1]#0",
+          "Stock": 0,
+          "Value": 60,
+          "Inserted": false
+        },
+        {
+          "Export": 31,
+          "Slot": "MovieScene2DTransformSection_0",
+          "Path": "anim:Translation[1]#1",
+          "Stock": -108,
+          "Value": 180,
+          "Inserted": false
+        },
+        {
+          "Export": 40,
+          "Slot": "MovieScene2DTransformSection_0",
+          "Path": "anim:Translation[1]#1@interp",
+          "Stock": 2,
+          "Value": 1,
+          "Inserted": false
+        },
+        {
+          "Export": 40,
+          "Slot": "MovieScene2DTransformSection_0",
+          "Path": "anim:Translation[1]#2",
+          "Stock": 0,
+          "Value": 60,
+          "Inserted": false
+        },
+        {
+          "Export": 40,
+          "Slot": "MovieScene2DTransformSection_0",
+          "Path": "anim:Translation[1]#2@frame",
+          "Stock": 48000,
+          "Value": 108000,
+          "Inserted": false
+        },
+        {
+          "Export": 40,
+          "Slot": "MovieScene2DTransformSection_0",
+          "Path": "range@48000",
+          "Stock": 48000,
+          "Value": 132000,
+          "Inserted": false
+        },
+        {
+          "Export": 41,
+          "Slot": "MovieScene2DTransformSection_0",
+          "Path": "range@48000",
+          "Stock": 48000,
+          "Value": 132000,
+          "Inserted": false
+        },
+        {
+          "Export": 42,
+          "Slot": "MovieScene2DTransformSection_0",
+          "Path": "range@48000",
+          "Stock": 48000,
+          "Value": 132000,
+          "Inserted": false
+        },
+        {
+          "Export": 128,
+          "Slot": "MovieSceneByteSection_0",
+          "Path": "range@48000",
+          "Stock": 48000,
+          "Value": 132000,
+          "Inserted": false
+        },
+        {
+          "Export": 129,
+          "Slot": "MovieSceneByteSection_0",
+          "Path": "range@48000",
+          "Stock": 48000,
+          "Value": 132000,
+          "Inserted": false
+        },
+        {
+          "Export": 130,
+          "Slot": "MovieSceneByteSection_0",
+          "Path": "range@48000",
+          "Stock": 48000,
+          "Value": 132000,
+          "Inserted": false
+        },
+        {
+          "Export": 153,
+          "Slot": "CompiledData",
+          "Path": "range@48000",
+          "Stock": 48000,
+          "Value": 132000,
+          "Inserted": false
+        },
+        {
+          "Export": 154,
+          "Slot": "MovieSceneMarginSection_0",
+          "Path": "anim:LeftCurve#0",
+          "Stock": 228,
+          "Value": 256,
+          "Inserted": false
+        },
+        {
+          "Export": 154,
+          "Slot": "MovieSceneMarginSection_0",
+          "Path": "anim:LeftCurve#1",
+          "Stock": 228,
+          "Value": 256,
+          "Inserted": false
+        },
+        {
+          "Export": 155,
+          "Slot": "MovieSceneMarginSection_0",
+          "Path": "anim:LeftCurve#0",
+          "Stock": 228,
+          "Value": 256,
+          "Inserted": false
+        },
+        {
+          "Export": 156,
+          "Slot": "MovieSceneMarginSection_0",
+          "Path": "anim:LeftCurve#0",
+          "Stock": 276,
+          "Value": 304,
+          "Inserted": false
+        },
+        {
+          "Export": 157,
+          "Slot": "MovieSceneMarginSection_0",
+          "Path": "anim:RightCurve#0",
+          "Stock": 312,
+          "Value": 348,
+          "Inserted": false
+        },
+        {
+          "Export": 158,
+          "Slot": "MovieSceneMarginSection_0",
+          "Path": "anim:RightCurve#0",
+          "Stock": 291,
+          "Value": 348,
+          "Inserted": false
+        }
+      ],
+      "Layers": [
+        {
+          "Op": "AppendNames",
+          "Names": [
+            "Justification",
+            "ETextJustify",
+            "ETextJustify::Center"
+          ]
+        },
+        {
+          "Op": "EnumInsert",
+          "Export": "Text_Value",
+          "After": "VerticalAlignment",
+          "Tag": "Justification",
+          "Type": "ByteProperty",
+          "Enum": "ETextJustify",
+          "Value": "ETextJustify::Center",
+          "Anchor": {
+            "Package": "/Game/Assets/ui/Data/Widget/TVGraphics/SwitchAssets_Original/MatchTime/MatchTime",
+            "Export": "Text_TeamName_Home"
+          }
+        },
+        {
+          "Op": "AppendNames",
+          "Names": [
+            "TypefaceFontName",
+            "HeadlineBoldSub"
+          ]
+        },
+        {
+          "Op": "NameTag",
+          "Export": "Text_Item",
+          "Struct": "_font",
+          "Member": "TypefaceFontName",
+          "Value": "HeadlineBoldSub",
+          "Anchor": {
+            "Package": "/Game/Assets/ui/Data/Widget/TVGraphics/SwitchAssets_Original/MatchTime/MatchTime",
+            "Export": "Text_TeamName_Home",
+            "Value": "HeadlineBold"
+          }
+        },
+        {
+          "Op": "NameTag",
+          "Export": "Text_Value",
+          "Struct": "_font",
+          "Member": "TypefaceFontName",
+          "Value": "HeadlineBoldSub",
+          "Anchor": {
+            "Package": "/Game/Assets/ui/Data/Widget/TVGraphics/SwitchAssets_Original/MatchTime/MatchTime",
+            "Export": "Text_TeamName_Home",
+            "Value": "HeadlineBold"
+          }
+        }
+      ]
+    },
+    {
+      "Package": "/Game/Assets/ui/Data/Widget/TVGraphics/SwitchAssets_Original/MatchTime/MatchTimeMemberChange",
+      "StockSha256": "ca580012ad8bd9899a78ba5de4cc274a4554810e4c3b49ecdee55221b350fc62",
+      "Values": [
+        {
+          "Export": 9,
+          "Slot": "CanvasPanelSlot_0",
+          "Path": "LayoutData.Offsets.Bottom",
+          "Stock": 108,
+          "Value": 60,
+          "Inserted": false
+        },
+        {
+          "Export": 9,
+          "Slot": "CanvasPanelSlot_0",
+          "Path": "LayoutData.Offsets.Right",
+          "Stock": 468,
+          "Value": 372,
+          "Inserted": false
+        },
+        {
+          "Export": 10,
+          "Slot": "CanvasPanelSlot_0",
+          "Path": "LayoutData.Offsets.Bottom",
+          "Stock": 48,
+          "Value": 60,
+          "Inserted": false
+        },
+        {
+          "Export": 10,
+          "Slot": "CanvasPanelSlot_0",
+          "Path": "LayoutData.Offsets.Right",
+          "Stock": 360,
+          "Value": 372,
+          "Inserted": false
+        },
+        {
+          "Export": 10,
+          "Slot": "CanvasPanelSlot_0",
+          "Path": "LayoutData.Offsets.Top",
+          "Stock": 60,
+          "Value": 0,
+          "Inserted": false
+        },
+        {
+          "Export": 11,
+          "Slot": "CanvasPanelSlot_1",
+          "Path": "LayoutData.Offsets.Left",
+          "Stock": 24,
+          "Value": 100,
+          "Inserted": false
+        },
+        {
+          "Export": 11,
+          "Slot": "CanvasPanelSlot_1",
+          "Path": "LayoutData.Offsets.Right",
+          "Stock": 290,
+          "Value": 264,
+          "Inserted": false
+        },
+        {
+          "Export": 11,
+          "Slot": "CanvasPanelSlot_1",
+          "Path": "LayoutData.Offsets.Top",
+          "Stock": 56,
+          "Value": 2,
+          "Inserted": false
+        },
+        {
+          "Export": 12,
+          "Slot": "CanvasPanelSlot_10",
+          "Path": "LayoutData.Offsets.Right",
+          "Stock": 108,
+          "Value": 0,
+          "Inserted": false
+        },
+        {
+          "Export": 13,
+          "Slot": "CanvasPanelSlot_18",
+          "Path": "LayoutData.Offsets.Left",
+          "Stock": 24,
+          "Value": 3000,
+          "Inserted": false
+        },
+        {
+          "Export": 14,
+          "Slot": "CanvasPanelSlot_20",
+          "Path": "LayoutData.Offsets.Right",
+          "Stock": 360,
+          "Value": 0,
+          "Inserted": false
+        },
+        {
+          "Export": 15,
+          "Slot": "CanvasPanelSlot_29",
+          "Path": "LayoutData.Offsets.Bottom",
+          "Stock": 84,
+          "Value": 48,
+          "Inserted": false
+        },
+        {
+          "Export": 15,
+          "Slot": "CanvasPanelSlot_29",
+          "Path": "LayoutData.Offsets.Left",
+          "Stock": 372,
+          "Value": 6,
+          "Inserted": false
+        },
+        {
+          "Export": 15,
+          "Slot": "CanvasPanelSlot_29",
+          "Path": "LayoutData.Offsets.Right",
+          "Stock": 84,
+          "Value": 48,
+          "Inserted": false
+        },
+        {
+          "Export": 15,
+          "Slot": "CanvasPanelSlot_29",
+          "Path": "LayoutData.Offsets.Top",
+          "Stock": 12,
+          "Value": 6,
+          "Inserted": false
+        },
+        {
+          "Export": 15,
+          "Slot": "CanvasPanelSlot_29",
+          "Path": "ZOrder",
+          "Stock": 1,
+          "Value": 8,
+          "Inserted": false
+        },
+        {
+          "Export": 16,
+          "Slot": "CanvasPanelSlot_3",
+          "Path": "LayoutData.Offsets.Left",
+          "Stock": 319,
+          "Value": 60,
+          "Inserted": false
+        },
+        {
+          "Export": 16,
+          "Slot": "CanvasPanelSlot_3",
+          "Path": "LayoutData.Offsets.Top",
+          "Stock": 67,
+          "Value": 12,
+          "Inserted": false
+        },
+        {
+          "Export": 17,
+          "Slot": "CanvasPanelSlot_5",
+          "Path": "LayoutData.Offsets.Left",
+          "Stock": 24,
+          "Value": 100,
+          "Inserted": false
+        },
+        {
+          "Export": 17,
+          "Slot": "CanvasPanelSlot_5",
+          "Path": "LayoutData.Offsets.Right",
+          "Stock": 290,
+          "Value": 264,
+          "Inserted": false
+        },
+        {
+          "Export": 17,
+          "Slot": "CanvasPanelSlot_5",
+          "Path": "LayoutData.Offsets.Top",
+          "Stock": 56,
+          "Value": 2,
+          "Inserted": false
+        },
+        {
+          "Export": 18,
+          "Slot": "CanvasPanelSlot_6",
+          "Path": "LayoutData.Offsets.Left",
+          "Stock": 319,
+          "Value": 60,
+          "Inserted": false
+        },
+        {
+          "Export": 18,
+          "Slot": "CanvasPanelSlot_6",
+          "Path": "LayoutData.Offsets.Top",
+          "Stock": 67,
+          "Value": 12,
+          "Inserted": false
+        },
+        {
+          "Export": 19,
+          "Slot": "CanvasPanelSlot_0",
+          "Path": "LayoutData.Offsets.Bottom",
+          "Stock": 108,
+          "Value": 60,
+          "Inserted": false
+        },
+        {
+          "Export": 19,
+          "Slot": "CanvasPanelSlot_0",
+          "Path": "LayoutData.Offsets.Left",
+          "Stock": 228,
+          "Value": 256,
+          "Inserted": false
+        },
+        {
+          "Export": 19,
+          "Slot": "CanvasPanelSlot_0",
+          "Path": "LayoutData.Offsets.Right",
+          "Stock": 468,
+          "Value": 372,
+          "Inserted": false
+        },
+        {
+          "Export": 267,
+          "Slot": "MovieSceneMarginSection_0",
+          "Path": "anim:LeftCurve#0",
+          "Stock": 228,
+          "Value": 256,
+          "Inserted": false
+        },
+        {
+          "Export": 268,
+          "Slot": "MovieSceneMarginSection_0",
+          "Path": "anim:LeftCurve#0",
+          "Stock": 228,
+          "Value": 256,
+          "Inserted": false
+        },
+        {
+          "Export": 269,
+          "Slot": "MovieSceneMarginSection_0",
+          "Path": "anim:LeftCurve#0",
+          "Stock": 276,
+          "Value": 304,
+          "Inserted": false
+        }
+      ],
+      "Layers": [
+        {
+          "Op": "AppendNames",
+          "Names": [
+            "TypefaceFontName",
+            "HeadlineBoldSub"
+          ]
+        },
+        {
+          "Op": "NameTag",
+          "Export": "Text_Item",
+          "Struct": "_font",
+          "Member": "TypefaceFontName",
+          "Value": "HeadlineBoldSub",
+          "Anchor": {
+            "Package": "/Game/Assets/ui/Data/Widget/TVGraphics/SwitchAssets_Original/MatchTime/MatchTime",
+            "Export": "Text_TeamName_Home",
+            "Value": "HeadlineBold"
+          }
+        },
+        {
+          "Op": "NameTag",
+          "Export": "Text_Value_1",
+          "Struct": "_font",
+          "Member": "TypefaceFontName",
+          "Value": "HeadlineBoldSub",
+          "Anchor": {
+            "Package": "/Game/Assets/ui/Data/Widget/TVGraphics/SwitchAssets_Original/MatchTime/MatchTime",
+            "Export": "Text_TeamName_Home",
+            "Value": "HeadlineBold"
+          }
+        },
+        {
+          "Op": "NameTag",
+          "Export": "Text_Value_2",
+          "Struct": "_font",
+          "Member": "TypefaceFontName",
+          "Value": "HeadlineBoldSub",
+          "Anchor": {
+            "Package": "/Game/Assets/ui/Data/Widget/TVGraphics/SwitchAssets_Original/MatchTime/MatchTime",
+            "Export": "Text_TeamName_Home",
+            "Value": "HeadlineBold"
+          }
+        }
+      ]
+    },
+    {
+      "Package": "/Game/Assets/ui/Data/Widget/TVGraphics/SwitchAssets_Original/DemoTitle/DemoTitle",
+      "StockSha256": "b6ddb6701243186346664001e27c7906eec26baec9ddc9a2d38d97ecd802436f",
+      "Values": [],
+      "Layers": [
+        {
+          "Op": "ClassSwap",
+          "Export": "Plate_DemoTitleBg",
+          "To": "/Game/Assets/ui/Data/Widget/TVGraphics/SwitchAssets_Original/MatchTime/MatchTimeBase"
+        }
+      ]
+    },
+    {
+      "Package": "/Game/Platforms/_Android/Assets/ui/Font/pes",
+      "StockSha256": "8fcf9bc6f9108343faa7ab2109c9a204acd76bdfa70620852a63363a9cd60135",
+      "Values": [],
+      "Layers": [
+        {
+          "Op": "FontFace",
+          "Entry": "CompositeFont.SubTypefaces[9].Typeface.Fonts[4]",
+          "Name": "HeadlineBoldSub",
+          "From": "eFootballStencil-Regular",
+          "To": "NotoSansThai-ExtraBold"
+        }
+      ]
+    }
+  ],
+  "Clones": [
+    {
+      "From": "/Game/Assets/ui/Data/Widget/TVGraphics/SwitchAssets_Original/MatchTime/Tex720/MatchTimePlate_1",
+      "StockSha256": "0872612b1fdb1963591ba617ebbbc74d0ae830a2686ac8dcbcb01466f51f0afa",
+      "NewName": "MatchTimeWhite_1",
+      "White": true
+    },
+    {
+      "From": "/Game/Assets/ui/Data/Widget/TVGraphics/SwitchAssets_Original/MatchTime/0164F/Tex720/MatchTimePlate_1",
+      "StockSha256": "8199a7ce97d952917f713a31302669f2ebb20de123f708907eb13f7940ade165",
+      "NewName": "MatchTimeWhite_1",
+      "White": true
+    },
+    {
+      "From": "/Game/Assets/ui/Data/Widget/TVGraphics/SwitchAssets_Original/MatchTime/Tex720/MatchTimePlate_2",
+      "StockSha256": "4d9c69650555f9ce09138609891c0bd511140d40cacb8a4c7ded1c156b2a8e86",
+      "NewName": "MatchTimeWhite_2",
+      "White": true
+    },
+    {
+      "From": "/Game/Assets/ui/Data/Widget/TVGraphics/SwitchAssets_Original/MatchTime/0164F/Tex720/MatchTimePlate_2",
+      "StockSha256": "fd87428454b8100b3d594cbb6c72f889d99c47f7629e49be282a73e7a40a7d8a",
+      "NewName": "MatchTimeWhite_2",
+      "White": true
+    },
+    {
+      "From": "/Game/Assets/ui/Data/Widget/TVGraphics/SwitchAssets_Original/MatchTime/Tex720/MatchTimePlate_0",
+      "StockSha256": "f064ee56a5b7199875f34e40ee8eb442d306c90edfc34fca28a39c305aac3669",
+      "NewName": "MatchTimeBarUC_0",
+      "Input": "bar",
+      "Width": 699,
+      "Height": 96,
+      "White": false
+    },
+    {
+      "From": "/Game/Assets/ui/Data/Widget/TVGraphics/SwitchAssets_Original/MatchTime/0164F/Tex720/MatchTimePlate_0",
+      "StockSha256": "f3d0cdd512518c094433352f9a2be5da083f0887bf9b24eb07dac4bd5bd2f050",
+      "NewName": "MatchTimeBarUC_0",
+      "Input": "bar",
+      "Width": 699,
+      "Height": 96,
+      "White": false
+    },
+    {
+      "From": "/Game/Assets/ui/Data/Widget/General/Modals/ExtraLoginBonus/Tex720/ExtraLoginBonusInfo",
+      "StockSha256": "208bd591305cab97455d911746e157d7998b5f4150c7c4054948abcf4719479a",
+      "NewName": "ExtraLoginBonusUCLb",
+      "Input": "logo",
+      "Width": 80,
+      "Height": 80,
+      "White": false
+    },
+    {
+      "From": "/Game/Assets/ui/Data/Widget/TVGraphics/SwitchAssets_Original/MatchTime/Tex720/MatchTimePlate_0",
+      "StockSha256": "f064ee56a5b7199875f34e40ee8eb442d306c90edfc34fca28a39c305aac3669",
+      "NewName": "MatchTimeNavyG_0",
+      "Input": "navy",
+      "Width": 512,
+      "Height": 64,
+      "White": false
+    },
+    {
+      "From": "/Game/Assets/ui/Data/Widget/TVGraphics/SwitchAssets_Original/MatchTime/0164F/Tex720/MatchTimePlate_0",
+      "StockSha256": "f3d0cdd512518c094433352f9a2be5da083f0887bf9b24eb07dac4bd5bd2f050",
+      "NewName": "MatchTimeNavyG_0",
+      "Input": "navy",
+      "Width": 512,
+      "Height": 64,
+      "White": false
+    },
+    {
+      "From": "/Game/Assets/ui/Data/Widget/TVGraphics/SwitchAssets_Original/DemoTitle/Tex720/DemoTitlePlate",
+      "StockSha256": "83f80e19938724018c0a5fcb0067cb9fcae3671e611d87951504c49a8c1c5c70",
+      "NewName": "DemoTitleUCL01",
+      "Input": "goal",
+      "Width": 696,
+      "Height": 192,
+      "White": false
+    },
+    {
+      "From": "/Game/Assets/ui/Data/Widget/TVGraphics/SwitchAssets_Original/DemoTitle/0164F/Tex720/DemoTitlePlate",
+      "StockSha256": "486699b65788fe64373024318b1a4de3db3c769952e918dbc98aca9d3fb7d4f9",
+      "NewName": "DemoTitleUCL01",
+      "Input": "goal",
+      "Width": 696,
+      "Height": 192,
+      "White": false
+    }
+  ],
+  "Repoints": [
+    {
+      "Package": "/Game/Assets/ui/Data/Widget/TVGraphics/SwitchAssets_Original/MatchTime/MatchTimeBase_1",
+      "StockSha256": "977df0c5c2b2ebd017d53543ef7a7d138f59e88f9e26efd1b28989b232210194",
+      "From": "/Game/Assets/ui/Data/Widget/TVGraphics/SwitchAssets_Original/MatchTime/Tex720/MatchTimePlate_1.MatchTimePlate",
+      "To": "/Game/Assets/ui/Data/Widget/TVGraphics/SwitchAssets_Original/MatchTime/Tex720/MatchTimeWhite_1.MatchTimeWhite"
+    },
+    {
+      "Package": "/Game/Assets/ui/Data/Widget/TVGraphics/SwitchAssets_Original/MatchTime/MatchTimeBase_2",
+      "StockSha256": "6be6cec8ae0b929ff788b516d2461bf9779229c5b504eee9ddabdb2305e25365",
+      "From": "/Game/Assets/ui/Data/Widget/TVGraphics/SwitchAssets_Original/MatchTime/Tex720/MatchTimePlate_2.MatchTimePlate",
+      "To": "/Game/Assets/ui/Data/Widget/TVGraphics/SwitchAssets_Original/MatchTime/Tex720/MatchTimeWhite_2.MatchTimeWhite"
+    },
+    {
+      "Package": "/Game/Assets/ui/Data/Widget/TVGraphics/SwitchAssets_Original/MatchTime/MatchTimeBase",
+      "StockSha256": "4a7ff3e367e125e3ff20a22a291d9c2eedbc11ed54cdb5153924b0ce20e304dd",
+      "From": "/Game/Assets/ui/Data/Widget/TVGraphics/SwitchAssets_Original/MatchTime/Tex720/MatchTimePlate_0.MatchTimePlate",
+      "To": "/Game/Assets/ui/Data/Widget/TVGraphics/SwitchAssets_Original/MatchTime/Tex720/MatchTimeNavyG_0.MatchTimeNavyG",
+      "Values": [
+        {
+          "Export": "Img_Plate",
+          "Path": "Margin.Left",
+          "Stock": 0.33000001311302185,
+          "Value": 0
+        },
+        {
+          "Export": "Img_Plate",
+          "Path": "Margin.Top",
+          "Stock": 0.33000001311302185,
+          "Value": 0
+        },
+        {
+          "Export": "Img_Plate",
+          "Path": "Margin.Right",
+          "Stock": 0.33000001311302185,
+          "Value": 0
+        },
+        {
+          "Export": "Img_Plate",
+          "Path": "Margin.Bottom",
+          "Stock": 0.33000001311302185,
+          "Value": 0
+        }
+      ]
+    },
+    {
+      "Package": "/Game/Assets/ui/Data/Widget/TVGraphics/SwitchAssets_Original/DemoTitle/DemoTitleBase",
+      "StockSha256": "31919772fe67e5c492b88a71cb38be40c19b74be8031d19e64a0537581f19166",
+      "From": "/Game/Assets/ui/Data/Widget/TVGraphics/SwitchAssets_Original/DemoTitle/Tex720/DemoTitlePlate.DemoTitlePlate",
+      "To": "/Game/Assets/ui/Data/Widget/TVGraphics/SwitchAssets_Original/DemoTitle/Tex720/DemoTitleUCL01.DemoTitleUCL01",
+      "Values": [
+        {
+          "Export": "Img_Plate",
+          "Path": "Margin.Left",
+          "Stock": 0.33000001311302185,
+          "Value": 0
+        },
+        {
+          "Export": "Img_Plate",
+          "Path": "Margin.Top",
+          "Stock": 0.33000001311302185,
+          "Value": 0
+        },
+        {
+          "Export": "Img_Plate",
+          "Path": "Margin.Right",
+          "Stock": 0.33000001311302185,
+          "Value": 0
+        },
+        {
+          "Export": "Img_Plate",
+          "Path": "Margin.Bottom",
+          "Stock": 0.33000001311302185,
+          "Value": 0
+        }
+      ]
+    }
+  ],
+  "LoosePaks": [
+    {
+      "Pak": "pc9998_mobile_and_P.pak",
+      "MountPoint": "../../../PesMobile/Content/Platforms/_Android/Assets/ui/Font/",
+      "Files": [
+        {
+          "Path": "NotoSansThai-ExtraBold.ufont",
+          "Input": "font"
+        }
+      ]
+    }
+  ],
+  "Expect": {
+    "Chunks": {
+      "/Game/Assets/ui/Data/Widget/TVGraphics/SwitchAssets_Original/MatchTime/MatchTimeBase": "e58e2f07879e8991046ecb84e1855c51c3bbd2df0b2e63390150d3e7808b87d7",
+      "/Game/Assets/ui/Data/Widget/TVGraphics/SwitchAssets_Original/MatchTime/MatchTimeGoal": "98a9dc7af27507be3eef8f09c0f66adbffbff82ec63e0781a14b1fe747ee21ec",
+      "/Game/Assets/ui/Data/Widget/TVGraphics/SwitchAssets_Original/MatchTime/MatchTimeMemberChange": "a6a9b63a3c7002177c1e286d995a42ca8650c55ed0558c5f7c2757cd821c74fc",
+      "/Game/Assets/ui/Data/Widget/TVGraphics/SwitchAssets_Original/MatchTime/0164F/Tex720/MatchTimeNavyG_0": "b8678a04cec6e46c121221d8c051120fccf564a3482784b3af33c8e6a441a41c",
+      "/Game/Assets/ui/Data/Widget/TVGraphics/SwitchAssets_Original/MatchTime/Tex720/MatchTimeWhite_1": "a459497bbdf94f512735614c11c7a12da32bb9e10b8bc5f41f2daf9ec25899cc",
+      "/Game/Assets/ui/Data/Widget/TVGraphics/SwitchAssets_Original/MatchTime/Tex720/MatchTimeBarUC_0": "058a7f45b1571b057910ac241b5d6ae9b3f8446de31ef40d95514f93c8bd37fc",
+      "/Game/Assets/ui/Data/Widget/TVGraphics/SwitchAssets_Original/MatchTime/MatchTimeAdditional": "6d697ec2c8084eb980e8b40982330c7b675ed59caae555aed886838d354b53d6",
+      "/Game/Assets/ui/Data/Widget/TVGraphics/SwitchAssets_Original/MatchTime/MatchTimeTimer": "d54ed56a2e15fd702a44327bc37238bebf55e898b422b75845c98165da4bde0e",
+      "/Game/Assets/ui/Color/ColorTable0164F": "6f500b989099fba39f4249a9c704445ccf5b44ffb3bbb1e7a2394cd8951b332c",
+      "/Game/Assets/ui/Data/Widget/TVGraphics/SwitchAssets_Original/MatchTime/MatchTimeCard": "76104f378666e9ae4eb30550150a4c8a3d3b6d7ff6e255775de634690fb689a2",
+      "/Game/Assets/ui/Data/Widget/TVGraphics/SwitchAssets_Original/DemoTitle/0164F/Tex720/DemoTitleUCL01": "d1430ee88bb30e312716fb8736ad1e601035c91a39499c49d59f454e877386ba",
+      "/Game/Assets/ui/Data/Widget/TVGraphics/SwitchAssets_Original/DemoTitle/Tex720/DemoTitleUCL01": "202a0609cd4570bcba810a7eb86008436607fa069b17a9639fa45351ff8f1e80",
+      "/Game/Assets/ui/Data/Widget/TVGraphics/SwitchAssets_Original/MatchTime/MatchTime": "ad2e22742ce3175ebd7fdf566bc1f32af16d65ac9ffe46570a8d586d9842737d",
+      "/Game/Platforms/_Android/Assets/ui/Font/pes": "09a27dd843b6a8c7c6da4692a4ec245a18c4c79c0a22cb3e4e741d0d356a909b",
+      "/Game/Assets/ui/Data/Widget/TVGraphics/SwitchAssets_Original/MatchTime/0164F/Tex720/MatchTimeBarUC_0": "b7ea4fc33b961aa65535e9abe8d3bbe625d56706c37d24ed3f086709a6ef70d3",
+      "/Game/Assets/ui/Data/Widget/TVGraphics/SwitchAssets_Original/MatchTime/0164F/Tex720/MatchTimeWhite_2": "58fa951b155d4ad970ab0ef6ce3dc6855d966f3463ea2bf9039b687db569dd91",
+      "/Game/Assets/ui/Color/ColorTable": "9dd950d5b65447070b02adda5632a0c2b32e99c66e68fd987ade8c0a45be67e3",
+      "/Game/Assets/ui/Data/Widget/TVGraphics/SwitchAssets_Original/MatchTime/Tex720/MatchTimeNavyG_0": "e870154849749c6d307bee7d6f96d991cea5b9391f9738bb857d7123fed3c82b",
+      "/Game/Assets/ui/Data/Widget/TVGraphics/SwitchAssets_Original/DemoTitle/DemoTitleBase": "c26d96fd4fad7fca5144f39a31e87d699d8be317b8dfd03428fab122107ca56a",
+      "/Game/Assets/ui/Data/Widget/TVGraphics/SwitchAssets_Original/MatchTime/MatchTimeBase_2": "82d4bc1ade38e8c48effcb99b8cf89c2cf7acf9db7ee3006c8def8cba66c272a",
+      "/Game/Assets/ui/Data/Widget/TVGraphics/SwitchAssets_Original/MatchTime/Tex720/MatchTimeWhite_2": "10b44dbaf9fda177c61d6fe7dc7c477d6685c8f17e1bac4c18bf923e3136fc8a",
+      "/Game/Assets/ui/Data/Widget/General/Modals/ExtraLoginBonus/Tex720/ExtraLoginBonusUCLb": "066d0ba30f97eaf2a62f15f91e54ea496d26bf8310d4f5e12d46363fb7248da8",
+      "/Game/Assets/ui/Data/Widget/TVGraphics/SwitchAssets_Original/MatchTime/MatchTimeAggregate": "60b52da038a7fad45959e9947d2b6ffc2eb36969690810ece43faa43ebdf8159",
+      "/Game/Assets/ui/Data/Widget/TVGraphics/SwitchAssets_Original/DemoTitle/DemoTitle": "3c4f93892c3e3da6b2478a7b2e55461ee07dc9fdcb20dd1a2ff78b7c8f0aca24",
+      "/Game/Assets/ui/Data/Widget/TVGraphics/SwitchAssets_Original/MatchTime/0164F/Tex720/MatchTimeWhite_1": "04fff800dc11794bfa9174de41acd526dd349cdc52d2c536fa0652ee850d69dc",
+      "/Game/Assets/ui/Data/Widget/TVGraphics/SwitchAssets_Original/MatchTime/MatchTimeBase_1": "5b379ed4cdb7fad6d0ea9540869450748357a6cbe730735d3132578c1a7d3a04"
+    },
+    "Files": {
+      "pc9998_mobile_and_P.pak": "1401303fdec69b4da4947f3f83621b36439e0dd0049a120b62b2bcd392cfa8fa",
+      "pc9999_mobile_and_P.pak": "0c9d79129f5ca913335ca2f864ae40d39818a16a12805c9ab55fa1329c7f9424",
+      "pc9999_mobile_and_P.ucas": "e71a61183a84d3393fcb81f0fce9f1ec5e9caa4a07ca98a312733f749a7fd8df",
+      "pc9999_mobile_and_P.utoc": "3397f3038d5b52dc61f43d992aa69aeb1dd0e69b0b7f8369679c26e9b1d9be0e"
+    }
+  }
+}

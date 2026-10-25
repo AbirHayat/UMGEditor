@@ -14,6 +14,7 @@ string? Opt(string name) { var i = Array.IndexOf(args, name); return i >= 0 && i
 var pcConfig = config with { PaksDir = Opt("--pc-paks") ?? @"F:\SteamLibrary\steamapps\common\eFootball\pak" };
 const string WidgetRoot = "/Game/Assets/ui/Data/Widget/";
 const string Tv = WidgetRoot + "TVGraphics/SwitchAssets_Original/";
+const string FontDir = "PesMobile/Content/Platforms/_Android/Assets/ui/Font/", FontPakName = "pc9998_mobile_and_P.pak";
 
 /// <summary>--pc = PC stock; --mod DIR = PC stock with that mod folder on top; otherwise mobile.</summary>
 GameConfig SourceConfig() => Opt("--mod") is { } mod ? pcConfig with { ExtraPaksDirs = [mod] } : args.Contains("--pc") ? pcConfig : config;
@@ -51,8 +52,8 @@ switch (args.FirstOrDefault())
         Console.WriteLine("       umgcompare anim-dump <packagePath> <out.json> [--pc]   every MovieScene/WidgetAnimation export as JSON");
         Console.WriteLine("       umgcompare export-dump <packagePath> <out.json> [--pc]   every export (widgets, slots, animations) as JSON");
         Console.WriteLine("       umgcompare export-tex <outDir> <objectPath>... [--pc | --mod DIR]   textures decoded to PNG (read-only)");
-        Console.WriteLine("       umgcompare recipe-input C14 [--mod DIR]   copies C14's UCL image (third-party) into work\\out\\recipes\\_inputs as a PNG, prints its sha256");
-        Console.WriteLine("       umgcompare recipe-ucl C15|C16|C16b   writes work\\out\\recipes\\<name>.json: the canary as a recipe (the builder's ops, its edit set's values, the device-tested pins)");
+        Console.WriteLine("       umgcompare recipe-input C14 [--mod DIR] | C17 [--ucl-pak FILE]   copies a third-party input into work\\out\\recipes\\_inputs (C14: UCL's plate image as a PNG; C17: UCL's font), prints its sha256");
+        Console.WriteLine("       umgcompare recipe-ucl C15|C16|C16b|C17a|C17b   writes work\\out\\recipes\\<name>.json: the canary as a recipe (the builder's ops, its edit set's values, the device-tested pins)");
         Console.WriteLine("       umgcompare font-usage [--name N[,N]] [--face F[,F]]   read-only: packages whose name map holds a font name, Font assets that use a face");
         Console.WriteLine("       umgcompare canary-font [C17a] [--ucl-pak FILE]   builds canary C17a (UCL's font as a loose .ufont in a pak-only mod, no package edits)");
         Console.WriteLine("       umgcompare canary-ucl [C16] [--set C16] [--only board,banners,replay[,pes]] [--art DIR] [--centre] [--font]   builds canary C16 (the complete UCL look); C16b = --centre; C17b = --centre --font");
@@ -185,7 +186,8 @@ int CanaryTexture()
 // back to exactly the texture's bytes; an existing file is only accepted when it is byte-identical.
 int RecipeInput()
 {
-    if (args.ElementAtOrDefault(1) != "C14") { Console.WriteLine("usage: umgcompare recipe-input C14 [--mod DIR]"); return 2; }
+    if (args.ElementAtOrDefault(1) == "C17") return RecipeInputFont();
+    if (args.ElementAtOrDefault(1) != "C14") { Console.WriteLine("usage: umgcompare recipe-input C14 [--mod DIR] | C17 [--ucl-pak FILE]"); return 2; }
     var modDir = Opt("--mod") ?? @"E:\n3tron\patch\pc_mods\3RD_PARTY\PesConsole\Content\Paks\~mods\UCL_theme_by_eFootball.cz";
     const string Plate = Tv + "DemoTitle/Tex1080/DemoTitlePlate";
     byte[] bgra;
@@ -215,6 +217,28 @@ int RecipeInput()
     return 0;
 }
 
+// Stage 2e: C17a/C17b's third-party input: UCL's font (their NotoSansThai-ExtraBold.ufont, read by our pak reader and by
+// CUE4Parse, which must agree, as canary-font does) in work\out\recipes\_inputs\C17 (untracked). It must be the font
+// the device-tested C17a pinned; an existing file is only accepted when byte-identical.
+int RecipeInputFont()
+{
+    if (UclFontPak("NotoSansThai-ExtraBold.ufont") is not (var font, _, var uclPak, _)) return 1;
+    var pinned = System.Text.Json.Nodes.JsonNode.Parse(File.ReadAllText(Path.Combine(UmgEditor.Core.Recipes.RecipeContext.RootOf(config), "recipes", "pins", "device-tested.json")))!
+        ["Canaries"]!["C17a"]!["Inputs"]!["eFootballStencil-Regular.ufont"]!.GetValue<string>();
+    Check("the font is the one C17a pinned", Sha(font) == pinned, $"{Sha(font)[..12]}… vs {pinned[..12]}…");
+    if (failures > 0) return 1;
+    var guard = UmgEditor.Core.Patching.WriteGuard.ForRecipes(config);
+    var file = Path.Combine(guard.Root, "_inputs", "C17", "UCL_NotoSansThai-ExtraBold.ufont");
+    if (File.Exists(file))
+    {
+        Check($"{file} exists and is byte-identical", File.ReadAllBytes(file).AsSpan().SequenceEqual(font));
+        if (failures > 0) return 1;
+    }
+    else guard.WriteAllBytes(file, font);
+    Console.WriteLine($"{file}: {font.Length:N0} B, sha256 {Sha(font)} (from {uclPak})");
+    return 0;
+}
+
 // Stage 2d: C15 (canary-scoreboard), C16 and C16b (canary-ucl, UclC16) as recipes. The same ops in the same order with
 // the builders' constants; values from the canary's edit set (RecipeFromSet.SavedValues: the saved file must equal a
 // rebuild); stock values read from the game; art as pinned .bgra inputs; Expect = recipes\pins\device-tested.json. The
@@ -222,14 +246,15 @@ int RecipeInput()
 int RecipeUcl()
 {
     var name = args.ElementAtOrDefault(1);
-    if (name is not ("C15" or "C16" or "C16b")) { Console.WriteLine("usage: umgcompare recipe-ucl C15|C16|C16b"); return 2; }
+    if (name is not ("C15" or "C16" or "C16b" or "C17a" or "C17b")) { Console.WriteLine("usage: umgcompare recipe-ucl C15|C16|C16b|C17a|C17b"); return 2; }
     using var source = GameSource.Open(config);
     const string MT = UmgEditor.Core.Modding.UclC16.MT, DT = UmgEditor.Core.Modding.UclC16.DT;
     const string Dark = UmgEditor.Core.Modding.UclC16.Dark, White = UmgEditor.Core.Modding.UclC16.White;
     var root = UmgEditor.Core.Recipes.RecipeContext.RootOf(config);
     var guard = new UmgEditor.Core.Patching.WriteGuard(config);
-    var set = name;
-    var artDir = $"work/out/art/{name}";
+    // C17b = canary-ucl C17b --set C16b --art work/out/art/C16b --centre --font
+    var set = name == "C17b" ? "C16b" : name;
+    var artDir = $"work/out/art/{set}";
     var stockShas = new Dictionary<string, string>();
     string StockSha(string package) => stockShas.TryGetValue(package, out var s) ? s : stockShas[package] = Sha(source.ReadPackageBytes(package).Bytes);
 
@@ -290,11 +315,48 @@ int RecipeUcl()
         return plan == null ? "#00000000" : "#" + string.Concat(new[] { "R", "G", "B", "A" }.Select(c => byte.Parse(flat[plan.Key + "." + c]).ToString("X2")));
     }
 
+    // C17b: _font.TypefaceFontName = HeadlineBoldSub on each text, as UclC16's Font(): the names it needs appended first
+    // (those stock lacks; no earlier layer adds or removes them), then per text an insert (anchored on stock MatchTime
+    // Text_TeamName_Home, which stores HeadlineBold) or, where stock stores one, a swap in place
+    const string FontName = UmgEditor.Core.Modding.UclC16.FontName;
+    UmgEditor.Core.Recipes.RecipeLayer[] Font(string package, params string[] texts)
+    {
+        var (key, stock) = source.ReadPackageBytes(package);
+        var have = UmgEditor.Core.Patching.ZenNameMap.Read(stock).Select(n => n.Text).ToHashSet();
+        var missing = new[] { "TypefaceFontName", "NameProperty", FontName }.Where(n => !have.Contains(n)).ToList();
+        var exports = source.ParsePackage(key, stock).ExportsLazy.Select(e => e.Value).ToList();
+        var layers = new List<UmgEditor.Core.Recipes.RecipeLayer>();
+        if (missing.Count > 0) layers.Add(new UmgEditor.Core.Recipes.AppendNamesLayer(missing));
+        foreach (var text in texts)
+        {
+            var stored = UmgEditor.Core.Patching.TagInserter.Flatten(exports.Single(e => e.Name == text)).GetValueOrDefault("Properties._font.TypefaceFontName")?.Trim('"');
+            layers.Add(new UmgEditor.Core.Recipes.NameTagLayer(text, "_font", "TypefaceFontName", FontName, stored,
+                stored == null ? new UmgEditor.Core.Recipes.RecipeNameAnchor(MT + "MatchTime", "Text_TeamName_Home", "HeadlineBold") : null));
+        }
+        return [.. layers];
+    }
+    var font = name == "C17b";
+    UmgEditor.Core.Recipes.RecipeLayer[] FontIf(string package, params string[] texts) => font ? Font(package, texts) : [];
+    string FontInput()
+    {
+        const string path = "work/out/recipes/_inputs/C17/UCL_NotoSansThai-ExtraBold.ufont";
+        var full = Path.Combine(root, path);
+        Check($"input {path} exists (umgcompare recipe-input C17)", File.Exists(full));
+        inputs["font"] = new UmgEditor.Core.Recipes.RecipeInput(path, File.Exists(full) ? Sha(File.ReadAllBytes(full)) : new string('0', 64));
+        return "font";
+    }
+    var loosePaks = new List<UmgEditor.Core.Recipes.RecipeLoosePak>();
+
     var packages = new List<UmgEditor.Core.Recipes.RecipePackage?>();
     var bar = "MatchTimeBarUC_0";
     var barRename = new UmgEditor.Core.Recipes.RecipeRename(MT + "Tex720/MatchTimePlate_0.MatchTimePlate", MT + $"Tex720/{bar}.{bar[..^2]}");
     var clipping = new UmgEditor.Core.Recipes.RemoveTagLayer("Normal_Display", "Clipping", "EWidgetClipping::ClipToBounds");
-    if (name == "C15")
+    if (name == "C17a")
+    {
+        // canary-font: no package edits, UCL's font as the stencil (the Latin HeadlineBold/HeadlineBoldSub face)
+        loosePaks.Add(new(FontPakName, "../../../" + FontDir, [new("eFootballStencil-Regular.ufont", FontInput())]));
+    }
+    else if (name == "C15")
     {
         // canary-scoreboard: edit set C15 → Img_Line's path + scores white → Normal_Display's clipping removed; the bar art
         packages.Add(Values(MT + "MatchTime",
@@ -303,11 +365,18 @@ int RecipeUcl()
     }
     else
     {
-        var centre = name == "C16b";
+        var centre = name is "C16b" or "C17b";
         // board: MatchTime (edit set → bar + logo paths, scores white → clipping removed), the ColorTables, white plates, bar, logo
         packages.Add(Values(MT + "MatchTime",
-            new UmgEditor.Core.Recipes.RenameLayer([barRename, new(UmgEditor.Core.Modding.UclC16.LogoFrom, UmgEditor.Core.Modding.UclC16.LogoTo)],
-                [Swap("Text_Score_Home"), Swap("Text_Score_Away")]), clipping));
+            [new UmgEditor.Core.Recipes.RenameLayer([barRename, new(UmgEditor.Core.Modding.UclC16.LogoFrom, UmgEditor.Core.Modding.UclC16.LogoTo)],
+                [Swap("Text_Score_Home"), Swap("Text_Score_Away")]), clipping,
+            .. FontIf(MT + "MatchTime", "Text_Score_Away", "Text_Score_Home", "Text_TeamName_Away", "Text_TeamName_Home")]));
+        if (font)
+        {
+            packages.Add(NoValues(MT + "MatchTimeTimer", Font(MT + "MatchTimeTimer", "Text_Colon", "Text_Minute_1", "Text_Minute_2", "Text_Minute_3", "Text_Second_1", "Text_Second_2")));
+            packages.Add(NoValues(MT + "MatchTimeAdditional", Font(MT + "MatchTimeAdditional", "Text_AdditionalTime")));
+            packages.Add(NoValues(MT + "MatchTimeAggregate", Font(MT + "MatchTimeAggregate", "Text_Aggregate_Away", "Text_Aggregate_Home")));
+        }
         foreach (var table in new[] { "/Game/Assets/ui/Color/ColorTable", "/Game/Assets/ui/Color/ColorTable0164F" })
             packages.Add(NoValues(table, new UmgEditor.Core.Recipes.ColorRowsLayer([
                 new("STR_SWITCH_BRAND_1", StockRgba(table, "STR_SWITCH_BRAND_1"), "#FFFFFFFF"),
@@ -325,9 +394,10 @@ int RecipeUcl()
         packages.Add(Values(MT + "MatchTimeGoal", [
             new UmgEditor.Core.Recipes.RenameLayer(null, [Swap("Text_PlayerName")]),
             new UmgEditor.Core.Recipes.ClassSwapLayer("MatchTimeBase_1", DT + "DemoTitleBase"),
-            .. centre ? Centre("Text_PlayerName") : []]));
-        packages.Add(Values(MT + "MatchTimeCard", centre ? Centre("Text_Value") : []));
-        packages.Add(Values(MT + "MatchTimeMemberChange"));
+            .. (centre ? Centre("Text_PlayerName") : []),
+            .. FontIf(MT + "MatchTimeGoal", "Text_Item", "Text_PlayerName", "Text_PlayerNumber")]));
+        packages.Add(Values(MT + "MatchTimeCard", [.. (centre ? Centre("Text_Value") : []), .. FontIf(MT + "MatchTimeCard", "Text_Item", "Text_Value")]));
+        packages.Add(Values(MT + "MatchTimeMemberChange", FontIf(MT + "MatchTimeMemberChange", "Text_Item", "Text_Value_1", "Text_Value_2")));
         Repoint(MT + "MatchTimeBase", MT + "Tex720/MatchTimePlate_0.MatchTimePlate", MT + "Tex720/MatchTimeNavyG_0.MatchTimeNavyG", true);
         CloneBoth(MT, "MatchTimePlate_0", "MatchTimeNavyG_0", Input("navy", "MatchTimeNavyG_0_512x64.bgra"), 512, 64);
         Repoint(DT + "DemoTitleBase", DT + "Tex720/DemoTitlePlate.DemoTitlePlate", DT + "Tex720/DemoTitleUCL01.DemoTitleUCL01", true);
@@ -335,6 +405,14 @@ int RecipeUcl()
 
         // replay: DemoTitle's plate → class MatchTimeBase (the navy gradient, above)
         packages.Add(NoValues(DT + "DemoTitle", new UmgEditor.Core.Recipes.ClassSwapLayer("Plate_DemoTitleBg", MT + "MatchTimeBase")));
+
+        // C17b: pes's Latin HeadlineBoldSub face → NotoSansThai-ExtraBold, whose .ufont the loose-file pak replaces with UCL's font
+        if (font)
+        {
+            packages.Add(NoValues(UmgEditor.Core.Modding.UclC16.Pes, new UmgEditor.Core.Recipes.FontFaceLayer(UmgEditor.Core.Modding.UclC16.FontEntry, FontName,
+                UmgEditor.Core.Modding.UclC16.FontFrom, UmgEditor.Core.Modding.UclC16.FontTo)));
+            loosePaks.Add(new(FontPakName, "../../../" + FontDir, [new(UmgEditor.Core.Modding.UclC16.FontTo + ".ufont", FontInput())]));
+        }
     }
     if (failures > 0) return 1;
 
@@ -343,8 +421,9 @@ int RecipeUcl()
     var expect = new UmgEditor.Core.Recipes.RecipeExpect(
         pinned["Chunks"]!.AsObject().ToDictionary(kv => kv.Key, kv => kv.Value!.GetValue<string>()),
         pinned["Files"]!.AsObject().ToDictionary(kv => kv.Key, kv => kv.Value!["Sha256"]!.GetValue<string>()));
-    var recipe = new UmgEditor.Core.Recipes.Recipe(UmgEditor.Core.Recipes.Recipe.CurrentVersion, name, pinned["Container"]!.GetValue<string>(), inputs,
-        packages.OfType<UmgEditor.Core.Recipes.RecipePackage>().ToList(), null, clones, repoints, expect);
+    var recipe = new UmgEditor.Core.Recipes.Recipe(UmgEditor.Core.Recipes.Recipe.CurrentVersion, name, pinned["Container"]?.GetValue<string>() ?? "pc9999_mobile_and_P", inputs,
+        packages.Count > 0 ? packages.OfType<UmgEditor.Core.Recipes.RecipePackage>().ToList() : null, null, clones.Count > 0 ? clones : null,
+        repoints.Count > 0 ? repoints : null, loosePaks.Count > 0 ? loosePaks : null, expect);
     var text = UmgEditor.Core.Recipes.RecipeReader.Write(recipe);
     var (back, refusals) = UmgEditor.Core.Recipes.RecipeReader.Read(text);
     Check("the recipe reads back and passes the data checks", back != null, string.Join(" | ", refusals));
@@ -352,7 +431,7 @@ int RecipeUcl()
     var recipes = UmgEditor.Core.Patching.WriteGuard.ForRecipes(config);
     var file = Path.Combine(recipes.Root, name + ".json");
     recipes.WriteAllText(file, text);
-    Console.WriteLine($"{file}: {packages.Count} packages, {clones.Count} clones, {repoints.Count} re-points, {inputs.Count} inputs; check it with umgmod recipe-check");
+    Console.WriteLine($"{file}: {packages.Count} packages, {clones.Count} clones, {repoints.Count} re-points, {loosePaks.Count} loose-file paks, {inputs.Count} inputs; check it with umgmod recipe-check");
     return 0;
 }
 
@@ -482,7 +561,6 @@ int CanaryScoreboard()
 // C17a (probe): the UCL mod's font ("Champions", OpenType) shipped as a loose file in a pak-only legacy pak
 // (pc9998_mobile_and_P.pak, v11, index encrypted as stock's), replacing eFootballStencil-Regular.ufont = the Latin face
 // of HeadlineBold/HeadlineBoldSub. No package edits: tests loose-file delivery and a CFF font on mobile.
-const string FontDir = "PesMobile/Content/Platforms/_Android/Assets/ui/Font/", FontPakName = "pc9998_mobile_and_P.pak";
 string Sha(byte[] b) => Convert.ToHexString(System.Security.Cryptography.SHA256.HashData(b)).ToLowerInvariant();
 
 // UCL's font ("Champions", their NotoSansThai-ExtraBold.ufont) and the loose-file pak (v11, index encrypted as stock's)

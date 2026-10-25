@@ -1,6 +1,7 @@
 using System.Text.Json.Nodes;
 using UmgEditor.Core;
 using UmgEditor.Core.Editing;
+using UmgEditor.Core.Modding;
 using UmgEditor.Core.Patching;
 using UmgEditor.Core.Recipes;
 using UmgEditor.Core.Textures;
@@ -14,7 +15,8 @@ namespace UmgEditor.Tests;
 /// route) give exactly their pinned chunks. Stage 2c: Clones and Repoints, acceptance recipes\C13 (solid-colour clones +
 /// a re-point) and C14 (UCL's image, resized clones, a re-point with 9-slice margins 0). Stage 2d: package Layers
 /// (Rename, RemoveTag, ClassSwap, ColorRows, AppendNames, EnumInsert) and White / .bgra clones, acceptance recipes\C15,
-/// C16 and C16b (made by umgcompare recipe-ucl from the builders that made the device-tested mods).
+/// C16 and C16b (made by umgcompare recipe-ucl from the builders that made the device-tested mods). Stage 2e: NameTag and
+/// FontFace layers and LoosePaks, acceptance recipes\C17a (a font pak only) and C17b (C16b + UCL's font on the scoreboard).
 /// </summary>
 [TestClass]
 public class RecipeTests
@@ -64,6 +66,8 @@ public class RecipeTests
     [DataRow("C15", 3, 3)]
     [DataRow("C16", 22, 15)]
     [DataRow("C16b", 22, 15)]
+    [DataRow("C17a", 0, 0)]
+    [DataRow("C17b", 26, 15)]
     public void Acceptance_RecipeGivesThePinnedChunks_AndWritesNothing(string name, int chunks, int danger)
     {
         var json = RecipeText(name);
@@ -146,7 +150,7 @@ public class RecipeTests
         Refused(With(o => Value(o)["Value"] = 0), "Value equals Stock");
         Refused(With(o => o["Packages"]!.AsArray().Add(o["Packages"]![0]!.DeepClone())), "listed 2 times");
         Refused(With(o => o["Packages"]![0]!["Values"]!.AsArray().Add(Value(o).DeepClone())), "set 2 times");
-        Refused(With(o => o["Packages"] = new JsonArray()), "no Packages, Textures, Clones or Repoints");
+        Refused(With(o => o["Packages"] = new JsonArray()), "no Packages, Textures, Clones, Repoints or LoosePaks");
         Refused(With(o => o["Expect"]!["Files"]!.AsObject()["other_mod.utoc"] = new string('a', 64)), "device file name of this mod");
         foreach (var bad in new[] { "..\\outside.png", "C:\\x.png", "/abs.png", "work/./x.png", "work//x.png" })
             Assert.IsNotNull(RecipeReader.PathRefusal(bad), bad);
@@ -350,6 +354,70 @@ public class RecipeTests
         var swapped = Check(Layered(DemoTitle, Layer("ClassSwap", ("Export", "Plate_DemoTitleBg"), ("To", Tv + "MatchTime/MatchTimeBase"))));
         Assert.IsTrue(swapped.Ok, string.Join("\n", swapped.Refusals));
         Assert.AreEqual(1, swapped.Packages[DemoTitle].ImportedPackageSwaps.Count);
+    }
+
+    // ---- stage 2e: fonts and loose-file paks ----
+
+    private static JsonObject NameTag(string export, string? stock, JsonObject? anchor = null)
+    {
+        var o = Layer("NameTag", ("Export", export), ("Struct", "_font"), ("Member", "TypefaceFontName"), ("Value", "HeadlineBoldSub"));
+        if (stock != null) o["Stock"] = stock;
+        if (anchor != null) o["Anchor"] = anchor;
+        return o;
+    }
+
+    private static JsonObject TeamNameAnchor() => new() { ["Package"] = MatchTime, ["Export"] = "Text_TeamName_Home", ["Value"] = "HeadlineBold" };
+
+    private static string FontPak(Action<JsonObject> change)
+    {
+        var o = JsonNode.Parse(RecipeText("C17a"))!.AsObject();
+        change(o["LoosePaks"]![0]!.AsObject());
+        return o.ToJsonString();
+    }
+
+    [TestMethod]
+    public void Reader_DataChecks_FontsAndPaks()
+    {
+        Refused(Layered(MatchTime, NameTag("Text_Score_Home", null)), "needs an Anchor");
+        Refused(Layered(MatchTime, NameTag("Text_TeamName_Home", "HeadlineBold", TeamNameAnchor())), "takes no Anchor");
+        Refused(Layered(MatchTime, NameTag("Text_TeamName_Home", "HeadlineBoldSub")), "Value equals Stock");
+        var other = NameTag("Text_Score_Home", null, TeamNameAnchor()); other["Struct"] = "Font";
+        Refused(Layered(MatchTime, other), "_font (FSlateFontInfo) members only");
+        Refused(Layered(MatchTime, Layer("FontFace", ("Entry", "CompositeFont.DefaultTypeface.Fonts[0]"), ("Name", "Regular"), ("From", "A"), ("To", "A"))), "From equals To");
+
+        Refused(FontPak(p => p["Pak"] = "pc9998_mobile_and.pak"), "ending in _P.pak");
+        Refused(FontPak(p => p["Pak"] = "../pc9998_mobile_and_P.pak"), "ending in _P.pak");
+        Refused(FontPak(p => p["Pak"] = "pc9999_mobile_and_P.pak"), "the container's own .pak stub");
+        Refused(FontPak(p => p["MountPoint"] = "PesMobile/Content/"), "MountPoint");
+        Refused(FontPak(p => p["MountPoint"] = "../../../PesMobile/Content"), "MountPoint");
+        Refused(FontPak(p => p["MountPoint"] = "../../../PesMobile/../Content/"), "MountPoint");
+        Refused(FontPak(p => p["Files"]![0]!["Path"] = "sub/x.ufont"), "plain file name");
+        Refused(FontPak(p => p["Files"]![0]!["Input"] = "nope"), "isn't listed in Inputs");
+        Refused(FontPak(p => p["Files"] = new JsonArray()), "no Files");
+        Refused(FontPak(p => p["Files"]!.AsArray().Add(p["Files"]![0]!.DeepClone())), "listed 2 times");
+        Refused(FontPak(p => p["Compressed"] = true), "not a valid recipe");
+    }
+
+    [TestMethod]
+    public void Check_Refusals_FontsAndPaks()
+    {
+        // the stock value is checked both ways: stored when the recipe says so, absent when it inserts
+        CheckRefused(Layered(MatchTime, NameTag("Text_Score_Home", "HeadlineBold")), "is not stored, the recipe says HeadlineBold");
+        CheckRefused(Layered(MatchTime, NameTag("Text_TeamName_Home", null, TeamNameAnchor())), "is HeadlineBold, the recipe says not stored");
+        // an insert's builder must reproduce the anchor's stock tag: an anchor that stores another name doesn't
+        var wrongAnchor = TeamNameAnchor(); wrongAnchor["Value"] = "Regular";
+        CheckRefused(Layered(MatchTime, Layer("AppendNames", ("Names", new JsonArray("HeadlineBoldSub"))), NameTag("Text_Score_Home", null, wrongAnchor)), "doesn't reproduce stock's");
+        // the face must be the one the entry uses
+        CheckRefused(Layered(UclC16.Pes, Layer("FontFace", ("Entry", UclC16.FontEntry), ("Name", UclC16.FontName), ("From", UclC16.FontTo), ("To", UclC16.FontFrom))), "pes: layer 1 (FontFace)");
+
+        // a loose-file pak only replaces stock loose files, and its input is pinned
+        NeedsInputs(RecipeText("C17a"), "C17a");
+        CheckRefused(FontPak(p => p["Files"]![0]!["Path"] = "NoSuchFont.ufont"), "isn't a loose file of a stock pak");
+        CheckRefused(WithRecipe("C17a", o => o["Inputs"]![o["Inputs"]!.AsObject().First().Key]!["Sha256"] = new string('c', 64)), "the recipe pins cccccccccccc");
+        // the pak's bytes are part of the pins
+        var r = Check(RecipeText("C17a"));
+        Assert.IsTrue(r.Ok, string.Join("\n", r.Refusals));
+        Assert.AreEqual(RecipeReader.Read(RecipeText("C17a")).Recipe!.Expect!.Files!["pc9998_mobile_and_P.pak"], RecipeCheck.Sha256(r.LoosePaks.Single().Bytes));
     }
 
     /// <summary>A recipe's pins are the device-tested ones (recipes\pins\device-tested.json), not typed separately.</summary>

@@ -34,7 +34,7 @@ public static class UclC16
     /// <summary>C17b's extra group: the pes font asset</summary>
     public const string PesGroup = "pes", Pes = "/Game/Platforms/_Android/Assets/ui/Font/pes";
     public const string FontEntry = "CompositeFont.SubTypefaces[9].Typeface.Fonts[4]", FontFrom = "eFootballStencil-Regular", FontTo = "NotoSansThai-ExtraBold";
-    private const string FontName = "HeadlineBoldSub";
+    public const string FontName = "HeadlineBoldSub";
     public const string Dark = "ColorEnum_String::NewEnumerator87", White = "ColorEnum_String::NewEnumerator86";
     public const string LogoSource = "/Game/Assets/ui/Data/Widget/General/Modals/ExtraLoginBonus/Tex720/ExtraLoginBonusInfo", LogoName = "ExtraLoginBonusUCLb";
     public const string LogoFrom = MT + "Tex720/MatchTimeLogo.MatchTimeLogo";

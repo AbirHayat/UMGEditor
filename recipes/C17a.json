@@ -1,0 +1,29 @@
+{
+  "Recipe": 1,
+  "Name": "C17a",
+  "Container": "pc9999_mobile_and_P",
+  "Inputs": {
+    "font": {
+      "Path": "work/out/recipes/_inputs/C17/UCL_NotoSansThai-ExtraBold.ufont",
+      "Sha256": "be2671574c21254cb81f8aab9410e10dd30b2213075ae79acfcb72989a371f77"
+    }
+  },
+  "LoosePaks": [
+    {
+      "Pak": "pc9998_mobile_and_P.pak",
+      "MountPoint": "../../../PesMobile/Content/Platforms/_Android/Assets/ui/Font/",
+      "Files": [
+        {
+          "Path": "eFootballStencil-Regular.ufont",
+          "Input": "font"
+        }
+      ]
+    }
+  ],
+  "Expect": {
+    "Chunks": {},
+    "Files": {
+      "pc9998_mobile_and_P.pak": "d91ded285a47301d3a856c9f06a6520c6516ca6172dfee06d83f8c9104a3737f"
+    }
+  }
+}

@@ -20,6 +20,7 @@ namespace UmgEditor.Core.Recipes;
 /// <param name="Clones">New texture packages made directly from one stock texture each (canaries C13/C14): a solid colour at
 /// the stock size, or an image input with the mip chain halved down to the stock mip count</param>
 /// <param name="Repoints">Same-length soft path renames in stock packages (canaries C13/C14), with stored floats changed alongside</param>
+/// <param name="LoosePaks">Pak-only legacy paks whose files replace stock loose files (canary C17a/C17b: a font)</param>
 /// <param name="Expect">Pins: what the recipe must produce, by sha256</param>
 public sealed record Recipe(
     [property: JsonPropertyName("Recipe")] int Version,
@@ -30,6 +31,7 @@ public sealed record Recipe(
     IReadOnlyList<RecipeTexture>? Textures = null,
     IReadOnlyList<RecipeClone>? Clones = null,
     IReadOnlyList<RecipeRepoint>? Repoints = null,
+    IReadOnlyList<RecipeLoosePak>? LoosePaks = null,
     RecipeExpect? Expect = null)
 {
     public const int CurrentVersion = 1;
@@ -49,6 +51,7 @@ public static class RecipeSections
         public IReadOnlyList<RecipeTexture> TexturesOrEmpty => r.Textures ?? [];
         public IReadOnlyList<RecipeClone> ClonesOrEmpty => r.Clones ?? [];
         public IReadOnlyList<RecipeRepoint> RepointsOrEmpty => r.Repoints ?? [];
+        public IReadOnlyList<RecipeLoosePak> LoosePaksOrEmpty => r.LoosePaks ?? [];
     }
 
     extension(RecipeClone c)
@@ -78,7 +81,7 @@ public static class RecipeSections
         public string Op => l switch
         {
             RenameLayer => "Rename", RemoveTagLayer => "RemoveTag", ClassSwapLayer => "ClassSwap", ColorRowsLayer => "ColorRows",
-            AppendNamesLayer => "AppendNames", EnumInsertLayer => "EnumInsert", _ => l.GetType().Name,
+            AppendNamesLayer => "AppendNames", EnumInsertLayer => "EnumInsert", NameTagLayer => "NameTag", FontFaceLayer => "FontFace", _ => l.GetType().Name,
         };
     }
 }
@@ -100,6 +103,8 @@ public sealed record RecipePackage(string Package, string StockSha256, IReadOnly
 [JsonDerivedType(typeof(ColorRowsLayer), "ColorRows")]
 [JsonDerivedType(typeof(AppendNamesLayer), "AppendNames")]
 [JsonDerivedType(typeof(EnumInsertLayer), "EnumInsert")]
+[JsonDerivedType(typeof(NameTagLayer), "NameTag")]
+[JsonDerivedType(typeof(FontFaceLayer), "FontFace")]
 public abstract record RecipeLayer;
 
 /// <summary>NameRenamePatch: same-length name-map renames (soft paths) and enum values swapped to names already in the map (EnumValueSwap).</summary>
@@ -136,6 +141,32 @@ public sealed record EnumInsertLayer(string Export, string After, string Tag, st
 
 /// <param name="Export">An export of that stock package that stores the same tag</param>
 public sealed record RecipeAnchor(string Package, string Export);
+
+/// <summary>
+/// NameTagEdit: a NameProperty member of a stored struct (format 1: <c>_font</c>, an FSlateFontInfo) set to
+/// <see cref="Value"/>. <see cref="Stock"/> absent = stock doesn't store it, so the member is inserted in declaration order
+/// (its tag builder first reproduces <see cref="Anchor"/>'s stock tag, required then); otherwise the stored name is
+/// swapped in place. Either way the stock value is checked.
+/// </summary>
+public sealed record NameTagLayer(string Export, string Struct, string Member, string Value, string? Stock = null, RecipeNameAnchor? Anchor = null) : RecipeLayer;
+
+/// <param name="Value">The name that stock export stores in the same member</param>
+public sealed record RecipeNameAnchor(string Package, string Export, string Value);
+
+/// <summary>FontFaceRepoint: a CompositeFont entry (e.g. pes's Latin HeadlineBoldSub) from one font face to another the font already imports.</summary>
+/// <param name="Entry">The entry's flattened path, e.g. CompositeFont.SubTypefaces[9].Typeface.Fonts[4]</param>
+/// <param name="Name">The entry's typeface name, e.g. HeadlineBoldSub</param>
+public sealed record FontFaceLayer(string Entry, string Name, string From, string To) : RecipeLayer;
+
+/// <summary>A pak-only legacy pak (v11, index encrypted as stock's) shipped next to the mod's container.</summary>
+/// <param name="Pak">Its file name, e.g. pc9998_mobile_and_P.pak</param>
+/// <param name="MountPoint">e.g. ../../../PesMobile/Content/Platforms/_Android/Assets/ui/Font/</param>
+/// <param name="Files">Each replaces the stock loose file of the same name under the mount point</param>
+public sealed record RecipeLoosePak(string Pak, string MountPoint, IReadOnlyList<RecipePakFile> Files);
+
+/// <param name="Path">A file name in the mount point's folder</param>
+/// <param name="Input">The input whose bytes it holds</param>
+public sealed record RecipePakFile(string Path, string Input);
 
 /// <summary>One edit, as an edit set's manifest stores it: the export, its name, the path, the stock value and the new one.</summary>
 /// <param name="Export">Slot export (layout values) or section/animation export (animation keys, range bounds)</param>
@@ -240,8 +271,8 @@ public static partial class RecipeReader
             if (!IsSha256(input.Sha256)) Refuse($"input {id}: Sha256 must be 64 lower-case hex digits");
         }
 
-        if (r.PackagesOrEmpty.Count == 0 && r.TexturesOrEmpty.Count == 0 && r.ClonesOrEmpty.Count == 0 && r.RepointsOrEmpty.Count == 0)
-            Refuse("the recipe has no Packages, Textures, Clones or Repoints");
+        if (r.PackagesOrEmpty.Count == 0 && r.TexturesOrEmpty.Count == 0 && r.ClonesOrEmpty.Count == 0 && r.RepointsOrEmpty.Count == 0 && r.LoosePaksOrEmpty.Count == 0)
+            Refuse("the recipe has no Packages, Textures, Clones, Repoints or LoosePaks");
         foreach (var dup in r.PackagesOrEmpty.GroupBy(p => p.Package, StringComparer.OrdinalIgnoreCase).Where(g => g.Count() > 1))
             Refuse($"{dup.Key} is listed {dup.Count()} times; put all its values in one entry");
         foreach (var p in r.PackagesOrEmpty)
@@ -320,7 +351,27 @@ public static partial class RecipeReader
             }
         }
 
-        var used = r.TexturesOrEmpty.Select(t => t.Input).Concat(r.ClonesOrEmpty.Select(c => c.Input)).OfType<string>().ToHashSet();
+        foreach (var dup in r.LoosePaksOrEmpty.GroupBy(x => x.Pak, StringComparer.OrdinalIgnoreCase).Where(g => g.Count() > 1))
+            Refuse($"pak {dup.Key} is listed {dup.Count()} times");
+        foreach (var pak in r.LoosePaksOrEmpty)
+        {
+            var what = $"pak {pak.Pak}";
+            if (!PakRegex().IsMatch(pak.Pak)) Refuse($"{what}: a file name of letters, digits and '_' ending in _P.pak (e.g. pc9998_mobile_and_P.pak)");
+            if (pak.Pak.Equals(r.Container + ".pak", StringComparison.OrdinalIgnoreCase)) Refuse($"{what}: that is the container's own .pak stub");
+            if (!pak.MountPoint.StartsWith("../../../", StringComparison.Ordinal) || !pak.MountPoint.EndsWith('/') || pak.MountPoint[9..].Split('/').Any(x => x is "." or "..")
+                || pak.MountPoint[9..].Contains("//") || pak.MountPoint.Contains('\\'))
+                Refuse($"{what}: MountPoint \"{pak.MountPoint}\" must be ../../../<folder>/ with no '.', '..' or empty parts");
+            if (pak.Files.Count == 0) Refuse($"{what}: no Files");
+            foreach (var f in pak.Files)
+            {
+                if (f.Path.Length == 0 || f.Path.IndexOfAny(['/', '\\', ':']) >= 0 || f.Path is "." or "..") Refuse($"{what}: file \"{f.Path}\" must be a plain file name (the pak's files sit in the mount point's folder)");
+                if (!inputs.ContainsKey(f.Input)) Refuse($"{what}: {f.Path}: Input {f.Input} isn't listed in Inputs");
+            }
+            foreach (var dup in pak.Files.GroupBy(f => f.Path, StringComparer.OrdinalIgnoreCase).Where(g => g.Count() > 1)) Refuse($"{what}: {dup.Key} is listed {dup.Count()} times");
+        }
+
+        var used = r.TexturesOrEmpty.Select(t => t.Input).Concat(r.ClonesOrEmpty.Select(c => c.Input))
+            .Concat(r.LoosePaksOrEmpty.SelectMany(p => p.Files.Select(f => (string?) f.Input))).OfType<string>().ToHashSet();
         foreach (var id in inputs.Keys.Where(id => !used.Contains(id))) Refuse($"input {id} is listed but not used");
 
         if (r.Expect is { } e)
@@ -335,6 +386,7 @@ public static partial class RecipeReader
     }
 
     [GeneratedRegex("^#[0-9A-F]{8}$")] private static partial Regex RgbaRegex();
+    [GeneratedRegex("^[A-Za-z0-9][A-Za-z0-9_]{0,62}_P\\.pak$")] private static partial Regex PakRegex();
 
     /// <summary>"#RRGGBBAA" as bytes.</summary>
     public static (byte R, byte G, byte B, byte A) ParseRgba(string rgba) =>
@@ -384,6 +436,18 @@ public static partial class RecipeReader
                 if (l.Names.Count == 0) yield return "no Names";
                 if (l.Names.Any(string.IsNullOrEmpty)) yield return "an empty name";
                 foreach (var dup in l.Names.GroupBy(x => x, StringComparer.Ordinal).Where(g => g.Count() > 1)) yield return $"{dup.Key} is listed {dup.Count()} times";
+                break;
+            case NameTagLayer l:
+                if (Blank(l.Export, l.Struct, l.Member, l.Value)) yield return "Export, Struct, Member and Value are required";
+                if (l.Struct != "_font") yield return $"Struct \"{l.Struct}\": recipe format 1 edits _font (FSlateFontInfo) members only";
+                if (l.Stock == l.Value) yield return "Value equals Stock";
+                if (l.Stock == null && l.Anchor == null) yield return "an inserted member (Stock null) needs an Anchor: a stock export that stores the member";
+                if (l.Stock != null && l.Anchor != null) yield return "a swap in place takes no Anchor";
+                if (l.Anchor is { } a && (!a.Package.StartsWith("/Game/", StringComparison.Ordinal) || Blank(a.Export, a.Value))) yield return "Anchor: a /Game/ package, its Export and the Value it stores";
+                break;
+            case FontFaceLayer l:
+                if (Blank(l.Entry, l.Name, l.From, l.To)) yield return "Entry, Name, From and To are required";
+                else if (l.From == l.To) yield return "From equals To";
                 break;
             case EnumInsertLayer l:
                 if (Blank(l.Export, l.After, l.Tag, l.Type, l.Enum, l.Value, l.Anchor.Export)) yield return "Export, After, Tag, Type, Enum, Value and Anchor.Export are required";

@@ -11,6 +11,10 @@ public sealed record PakFile(string Path, byte[] Data, byte[]? ZlibBlock = null)
 /// <summary>What a legacy pak holds. CompressionNames are FPakInfo's five method names ("" = unused).</summary>
 public sealed record PakContents(string MountPoint, ulong PathHashSeed, IReadOnlyList<string> CompressionNames, IReadOnlyList<PakFile> Files);
 
+/// <summary>A built loose-file pak a mod ships next to its container: file name, bytes, the folder its mount point
+/// names (below ../../../, e.g. PesMobile/Content/…/Font/) and the files it must give back.</summary>
+public sealed record LoosePak(string Name, byte[] Bytes, string Folder, IReadOnlyList<PakFile> Files);
+
 /// <summary>
 /// Legacy .pak v11 (UE 4.26, PakFile_Version_Fnv64BugFix) in the shape every stock mobile pak has (checked on
 /// pc0010/pc0100/pc7000/pakchunk0): entries not encrypted, the index AES-256-ECB encrypted with the main key (GUID 0).

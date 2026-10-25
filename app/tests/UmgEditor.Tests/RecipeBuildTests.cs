@@ -13,7 +13,8 @@ namespace UmgEditor.Tests;
 /// Stage 2b: recipe-build (the export's one build path + Expect.Files) and recipe-from-set. Acceptance: recipes\C10, C12,
 /// C18 and C16b_test build into exactly the device-tested files; recipes\C18 and C16b_test are what recipe-from-set makes
 /// of projects C18 and C16b. Stage 2c: recipes\C13 and C14 (Clones + Repoints) too, with their clones and re-points
-/// checked on the mounted mod. Stage 2d: recipes\C15, C16 and C16b (package Layers). Builds go to work\out\mods\zzrb-&lt;id&gt; and are deleted.
+/// checked on the mounted mod. Stage 2d: recipes\C15, C16 and C16b (package Layers). Stage 2e: C17a (a pak-only mod) and
+/// C17b (container + font pak). Builds go to work\out\mods\zzrb-&lt;id&gt; and are deleted.
 /// </summary>
 [TestClass]
 public class RecipeBuildTests
@@ -75,6 +76,8 @@ public class RecipeBuildTests
     [DataRow("C15", true)]
     [DataRow("C16", true)]
     [DataRow("C16b", true)]
+    [DataRow("C17a", false)]
+    [DataRow("C17b", true)]
     public void Acceptance_RecipeBuildsTheDeviceTestedFiles(string name, bool ack)
     {
         NeedsInputs(name);
@@ -105,6 +108,24 @@ public class RecipeBuildTests
         StringAssert.Contains(ExportRunner.TextureMountCheck(Source, plan with { ExpectedNames = [(package, names.Replace("UCL01", "UCL02"))] }, modDir), "no export in DemoTitleBase names");
         var (clone, mip0) = plan.ExpectedTextures[0];
         StringAssert.Contains(ExportRunner.TextureMountCheck(Source, plan with { ExpectedTextures = [(clone, new byte[mip0.Length])] }, modDir), "doesn't decode");
+    }
+
+    /// <summary>A loose-file pak that doesn't give back its files when mounted alone fails the build: mod\ removed, FAILED.txt.</summary>
+    [TestMethod]
+    public void LoosePak_ThatDoesNotReadBack_FailsTheBuild()
+    {
+        NeedsInputs("C17a");
+        var outcome = Build(RecipeText("C17a"));
+        Assert.AreEqual(RecipeBuild.Done, outcome.Code, string.Join("\n", outcome.Refusals));
+        var plan = outcome.Plan!;
+        var pak = plan.LoosePaks.Single();
+        Assert.IsNotNull(ExportRunner.WriteLoosePaks(Source, plan, outcome.Result!.ModDir));
+        // the plan says the font holds other bytes than the pak does
+        var wrong = plan with { LoosePaks = [pak with { Files = [pak.Files[0] with { Data = new byte[pak.Files[0].Data.Length] }] }] };
+        Assert.IsNull(ExportRunner.WriteLoosePaks(Source, wrong, outcome.Result.ModDir));
+        Assert.IsFalse(Directory.Exists(outcome.Result.ModDir), "mod\\ must be removed");
+        StringAssert.Contains(File.ReadAllText(Path.Combine(outcome.Result.OutDir, "FAILED.txt")), "not read back");
+        Assert.IsFalse(Directory.Exists(Path.Combine(outcome.Result.OutDir, "_pakprobe")), "the probe folder is deleted");
     }
 
     // ---- refusals ----

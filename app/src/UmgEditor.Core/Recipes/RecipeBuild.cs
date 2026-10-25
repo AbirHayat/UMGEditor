@@ -34,7 +34,7 @@ public static class RecipeBuild
         if (!retoc.Exists) refusals.Add($"retoc not found at \"{retocPath}\" (setting RetocPath).");
         else if (!retoc.IsTested) warnings.Add($"This retoc (sha256 {retoc.Sha256[..16]}…) is not the tested build {ModBuilder.TestedRetocSha256[..16]}… (app/README.md); the mod is still verified after packing.");
         if (!File.Exists(config.ModStubPath)) refusals.Add($"The .pak stub {config.ModStubPath} doesn't exist (setting ModStubPak).");
-        if (check.Packages.Count == 0 && check.Ok) refusals.Add("the recipe makes no package");
+        if (check.Packages.Count == 0 && check.LoosePaks.Count == 0 && check.Ok) refusals.Add("the recipe makes no package and no loose-file pak");
 
         var request = new ExportRequest(name, recipe.Container, check.Packages.Keys.ToList(), retocPath,
             ackDanger ? check.Danger.Select(w => w.Key).ToList() : null);
@@ -49,6 +49,7 @@ public static class RecipeBuild
             Textures = check.Textures?.Items ?? [],
             ExpectedTextures = [.. check.Textures?.Expected ?? [], .. check.CloneMips],
             ExpectedNames = check.RepointNames,
+            LoosePaks = check.LoosePaks,
         };
     }
 

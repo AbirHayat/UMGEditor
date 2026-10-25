@@ -90,6 +90,8 @@ public sealed record ExportPlan(
     public IReadOnlyList<(string PackagePath, byte[] Mip0)> ExpectedTextures { get; init; } = [];
     /// <summary>Re-pointed packages outside texture edits (recipe Repoints) and the name-map path a stored value must name once mounted</summary>
     public IReadOnlyList<(string PackagePath, string Names)> ExpectedNames { get; init; } = [];
+    /// <summary>Loose-file paks shipped in mod\ next to the container (recipe LoosePaks); with no packages, the mod is only these</summary>
+    public IReadOnlyList<LoosePak> LoosePaks { get; init; } = [];
 }
 
 /// <summary>Outcome of a background export. When not built, mod\ was removed (FAILED.txt says why) and nothing else is written.</summary>
@@ -144,9 +146,12 @@ public static class ModInstructions
         L("|---|---|");
         L($"| Project | {plan.Project} |");
         L($"| Folder | `{build.ModDir}` (copy only these files; the predictions and this file stay here) |");
-        L($"| Container | `{container}` ({plan.Packages.Count} package{(plan.Packages.Count == 1 ? "" : "s")}: {string.Join(", ", plan.Packages.Select(p => GamePaths.ShortName(p.PackagePath)))}) |");
+        L(plan.Packages.Count == 0
+            ? "| Container | none: only loose-file paks |"
+            : $"| Container | `{container}` ({plan.Packages.Count} package{(plan.Packages.Count == 1 ? "" : "s")}: {string.Join(", ", plan.Packages.Select(p => GamePaths.ShortName(p.PackagePath)))}) |");
         L($"| retoc | `{plan.Retoc.Path}` sha256 `{plan.Retoc.Sha256}` {(plan.Retoc.IsTested ? "(the tested build)" : "(**not** the tested build)")} |");
-        L($"| Checks passed | retoc verify, CUE4Parse read-back of every package byte for byte{(plan.ExpectedTextures.Count > 0 ? $"; the mod mounted on the game: {plan.ExpectedTextures.Count} new texture package(s) load by path and decode to the images" : "")}{(plan.ExpectedNames.Count > 0 ? $"; {plan.ExpectedNames.Count} re-pointed package(s) name their new path" : "")} |");
+        var pakCheck = plan.LoosePaks.Count > 0 ? $"{plan.LoosePaks.Count} loose-file pak(s) read back by our reader and mounted alone by CUE4Parse, every file byte for byte" : "";
+        L($"| Checks passed | {(plan.Packages.Count == 0 ? pakCheck : "retoc verify, CUE4Parse read-back of every package byte for byte" + (pakCheck.Length > 0 ? "; " + pakCheck : ""))}{(plan.ExpectedTextures.Count > 0 ? $"; the mod mounted on the game: {plan.ExpectedTextures.Count} new texture package(s) load by path and decode to the images" : "")}{(plan.ExpectedNames.Count > 0 ? $"; {plan.ExpectedNames.Count} re-pointed package(s) name their new path" : "")} |");
         L();
         var warnings = ExportWarning.From(impact);
         L("## Warnings (Impact panel)");
@@ -193,6 +198,17 @@ public static class ModInstructions
             foreach (var w in plan.Textures.SelectMany(t => t.Warnings).Distinct())
                 L($"- {w}");
         }
+        if (plan.LoosePaks.Count > 0)
+        {
+            L();
+            L("## Loose-file paks");
+            L("Pak-only legacy paks (v11, index encrypted as stock's). Each file replaces the stock loose file of the same name in that folder; the game reads the mod's copy.");
+            L();
+            L("| Pak | Folder | Files |");
+            L("|---|---|---|");
+            foreach (var pak in plan.LoosePaks)
+                L($"| `{pak.Name}` | `{pak.Folder}` | {string.Join(", ", pak.Files.Select(f => $"`{f.Path}` ({f.Data.Length:N0} B)"))} |");
+        }
         static string BelowWidget(string path) => path.IndexOf("/Widget/", StringComparison.Ordinal) is var i and >= 0 ? path[(i + 8)..] : path;
         if (plan.ExpectedNames.Count > 0)
         {
@@ -208,7 +224,8 @@ public static class ModInstructions
         }
         L();
         L("## Steps");
-        L($"1. Force-stop eFootball. In the folder with `pc0010_mobile_and.*`, delete any old `{container}.*`, then copy the {build.Files.Count} files from `{build.ModDir}`.");
+        var olds = (plan.Packages.Count > 0 ? [$"`{container}.*`"] : new List<string>()).Concat(plan.LoosePaks.Select(p => $"`{p.Name}`"));
+        L($"1. Force-stop eFootball. In the folder with `pc0010_mobile_and.*`, delete any old {string.Join(" and ", olds)}, then copy the {build.Files.Count} files from `{build.ModDir}`.");
         L($"2. Offline match vs AI. Screenshots (1920×1080, same LDPlayer setup) into `ss\\`:");
         // texture edits change no box, so the Impact panel lists no screen for them: the screens that show a re-pointed package
         var repointed = plan.Textures.SelectMany(t => t.Storing.Select(p => (Storing: p, Label: $"{GamePaths.ShortName(t.Edit.Package)}/{t.Edit.Widget} ({t.Edit.NewName})")))

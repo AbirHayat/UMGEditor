@@ -21,13 +21,32 @@ public static class ExportRunner
     public static ExportResult Run(ExportPlan plan, ExportEnvironment env, IRetoc retoc, IProgress<string>? log = null)
     {
         if (!plan.Ok) return new ExportResult(false, plan.Refusals, plan.OutDir, [], "", null, [], null);
-        log?.Report($"Building {plan.Request.ModName} ({plan.Request.ContainerName}) from {plan.Packages.Count} package{(plan.Packages.Count == 1 ? "" : "s")}: {string.Join(", ", plan.Packages.Select(p => GamePaths.ShortName(p.PackagePath)))}");
-        var build = new ModBuilder(env.Source, new LoggingRetoc(retoc, log)).Build(plan.Request.ModName, plan.Request.ContainerName, plan.Packages);
+        ModResult build;
+        if (plan.Packages.Count == 0 && plan.LoosePaks.Count > 0)
+        {
+            // loose-file paks only (e.g. a font): no container to pack
+            log?.Report($"Building {plan.Request.ModName}: no container, {plan.LoosePaks.Count} loose-file pak(s)");
+            var guard = WriteGuard.ForMods(env.Source.Config);
+            guard.DeleteDirectory(Path.Combine(plan.OutDir, "mod"));
+            guard.CreateDirectory(Path.Combine(plan.OutDir, "mod"));
+            build = new ModResult(true, [], plan.OutDir, [], "no container: loose-file paks only");
+        }
+        else
+        {
+            log?.Report($"Building {plan.Request.ModName} ({plan.Request.ContainerName}) from {plan.Packages.Count} package{(plan.Packages.Count == 1 ? "" : "s")}: {string.Join(", ", plan.Packages.Select(p => GamePaths.ShortName(p.PackagePath)))}");
+            build = new ModBuilder(env.Source, new LoggingRetoc(retoc, log)).Build(plan.Request.ModName, plan.Request.ContainerName, plan.Packages);
+        }
         if (!build.Built)
         {
             log?.Report("FAILED: " + string.Join(" | ", build.Refusals));
             log?.Report(Directory.Exists(build.ModDir) ? $"{build.ModDir} is still there" : $"{build.ModDir} removed; see FAILED.txt");
             return new ExportResult(false, build.Refusals, build.OutDir, [], build.Log, null, [], null);
+        }
+        if (plan.LoosePaks.Count > 0)
+        {
+            if (WriteLoosePaks(env.Source, plan, build.ModDir, log) is not { } paks)
+                return new ExportResult(false, ["a loose-file pak didn't read back alone (see FAILED.txt)"], build.OutDir, [], build.Log, null, [], null);
+            build = build with { Files = [.. build.Files.Concat(paks).OrderBy(f => f.Name, StringComparer.Ordinal)] };
         }
         foreach (var f in build.Files) log?.Report($"  {f.Name}  {f.Size:N0} bytes  sha256 {f.Sha256}");
         if (plan.ExpectedTextures.Count > 0 || plan.ExpectedNames.Count > 0)
@@ -73,6 +92,46 @@ public static class ExportRunner
     /// With the built mod mounted on top of the stock game (as the canaries were checked): every new texture package loads by
     /// path and its mip 0 is the imported pixels, and every re-pointed package names its new texture. Returns the problem, or null.
     /// </summary>
+    /// <summary>
+    /// Writes the plan's loose-file paks into mod\ and mounts each one alone with CUE4Parse (in a probe folder next to
+    /// mod\, deleted afterwards): it must hold exactly its files, each read back byte for byte. On a failure mod\ is
+    /// removed, FAILED.txt says why, and null is returned.
+    /// </summary>
+    public static List<ModFile>? WriteLoosePaks(GameSource source, ExportPlan plan, string modDir, IProgress<string>? log = null)
+    {
+        var mods = WriteGuard.ForMods(source.Config);
+        var files = new List<ModFile>();
+        var probe = Path.Combine(plan.OutDir, "_pakprobe");
+        string? problem = null;
+        foreach (var pak in plan.LoosePaks)
+        {
+            mods.WriteAllBytes(Path.Combine(modDir, pak.Name), pak.Bytes);
+            mods.DeleteDirectory(probe);
+            mods.WriteAllBytes(Path.Combine(probe, pak.Name), pak.Bytes);
+            try
+            {
+                using var alone = new CUE4Parse.FileProvider.DefaultFileProvider(probe, SearchOption.TopDirectoryOnly,
+                    new CUE4Parse.UE4.Versions.VersionContainer(CUE4Parse.UE4.Versions.EGame.GAME_eFootball), StringComparer.Ordinal);
+                alone.Initialize();
+                alone.SubmitKey(new CUE4Parse.UE4.Objects.Core.Misc.FGuid(), new CUE4Parse.Encryption.Aes.FAesKey(source.Config.AesKey));
+                var wrong = pak.Files.Where(f => !alone.TrySaveAsset(pak.Folder + f.Path, out var got) || !got.AsSpan().SequenceEqual(f.Data)).Select(f => f.Path).ToList();
+                if (alone.Files.Count != pak.Files.Count || wrong.Count > 0)
+                    problem = $"{pak.Name} mounted alone holds {alone.Files.Count} file(s), expected {pak.Files.Count}{(wrong.Count > 0 ? $"; not read back: {string.Join(", ", wrong)}" : "")}";
+            }
+            catch (Exception e) { problem = $"{pak.Name} doesn't mount alone ({e.GetType().Name}: {e.Message})"; }
+            finally { mods.DeleteDirectory(probe); }
+            if (problem != null) break;
+            var sha = Convert.ToHexString(System.Security.Cryptography.SHA256.HashData(pak.Bytes)).ToLowerInvariant();
+            files.Add(new ModFile(pak.Name, pak.Bytes.Length, sha));
+            log?.Report($"{pak.Name}: mounted alone, {pak.Files.Count} file(s) under {pak.Folder} read back byte for byte");
+        }
+        if (problem == null) return files;
+        mods.DeleteDirectory(modDir);
+        mods.WriteAllText(Path.Combine(plan.OutDir, "FAILED.txt"), problem + Environment.NewLine);
+        log?.Report("FAILED: " + problem);
+        return null;
+    }
+
     public static string? TextureMountCheck(GameSource source, ExportPlan plan, string modDir)
     {
         try

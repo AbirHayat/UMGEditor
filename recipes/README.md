@@ -39,7 +39,9 @@ the result with `Expect.Chunks`. It writes nothing: only the shared caches under
 - **Inputs** are paths relative to the workspace root (the folder holding `work\`), inside it, not links.
   Third-party inputs are copied once into `work\out\recipes\_inputs` (untracked) and pinned there: C14's UCL image
   comes from `umgcompare recipe-input C14` (read from the PC mod, written as a PNG that must decode back to the
-  texture's exact bytes; an existing file is only accepted when byte-identical).
+  texture's exact bytes; an existing file is only accepted when byte-identical), UCL's font (C17a/C17b) from
+  `umgcompare recipe-input C17` (read by our pak reader and by CUE4Parse, which must agree, and required to be the
+  font C17a pinned).
 
 ## Format (version 1)
 ```json
@@ -80,6 +82,13 @@ the result with `Expect.Chunks`. It writes nothing: only the shared caches under
   - `AppendNames`: `Names` → `EnumTagInsert.AppendNames` (old names and hashes kept, every export re-parses the same).
   - `EnumInsert`: `Export`, `After`, `Tag`, `Type`, `Enum`, `Value` and an `Anchor` (`Package`, `Export`: a stock
     export that stores the same tag): the tag builder must reproduce the anchor's bytes, then `EnumTagInsert.Insert`.
+  - `NameTag` (stage 2e): `Export`, `Struct` (format 1: `_font` only), `Member`, `Value`, and `Stock` = the name stock
+    stores there, or absent when stock doesn't store it. Present: swapped in place (`NameTagEdit.Swap`). Absent: inserted
+    in FSlateFontInfo's declaration order (`NameTagEdit.Insert`), after the tag builder reproduces an `Anchor`'s stock
+    tag (`Package`, `Export`, the `Value` it stores); required then, refused on a swap. Either way the stock value is
+    checked against the package.
+  - `FontFace` (stage 2e): `Entry` (e.g. `CompositeFont.SubTypefaces[9].Typeface.Fonts[4]`), `Name` (its typeface
+    name), `From`, `To` (faces) → `FontFaceRepoint` (every entry decoded and checked against the parse).
   A tool that throws on a recipe's input refuses the layer. Re-points and texture edits aren't layered on a package
   that has `Layers` (format 1).
 - `Clones` (stage 2c) make one new texture package each from one stock B8G8R8A8 texture, in the same folder, with a
@@ -92,6 +101,12 @@ the result with `Expect.Chunks`. It writes nothing: only the shared caches under
   byte diff, re-parse), with stored floats changed in the same patch. Each value names its export, its path and the
   stock value it replaces; only stored values (no new tags). `To` must name a package the recipe makes or the game has.
   One entry per package, and not on a package that `Packages` or `Textures` also change (format 1 doesn't layer them).
+- `LoosePaks` (stage 2e): pak-only legacy paks next to the container, each `{ "Pak", "MountPoint", "Files": [ { "Path",
+  "Input" } ] }`. `Pak` ends in `_P.pak` and isn't a stock file or the container's own stub; `MountPoint` is
+  `../../../<folder>/`; each file is a plain name and must replace a stock loose file (a file of a stock legacy pak) at
+  `<folder><Path>`. `LegacyPak` writes it (twice: the same bytes; v11, index encrypted as stock's), our reader reads it
+  back (every hash), and after the build CUE4Parse mounts it alone and reads each file back, or `mod\` is removed. A
+  recipe with only `LoosePaks` builds a mod without a container (C17a).
 - After a build, the mod is mounted on top of the game: every clone must decode to its pixels and every re-pointed
   package must name its new path (`TEST_INSTRUCTIONS.md` lists the re-points and the screens that show them).
 - `Expect.Chunks`, when given, must name exactly the packages the recipe makes. `Expect.Files` (device file name →
@@ -108,9 +123,11 @@ the result with `Expect.Chunks`. It writes nothing: only the shared caches under
 | `C15.json` | C15 | MatchTime: edit set C15 → Rename (Img_Line's path, scores white) → RemoveTag (Normal_Display's clipping); the bar art (2964×96 `.bgra`) in both theme folders; 3 Danger warnings |
 | `C16.json` | C16 | the complete UCL look: 7 layered packages (MatchTime, both ColorTables, MatchTimeGoal with a ClassSwap, MatchTimeCard, MatchTimeMemberChange, DemoTitle with a ClassSwap), 11 clones (4 white, bar, logo, navy, goal art), 4 re-points; 15 Danger warnings |
 | `C16b.json` | C16b | C16 with set C16b's values and art, plus AppendNames + EnumInsert (Justification = Center) on MatchTimeGoal and MatchTimeCard; 15 Danger warnings |
+| `C17a.json` | C17a | no container: `pc9998_mobile_and_P.pak` with UCL's font as `eFootballStencil-Regular.ufont` |
+| `C17b.json` | C17b | C16b + UCL's font on the scoreboard: NameTag layers on 21 texts in 7 packages (MatchTimeTimer/Additional/Aggregate font-only), `pes` FontFace (Latin HeadlineBoldSub → NotoSansThai-ExtraBold), and the font pak with UCL's font as `NotoSansThai-ExtraBold.ufont`; 26 chunks + 4 device files; 15 Danger warnings |
 
-C15, C16 and C16b are written by `umgcompare recipe-ucl C15|C16|C16b` from the builders that made the device-tested
-mods (`canary-scoreboard`, `UclC16`): the same ops in the same order, the values from the canary's edit set (the saved
+C15, C16, C16b, C17a and C17b are written by `umgcompare recipe-ucl <name>` from the builders that made the
+device-tested mods (`canary-scoreboard`, `UclC16`, `canary-font`): the same ops in the same order, the values from the canary's edit set (the saved
 file must equal a rebuild), stock values read from the game, the art as pinned `.bgra` inputs in `work\out\art`, and
 `Expect` copied from `pins\device-tested.json`. Their Danger warnings come from the static layout of the edit sets'
 values (umgcompare never computed them); the same values passed in game.

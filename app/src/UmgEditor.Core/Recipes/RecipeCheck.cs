@@ -33,6 +33,8 @@ public sealed class RecipeCheckResult
     public List<(string PackagePath, byte[] Mip0)> CloneMips { get; } = [];
     /// <summary>Packages re-pointed by Repoints and the name-map path each must name once mounted</summary>
     public List<(string PackagePath, string Names)> RepointNames { get; } = [];
+    /// <summary>The loose-file paks, built and read back</summary>
+    public List<LoosePak> LoosePaks { get; } = [];
     public List<ExportWarning> Warnings { get; } = [];
     /// <summary>Danger warnings: a build needs --ack-danger for these (a recipe can't acknowledge them)</summary>
     public IReadOnlyList<ExportWarning> Danger => Warnings.Where(w => w.IsDanger).ToList();
@@ -278,6 +280,37 @@ public static class RecipeCheck
         }
         if (!result.Ok) return result;
 
+        // loose-file paks: each file replaces a stock loose file; LegacyPak writes the pak (twice: the same bytes), its
+        // reader parses it back (version, encrypted index, every SHA-1 and path hash) and must give exactly the files
+        var aesKey = LegacyPak.KeyBytes(source.Config.AesKey);
+        foreach (var pak in recipe.LoosePaksOrEmpty)
+        {
+            var what = $"pak {pak.Pak}";
+            if (Directory.Exists(source.Config.PaksDir) && File.Exists(Path.Combine(source.Config.PaksDir, pak.Pak))) { Refuse($"{what}: a stock file has that name"); continue; }
+            var folder = pak.MountPoint["../../../".Length..];
+            var pakFiles = new List<PakFile>();
+            foreach (var f in pak.Files)
+            {
+                if (!source.Provider.Files.TryGetValue(folder + f.Path, out var stockEntry) || stockEntry is not CUE4Parse.UE4.Pak.Objects.FPakEntry)
+                { Refuse($"{what}: {folder + f.Path} isn't a loose file of a stock pak (a loose-file pak only replaces those)"); continue; }
+                pakFiles.Add(new PakFile(f.Path, File.ReadAllBytes(Path.Combine(root, recipe.InputsOrEmpty[f.Input].Path))));
+            }
+            if (pakFiles.Count != pak.Files.Count) continue;
+            var contents = new PakContents(pak.MountPoint, LegacyPak.SeedFor(pak.Pak), ["", "", "", "", ""], pakFiles);
+            var bytes = LegacyPak.Write(contents, aesKey);
+            if (!bytes.AsSpan().SequenceEqual(LegacyPak.Write(contents, aesKey))) { Refuse($"{what}: two builds differ"); continue; }
+            var (back, problems) = LegacyPak.Read(bytes, aesKey);
+            foreach (var problem in problems) Refuse($"{what}: read back: {problem}");
+            if (back == null || problems.Count > 0) continue;
+            if (back.MountPoint != pak.MountPoint || back.Files.Count != pakFiles.Count
+                || !back.Files.Zip(pakFiles).All(x => x.First.Path == x.Second.Path && x.First.ZlibBlock == null && x.First.Data.AsSpan().SequenceEqual(x.Second.Data)))
+            { Refuse($"{what}: read back, its mount point or pakFiles aren't the ones written"); continue; }
+            result.LoosePaks.Add(new LoosePak(pak.Pak, bytes, folder, pakFiles));
+            result.Log.Add($"{what}: {pakFiles.Count} file(s) under {folder} ({string.Join(", ", pakFiles.Select(f => $"{f.Path} {f.Data.Length:N0} B"))}), {bytes.Length:N0} B, " +
+                           $"read back (v{LegacyPak.Version}, encrypted index, hashes); sha256 {Sha256(bytes)}");
+        }
+        if (!result.Ok) return result;
+
         // layout warnings of the value edits (as the export dialog and umgmod build compute them)
         result.Edits = allEdits;
         if (allEdits.Count > 0)
@@ -372,6 +405,29 @@ public static class RecipeCheck
             {
                 var r = EnumTagInsert.AppendNames(source, fileKey, chunk, l.Names);
                 return new(r.Chunk, $"{l.Names.Count} name(s) appended", r.Refusals, r.Log);
+            }
+            case NameTagLayer l:
+            {
+                // the stock value first: stored or not, as the recipe says
+                var export = source.ParsePackage(fileKey, chunk).ExportsLazy.Select(e => e.Value).Where(e => e.Name == l.Export).ToList();
+                if (export.Count != 1) return new(null, "", [$"{export.Count} exports are named {l.Export}"], []);
+                var stored = TagInserter.Flatten(export[0]).GetValueOrDefault($"Properties.{l.Struct}.{l.Member}")?.Trim('"');
+                if (stored != l.Stock) return new(null, "", [$"{l.Export}.{l.Struct}.{l.Member} is {stored ?? "not stored"}, the recipe says {l.Stock ?? "not stored"}"], []);
+                if (l.Stock == null)
+                {
+                    var a = l.Anchor!;
+                    if (NameTagEdit.CheckAgainst(source, a.Package, a.Export, l.Struct, l.Member, a.Value) is { } bad)
+                        return new(null, "", [$"the {l.Member} tag builder doesn't reproduce stock's ({GamePaths.ShortName(a.Package)} {a.Export}.{l.Struct}): {bad}"], []);
+                    var r = NameTagEdit.Insert(source, fileKey, chunk, l.Export, l.Struct, l.Member, l.Value, NameTagEdit.SlateFontInfoOrder);
+                    return new(r.Chunk, $"{l.Export}.{l.Struct}.{l.Member} = {l.Value} inserted", r.Refusals, r.Log);
+                }
+                var swap = NameTagEdit.Swap(source, fileKey, chunk, l.Export, l.Struct, l.Member, l.Stock, l.Value);
+                return new(swap.Chunk, $"{l.Export}.{l.Struct}.{l.Member} {l.Stock} → {l.Value} in place", swap.Refusals, swap.Log);
+            }
+            case FontFaceLayer l:
+            {
+                var r = FontFaceRepoint.Plan(source, fileKey, chunk, l.Entry, l.Name, l.From, l.To);
+                return new(r.Chunk, $"{l.Entry} ({l.Name}) {l.From} → {l.To}", r.Refusals, r.Log);
             }
             case EnumInsertLayer l:
             {
