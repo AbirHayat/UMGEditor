@@ -16,7 +16,7 @@ An eFootball modding workspace (scoreboard mod). eFootball runs on UE 4.26/4.27 
 - Patches: change stored values only, never `to-zen` a Blueprint, refuse a patch unless its ±32-byte context matches exactly once, check size + byte diff, run `retoc verify`. (Branch `experiment`, approved exceptions to the ±32 rule: animation keys/ranges (C11) and, since C12 on 2026-10-21, layout values and tag insertion points whose ±32 repeats use the smallest stock window that occurs exactly once, ≤ ±512, computed on stock bytes. ±32 is still tried first; the tag walk, the stock-value check, the exact diff and the re-parse stay hard refusals.)
 
 ## UMG editor app (`app/`, eFootball **Mobile**, net10.0)
-- Projects: `src/UmgEditor.Core` (CUE4Parse-based, read-only access to stock containers), `src/UmgEditor.App` (WPF), `tools/UmgEditor.Smoke` (console checks against the stock containers; there's no test framework yet).
+- Projects: `src/UmgEditor.Core` (CUE4Parse-based, read-only access to stock containers), `src/UmgEditor.App` (WPF), `tools/UmgEditor.Smoke` (console checks against the stock containers); MSTest tests in `tests/UmgEditor.Tests` (see below).
 - Build: `dotnet build app/UmgEditor.slnx -c Release`. CUE4Parse is a project reference with `CUE4PARSE_SKIP_NATIVE=true`; don't add it to the solution (it would trigger the native CMake build).
 - Verify: `app/tools/UmgEditor.Smoke/bin/Release/net10.0/UmgEditor.Smoke.exe [--rebuild]`. It exits 0 when every check passes.
 - Config: `umgeditor.json` next to the exe (PaksDir, AesKey, WorkDir); defaults point at `E:\n3tron\patch\obb\mobile\...\Paks` and `work/`. The index cache is `work/cache/ui_index_v*_<fingerprint>.json`.
@@ -58,7 +58,7 @@ UAssetAPI / UAssetGUI:
 - Tests: `dotnet test tools/UAssetAPI/UAssetAPI.Tests`; one test: `dotnet test tools/UAssetAPI/UAssetAPI.Tests --filter "FullyQualifiedName~<TestName>"`.
 
 ## retoc state vs. tutorial
-- The UE4.26 raw-exports patch IS applied in source: the `else` branch of `serialize_zen_asset()` in `retoc/src/zen_asset_conversion.rs` now writes the export buffer as-is (`write_all`) instead of calling `write_exports_in_bundle_order(...)`, which is now unused and causes a `dead_code` warning. Do not revert it, or every to-zen texture crashes in game, even an unmodified stock round-trip. It has not been built or tested with a stock round-trip yet.
+- The UE4.26 raw-exports patch IS applied in source: the `else` branch of `serialize_zen_asset()` in `retoc/src/zen_asset_conversion.rs` now writes the export buffer as-is (`write_all`) instead of calling `write_exports_in_bundle_order(...)`, which is now unused and causes a `dead_code` warning. Do not revert it, or every to-zen texture crashes in game, even an unmodified stock round-trip. This patched source has still not been built (no `tools/retoc/target`) or round-trip tested; the mod pipeline doesn't depend on it: mods are packed by the prebuilt release retoc (`RetocPath`, sha256 `1587f00d…`, `app/README.md`) with `pack-raw` + `verify` only, never `to-zen`.
 - `copy-packages` / `--patch` (which the tutorial requires for Blueprints and Niagara) do not exist in this retoc. Don't assume them. They have to be implemented, or the work goes around them.
 
 ## Hard rules from tutorial.txt (summary)

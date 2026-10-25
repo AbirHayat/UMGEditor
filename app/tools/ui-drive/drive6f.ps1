@@ -332,7 +332,9 @@ try {
     Select-Tree @('Img_Plate') | Out-Null
     ShowPreview
     "canvas: $(CanvasStatus)"
-    Check 'stretched plate: Right and Bottom only' ((CanvasStatus) -like '*handles Right,Bottom')
+    # since step 3d (C10) the unstored Left/Top are editable as inserted tags, so every handle is offered (the drag
+    # below still uses the stored Right margin)
+    Check 'stretched plate: all handles (Left/Top by inserted tag since step 3d)' ((CanvasStatus) -like '*handles Move,Left,Top,Right,Bottom')
     Shot '7_stretched_handles'
     $b = Box
     $stretched = DragToUnits ($b.R - 2) (($b.T + $b.B) / 2) -100 100 -1
