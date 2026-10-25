@@ -1,6 +1,7 @@
 using System.Globalization;
 using System.Text;
 using UmgEditor.Core.Editing;
+using UmgEditor.Core.Patching;
 
 namespace UmgEditor.Core.Modding;
 
@@ -51,7 +52,23 @@ public sealed record ExportCandidate(string PackagePath, int SavedEdits, bool Di
 }
 
 /// <summary>One saved value the mod ships, for the instructions.</summary>
-public sealed record ExportEdit(string Package, string Widget, string Field, double Stock, double Value, string OffsetHex, string OldHex, string NewHex);
+public sealed record ExportEdit(string Package, string Widget, string Field, double Stock, double Value, string OffsetHex, string OldHex, string NewHex)
+{
+    /// <summary>The rows of one package's plan: in-place values, animation writes, inserted tags.</summary>
+    /// <param name="slot">(slot export, slot name) → how the instructions name it, e.g. "Text_Score_Home (CanvasPanelSlot_0)"</param>
+    public static IEnumerable<ExportEdit> Of(BytePlan plan, Func<int, string, string> slot, Func<FieldKey, double?> baseValue)
+    {
+        var package = GamePaths.ShortName(plan.PackagePath);
+        foreach (var e in plan.Entries)
+            yield return new ExportEdit(package, slot(e.Key.SlotExport, e.SlotName), e.Key.Path.Replace("LayoutData.", ""), e.OldValue, e.NewValue, e.OffsetHex, e.OldHex, e.NewHex);
+        foreach (var w in plan.AnimWrites)
+            yield return new ExportEdit(package, w.Description, w.Copy == "range" ? "animation range bound" : $"animation key, {w.Copy} copy",
+                w.OldValue, w.NewValue, $"{w.OffsetHex} ({w.WindowText})", w.OldHex, w.NewHex);
+        foreach (var i in plan.Insertions)
+            yield return new ExportEdit(package, slot(i.ExportIndex, i.SlotName), i.Path.Replace("LayoutData.", "") + " (new tag)", i.Key is { } k ? baseValue(k) ?? 0 : 0, i.Value,
+                $"{i.InsertAtHex} (inserted before {i.Before}, +{TagInserter.FloatTagSize} bytes)", "(not stored)", i.TagHex);
+    }
+}
 
 /// <summary>
 /// The checked export: everything the background build needs (the saved chunks are read here, on the caller's

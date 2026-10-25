@@ -831,13 +831,7 @@ public sealed class EditorController
             if (!textured.Contains(path)) packages.Add(new ModPackage(s.PackagePath, s.FileKey, s.ChunkIdHex, chunk));
             saved = saved.With(s.Saved.Values.Select(kv => new FieldChange(kv.Key, s.BaseValue(kv.Key) ?? double.NaN, kv.Value)), _ => null);
             string Slot(int export, string slotName) => WidgetOf(s.PackagePath, export) is { } w ? $"{w} ({slotName})" : slotName;
-            var plan = s.Plan();
-            edits.AddRange(plan.Entries.Select(e => new ExportEdit(GamePaths.ShortName(s.PackagePath), Slot(e.Key.SlotExport, e.SlotName),
-                e.Key.Path.Replace("LayoutData.", ""), e.OldValue, e.NewValue, e.OffsetHex, e.OldHex, e.NewHex)));
-            edits.AddRange(plan.AnimWrites.Select(w => new ExportEdit(GamePaths.ShortName(s.PackagePath), w.Description, w.Copy == "range" ? "animation range bound" : $"animation key, {w.Copy} copy",
-                w.OldValue, w.NewValue, $"{w.OffsetHex} ({w.WindowText})", w.OldHex, w.NewHex)));
-            edits.AddRange(plan.Insertions.Select(i => new ExportEdit(GamePaths.ShortName(s.PackagePath), Slot(i.ExportIndex, i.SlotName),
-                i.Path.Replace("LayoutData.", "") + " (new tag)", i.Key is { } k ? s.BaseValue(k) ?? 0 : 0, i.Value, $"{i.InsertAtHex} (inserted before {i.Before}, +{TagInserter.FloatTagSize} bytes)", "(not stored)", i.TagHex)));
+            edits.AddRange(ExportEdit.Of(s.Plan(), Slot, s.BaseValue));
         }
         if (textures is { Ok: true }) packages.AddRange(textures.Clones);
         var impactWarnings = saved.Count == 0 ? [] : ExportWarning.From(ExportImpact(saved));
@@ -872,82 +866,8 @@ public sealed class EditorController
     /// package the saved edits reach go to predictions\ and the test instructions next to mod\. Writes only under
     /// work\out\mods\&lt;name&gt;.
     /// </summary>
-    public ExportResult RunExport(ExportPlan plan, IRetoc retoc, IProgress<string>? log = null)
-    {
-        if (!plan.Ok) return new ExportResult(false, plan.Refusals, plan.OutDir, [], "", null, [], null);
-        log?.Report($"Building {plan.Request.ModName} ({plan.Request.ContainerName}) from {plan.Packages.Count} package{(plan.Packages.Count == 1 ? "" : "s")}: {string.Join(", ", plan.Packages.Select(p => GamePaths.ShortName(p.PackagePath)))}");
-        var build = new ModBuilder(_source, new LoggingRetoc(retoc, log)).Build(plan.Request.ModName, plan.Request.ContainerName, plan.Packages);
-        if (!build.Built)
-        {
-            log?.Report("FAILED: " + string.Join(" | ", build.Refusals));
-            log?.Report(Directory.Exists(build.ModDir) ? $"{build.ModDir} is still there" : $"{build.ModDir} removed; see FAILED.txt");
-            return new ExportResult(false, build.Refusals, build.OutDir, [], build.Log, null, [], null);
-        }
-        foreach (var f in build.Files) log?.Report($"  {f.Name}  {f.Size:N0} bytes  sha256 {f.Sha256}");
-        if (plan.ExpectedTextures.Count > 0)
-        {
-            log?.Report($"Mounting the mod on top of the game: {plan.ExpectedTextures.Count} new texture package(s) must load by path and decode to the imported pixels…");
-            if (TextureMountCheck(plan, build.ModDir) is { } problem)
-            {
-                var guard = WriteGuard.ForMods(_source.Config);
-                guard.DeleteDirectory(build.ModDir);
-                guard.WriteAllText(Path.Combine(plan.OutDir, "FAILED.txt"), problem + Environment.NewLine + build.Log);
-                log?.Report("FAILED: " + problem);
-                return new ExportResult(false, [problem], build.OutDir, [], build.Log, null, [], null);
-            }
-        }
-
-        log?.Report("Laying out every package the saved edits reach (stock vs edited)…");
-        var mods = WriteGuard.ForMods(_source.Config);
-        var impacts = new EditImpact(_engine, _usage, _width, _height).Predict(plan.SavedEdits, _loadTree);
-        var predictions = Path.Combine(plan.OutDir, "predictions");
-        var files = new List<string>();
-        foreach (var i in impacts.Where(i => i.Error == null))
-        {
-            foreach (var (suffix, layout) in new[] { (".stock.json", i.Stock), (".json", i.Edited) })
-            {
-                var file = Path.Combine(predictions, i.Package.Name + suffix);
-                mods.WriteAllText(file, LayoutExport.ToJson(layout, i.Package.PackagePath));
-                files.Add(file);
-            }
-        }
-        var report = ImpactReport.Build(Project, _width, _height, impacts);
-        foreach (var w in ExportWarning.From(report))
-            log?.Report($"  {w.Text}{(w.IsDanger ? " (acknowledged)" : "")}");
-        var instructions = Path.Combine(plan.OutDir, ModInstructions.FileName);
-        mods.WriteAllText(instructions, ModInstructions.Build(plan, build, report, p => _usage.DirectUsers(p).Count == 0, DateTime.Now, p => _usage.AllUsers(p)));
-        log?.Report($"{files.Count} prediction files in {predictions}");
-        log?.Report($"Test instructions: {instructions}");
-        log?.Report($"Done. Copy the {build.Files.Count} files in {build.ModDir} to the device. {ModInstructions.OnlineWarning}.");
-        return new ExportResult(true, [], plan.OutDir, build.Files, build.Log, instructions, files, report);
-    }
-
-    /// <summary>
-    /// With the built mod mounted on top of the stock game (as the canaries were checked): every new texture package loads by
-    /// path and its mip 0 is the imported pixels, and every re-pointed package names its new texture. Returns the problem, or null.
-    /// </summary>
-    private string? TextureMountCheck(ExportPlan plan, string modDir)
-    {
-        try
-        {
-            using var withMod = GameSource.Open(_source.Config with { ExtraPaksDirs = [modDir] });
-            foreach (var (path, mip0) in plan.ExpectedTextures)
-            {
-                var tex = withMod.LoadPackage(path).GetExports().OfType<CUE4Parse.UE4.Assets.Exports.Texture.UTexture2D>().SingleOrDefault();
-                if (tex == null || !(tex.PlatformData.Mips[0].BulkData?.Data ?? []).AsSpan().SequenceEqual(mip0))
-                    return $"mounted: {path} {(tex == null ? "doesn't load" : "doesn't decode to the imported pixels")}";
-            }
-            foreach (var item in plan.Textures)
-                foreach (var package in item.Storing)
-                {
-                    var named = withMod.LoadPackage(package).GetExports().Select(WidgetTreeReader.StoredValues)
-                        .Count(v => v.Values.Any(x => TextureUsage.NameMapForm(x) == item.To));
-                    if (named == 0) return $"mounted: no widget in {GamePaths.ShortName(package)} names {item.To}";
-                }
-            return null;
-        }
-        catch (Exception e) { return $"mounted: the game with the mod can't be read ({e.GetType().Name}: {e.Message})"; }
-    }
+    public ExportResult RunExport(ExportPlan plan, IRetoc retoc, IProgress<string>? log = null) =>
+        ExportRunner.Run(plan, new ExportEnvironment(_source, _engine, _usage, _loadTree, _width, _height, Project), retoc, log);
 
     /// <summary>Packs the saved edits of every package in the project. Refused while anything is unsaved.</summary>
     public ModResult BuildMod(string modName, string containerName, IRetoc retoc)

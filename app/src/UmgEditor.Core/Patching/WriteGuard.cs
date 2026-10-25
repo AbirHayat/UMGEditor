@@ -23,6 +23,9 @@ public sealed class WriteGuard
     /// <summary>Guard for built mods: WorkDir\out\mods.</summary>
     public static WriteGuard ForMods(GameConfig config) => new(config, config.ModsDir);
 
+    /// <summary>Guard for recipes written by umgmod recipe-from-set: WorkDir\out\recipes.</summary>
+    public static WriteGuard ForRecipes(GameConfig config) => new(config, Path.Combine(config.WorkDir, "out", "recipes"));
+
     /// <summary>Why this path may not be written, or null when it may.</summary>
     public string? Refusal(string path)
     {

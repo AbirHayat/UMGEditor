@@ -20,8 +20,15 @@ public sealed class RecipeCheckResult
 {
     public List<string> Refusals { get; } = [];
     public List<string> Log { get; } = [];
-    /// <summary>Every package the recipe would ship (edited stock packages, re-pointed ones, new texture clones) → its chunk</summary>
-    public Dictionary<string, byte[]> Chunks { get; } = new(StringComparer.OrdinalIgnoreCase);
+    /// <summary>Every package the recipe would ship (edited stock packages, re-pointed ones, new texture clones)</summary>
+    public Dictionary<string, ModPackage> Packages { get; } = new(StringComparer.OrdinalIgnoreCase);
+    public IReadOnlyDictionary<string, byte[]> Chunks => Packages.ToDictionary(kv => kv.Key, kv => kv.Value.Chunk, StringComparer.OrdinalIgnoreCase);
+    /// <summary>The value edits of every package together (what the layout warnings and predictions are made from)</summary>
+    public EditSet Edits { get; set; } = EditSet.Empty;
+    /// <summary>The instructions' rows for the value edits</summary>
+    public List<ExportEdit> ExportEdits { get; } = [];
+    /// <summary>The texture edits' plan, when the recipe has any</summary>
+    public TexturePlan? Textures { get; set; }
     public List<ExportWarning> Warnings { get; } = [];
     /// <summary>Danger warnings: a build needs --ack-danger for these (a recipe can't acknowledge them)</summary>
     public IReadOnlyList<ExportWarning> Danger => Warnings.Where(w => w.IsDanger).ToList();
@@ -98,8 +105,10 @@ public static class RecipeCheck
             foreach (var r in rebuilt.Refusals) Refuse($"{head}: [{r.Rule}] {r.Message}");
             if (!rebuilt.Ok) continue;
             var plan = rebuilt.Plan;
-            result.Chunks[session.PackagePath] = rebuilt.Chunk!;
+            result.Packages[session.PackagePath] = new ModPackage(session.PackagePath, session.FileKey, session.ChunkIdHex, rebuilt.Chunk!);
             allEdits = allEdits.With(session.Current.Values.Select(kv => new FieldChange(kv.Key, 0, kv.Value)), _ => null);
+            var widgets = WidgetNames(context, session.PackagePath);
+            result.ExportEdits.AddRange(ExportEdit.Of(plan, (export, slot) => widgets.TryGetValue(export, out var w) ? $"{w} ({slot})" : slot, session.BaseValue));
             result.Log.Add($"{head}: {plan.Entries.Count} in place, {plan.Insertions.Count} new tag{(plan.Insertions.Count == 1 ? "" : "s")}, " +
                            $"{plan.AnimKeyCount} animation edit{(plan.AnimKeyCount == 1 ? "" : "s")} ({plan.AnimWrites.Count} writes); {plan.SizeText}; " +
                            $"exact diff and re-parse passed; chunk sha256 {Sha256(rebuilt.Chunk!)}");
@@ -115,19 +124,21 @@ public static class RecipeCheck
             var inputs = recipe.InputsOrEmpty;
             var edits = recipe.TexturesOrEmpty.Select(t => new TextureEdit(t.Package, t.Widget, t.Texture, t.Mode, t.NewName, t.Scope,
                 t.Input is { } id ? inputs[id].Path : null, t.Input is { } id2 ? inputs[id2].Sha256 : null, t.Source, t.MarginsZero)).ToList();
-            var valueChunks = new Dictionary<string, byte[]>(result.Chunks, StringComparer.OrdinalIgnoreCase);
+            var valueChunks = result.Chunks;
             var textures = TextureEdits.Plan(source, context.TextureUsage(), root, edits, p => valueChunks.GetValueOrDefault(p), p => context.Usage.AllUsers(p));
             foreach (var r in textures.Refusals) Refuse(r);
+            result.Textures = textures;
             if (!result.Ok) return result;
             foreach (var l in textures.Log.Where(l => !l.StartsWith("    ", StringComparison.Ordinal))) result.Log.Add(l);
             foreach (var p in textures.All)
             {
-                result.Chunks[p.PackagePath] = p.Chunk;
+                result.Packages[p.PackagePath] = p;
                 result.Log.Add($"{GamePaths.ShortName(p.PackagePath)}: {(p.CloneOf != null ? "new texture package" : "re-pointed")}, chunk sha256 {Sha256(p.Chunk)}");
             }
         }
 
         // layout warnings of the value edits (as the export dialog and umgmod build compute them)
+        result.Edits = allEdits;
         if (allEdits.Count > 0)
         {
             var impact = ImpactReport.Build(recipe.Name, context.ViewportWidth, context.ViewportHeight, context.Impact.Predict(allEdits, context.LoadTree));
@@ -149,6 +160,17 @@ public static class RecipeCheck
         if (recipe.Expect?.Files is { Count: > 0 } files)
             result.Log.Add($"Expect.Files: {files.Count} device file{(files.Count == 1 ? "" : "s")} pinned; checked when the recipe is built");
         return result;
+    }
+
+    /// <summary>Slot export → the widget it holds (for the instructions); empty when the tree doesn't load.</summary>
+    private static Dictionary<int, string> WidgetNames(RecipeContext context, string package)
+    {
+        try
+        {
+            return context.LoadTree(package).All().Where(n => n.Slot != null && !n.IsReadOnly)
+                .GroupBy(n => n.Slot!.ExportIndex).ToDictionary(g => g.Key, g => g.First().Name);
+        }
+        catch (Exception) { return []; }
     }
 
     public static string Sha256(ReadOnlySpan<byte> bytes) => Convert.ToHexString(SHA256.HashData(bytes)).ToLowerInvariant();

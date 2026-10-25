@@ -148,10 +148,15 @@ umgmod [--set NAME] tex-white <package> <widget> [--name NEW] [--scope widget|pa
 umgmod [--set NAME] tex-show
 umgmod [--set NAME] tex-reset <package> <widget>
 umgmod recipe-check <recipe.json> [--ack-danger]
+umgmod recipe-build <recipe.json> [--name MOD] [--ack-danger]
+umgmod [--set NAME] recipe-from-set [--name RECIPE] [--container C]
 ```
 
 - `recipe-check` checks a recipe (`recipes\README.md`) and builds it in memory, read only: exit 0 ok, 2 refused, 3 a Danger
   layout warning (rerun with `--ack-danger`).
+- `recipe-build` builds a recipe through the export's build path into `work\out\mods\<name>` and checks its
+  `Expect.Files` pins (exit 4 and `mod\` removed when they differ); `recipe-from-set` writes a project as a recipe under
+  `work\out\recipes`. See `recipes\README.md`.
 - `edit` applies one SlotEditor edit to the package's PatchSession and saves it (`work\edits[\NAME]\<package path>`).
   The first edit of a package prints the pre-edit warnings and stops (exit 3); add `--yes` once you've read them.
 - `show` prints the saved edits and the bytes to patch (offset, old/new value, hex, ±32-byte context).

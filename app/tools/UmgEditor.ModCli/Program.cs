@@ -21,6 +21,8 @@
 //   umgmod [--set NAME] tex-show
 //   umgmod [--set NAME] tex-reset <package> <widget>
 //   umgmod recipe-check <recipe.json> [--ack-danger]   a recipe checked and built in memory (read only): exit 0 ok, 2 refused, 3 Danger
+//   umgmod recipe-build <recipe.json> [--name MOD] [--ack-danger]   check, pack, verify, pins: exit 0 / 2 / 3 / 4 = device files aren't the pinned ones
+//   umgmod [--set NAME] recipe-from-set [--name RECIPE] [--container C]   the set's saved edits + texture edits as work\out\recipes\<name>.json
 // <package> is a /Game/... path or a unique suffix such as MatchTime/MatchTimeBase. Edits are saved PatchSessions in
 // work\edits[\NAME]\<package path>; build packs their saved chunks into work\out\mods\<modName>\mod (the export
 // dialog's plan and run: predictions\ and TEST_INSTRUCTIONS.md next to it). Exit 0 = done, 2 = refused, 3 = needs
@@ -74,7 +76,7 @@ switch (allUsers ? "all" : scopeArg?.ToLowerInvariant() ?? "widget")
     case "all": scope = TextureEditScope.AllUsers; break;
     default: Console.Error.WriteLine($"--scope {scopeArg}: use widget, package or all"); return 1;
 }
-if (argv.Count == 0 || argv.Count < 2 && argv[0] is not ("tex-show" or "tex-coverage")) return Usage();
+if (argv.Count == 0 || argv.Count < 2 && argv[0] is not ("tex-show" or "tex-coverage" or "recipe-from-set")) return Usage();
 
 var config = GameConfig.LoadOrDefault(Path.Combine(AppContext.BaseDirectory, "umgeditor.json"));
 using var source = GameSource.Open(config);
@@ -285,6 +287,44 @@ try
                 return 3;
             }
             Console.WriteLine($"OK: {checkResult.Chunks.Count} chunk(s){(checkResult.ChunksPinned ? ", all as pinned" : recipe.Expect?.Chunks == null ? " (no Expect.Chunks pins)" : "")}; nothing written");
+            return 0;
+        }
+        case "recipe-build" when argv.Count >= 2:
+        {
+            if (!File.Exists(argv[1])) { Console.Error.WriteLine($"refused: {argv[1]} not found"); return 2; }
+            var text = File.ReadAllText(argv[1]);
+            var (recipe, bad) = UmgEditor.Core.Recipes.RecipeReader.Read(text);
+            if (recipe == null) { foreach (var b in bad) Console.Error.WriteLine($"refused: {b}"); return 2; }
+            var engine = NewEngine();
+            var usage = new UsageGraph(index);
+            var context = new UmgEditor.Core.Recipes.RecipeContext(source, UmgEditor.Core.Recipes.RecipeContext.RootOf(config),
+                () => TextureUsage.LoadOrBuild(source, index), usage, new EditImpact(engine, usage, W, H), p => WidgetTreeReader.Build(source, p), W, H);
+            var env = new ExportEnvironment(source, engine, usage, p => WidgetTreeReader.Build(source, p), W, H, $"recipe {recipe.Name}");
+            var outcome = UmgEditor.Core.Recipes.RecipeBuild.Run(recipe, text, context, env, new RetocProcess(config.RetocPath), newName, ackDanger,
+                new Progress<string>(Console.WriteLine));
+            foreach (var w in outcome.Check.Warnings) Console.WriteLine($"  {w.Text}{(w.IsDanger ? ackDanger ? $" (acknowledged by {BuildCommand.AckFlag})" : " (NOT acknowledged)" : "")}");
+            foreach (var w in outcome.Plan?.Warnings ?? []) Console.WriteLine($"warning: {w}");
+            foreach (var r in outcome.Refusals) Console.Error.WriteLine($"refused: {r}");
+            if (outcome.Code == UmgEditor.Core.Recipes.RecipeBuild.NeedsAck) Console.Error.WriteLine($"Read the danger warnings above, then rerun with {BuildCommand.AckFlag}.");
+            if (outcome.Code == 0)
+            {
+                Console.WriteLine($"OK: copy these {outcome.Result!.Files.Count} files from {outcome.Result.ModDir} next to the stock containers on the device:");
+                foreach (var f in outcome.Result.Files) Console.WriteLine($"  {f.Name}  {f.Size} bytes  sha256 {f.Sha256}");
+                Console.WriteLine(recipe.Expect?.Files == null ? "(no Expect.Files pins in the recipe)" : "all device files as pinned");
+            }
+            return outcome.Code;
+        }
+        case "recipe-from-set":
+        {
+            var name = newName ?? editSet ?? "default";
+            var (recipe, bad) = UmgEditor.Core.Recipes.RecipeFromSet.Make(Controller(), UmgEditor.Core.Recipes.RecipeContext.RootOf(config), name, container);
+            if (recipe == null) { foreach (var b in bad) Console.Error.WriteLine($"refused: {b}"); return 2; }
+            var recipes = WriteGuard.ForRecipes(config);
+            var file = Path.Combine(recipes.Root, name + ".json");
+            var existed = File.Exists(file);
+            recipes.WriteAllText(file, UmgEditor.Core.Recipes.RecipeReader.Write(recipe));
+            Console.WriteLine($"{(existed ? "replaced" : "wrote")} {file}: {recipe.PackagesOrEmpty.Count} package(s), {recipe.PackagesOrEmpty.Sum(p => p.Values.Count)} value(s), " +
+                              $"{recipe.TexturesOrEmpty.Count} texture edit(s), {recipe.InputsOrEmpty.Count} input(s); no Expect pins (add them from a device-tested build)");
             return 0;
         }
         case "predict" when argv.Count >= 2:
@@ -609,6 +649,9 @@ static int Usage()
           umgmod [--set NAME] tex-white <package> <widget> [--name NEW] [--scope widget|package|all] [--yes]
           umgmod [--set NAME] tex-show
           umgmod [--set NAME] tex-reset <package> <widget>
+          umgmod recipe-check <recipe.json> [--ack-danger]
+          umgmod recipe-build <recipe.json> [--name MOD] [--ack-danger]
+          umgmod [--set NAME] recipe-from-set [--name RECIPE] [--container C]
         <package>: /Game/... path or a unique suffix (MatchTime/MatchTimeBase); <field>: e.g. Offsets.Right
         """);
     return 1;
