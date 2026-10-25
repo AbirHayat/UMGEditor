@@ -302,6 +302,38 @@ public class TextureEditTests
         CollectionAssert.AreEqual(loaded.ToList(), TextureEditStore.Load(_folder).ToList());
     }
 
+    /// <summary>sha256 of canary C18's chunks (work\out\mods\C18\raw\chunks, built in the app on 2026-10-25).</summary>
+    private static readonly Dictionary<string, string> C18Chunks = new()
+    {
+        [Special + "MatchMemberChangeSpecial"] = "760a638598b216c22417677e269478553d2d81a26f236bb9004ec1ee40e8b800",
+        ["/Game/Assets/ui/Data/Widget/TVGraphics/TVGraphicsCommon/VirtualPad/VirtualPadButtonLarge"] = "bdade22c0c7267deff16fc2ab7d26eadeb78f2a060c4b2ffb79af66e047d83aa",
+        [Logo + "ExtraLoginBonusInU1"] = "b54118b747c9763d82cabeaff47bd408316f73f2b439ef21d8a31211cd61a22b",
+        [Logo + "ExtraLoginBonusInU2"] = "534493094b15e9da859bae80c8715a758b63767a91b96b39136b29bc6331fa56",
+    };
+
+    /// <summary>
+    /// Canary C18 (made in the app by app\tools\ui-drive\driveC18.ps1): project C18 plans the four chunks of its build
+    /// byte for byte; both re-pointed packages take the appended + pointed route, scope This widget.
+    /// </summary>
+    [TestMethod]
+    public void C18_TheProjectPlansThePinnedChunks()
+    {
+        var folder = Path.Combine(Guard.Root, "C18");
+        if (!File.Exists(Path.Combine(folder, TextureEditStore.FileName))) Assert.Inconclusive("project C18 is missing");
+        var plan = Controller("C18").PlanTextures();
+        foreach (var l in plan.Log.Where(l => !l.StartsWith("    "))) Console.WriteLine(l);
+        Assert.IsTrue(plan.Ok, string.Join("\n", plan.Refusals));
+        Assert.IsTrue(plan.Items.All(i => i.Edit.Scope == TextureEditScope.Widget && i.Pointed.Count == 1 && i.Following.Count == 0));
+        CollectionAssert.AreEquivalent(C18Chunks.Keys.ToList(), plan.All.Select(p => p.PackagePath).ToList());
+        var raw = Path.Combine(Source.Config.WorkDir, "out", "mods", "C18", "raw", "chunks");
+        foreach (var p in plan.All)
+        {
+            Assert.AreEqual(C18Chunks[p.PackagePath], Sha(p.Chunk), $"{p.PackagePath} differs from C18's chunk");
+            var file = Path.Combine(raw, p.ChunkIdHex);
+            if (File.Exists(file)) CollectionAssert.AreEqual(File.ReadAllBytes(file), p.Chunk, $"{p.PackagePath}: raw chunk");
+        }
+    }
+
     /// <summary>
     /// The user's C16b_test (built from project C16b on 2026-10-24 and working in game): its textures.json is version 1,
     /// so its "Widget" edits load as Package, and planning it again gives the same chunks as its build.json.

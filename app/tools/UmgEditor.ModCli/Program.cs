@@ -13,7 +13,8 @@
 //   umgmod tex-info <package> <widget>          what a uiImage shows, every widget naming that texture, where it's shown
 //   umgmod tex-users <texture>                  every widget naming a texture (path or unique suffix)
 //   umgmod tex-sources <package> <widget>       B8G8R8A8 textures a clone can come from (best first)
-//   umgmod tex-coverage [--folder SUBSTR]       plans a white copy for every uiImage (read-only): what can't be replaced and why
+//   umgmod stock-chunk <package> <out.bin>      a stock package's raw chunk (read-only on the game)
+//   umgmod tex-coverage [--folder SUBSTR] [--list] plans a white copy for every uiImage (read-only): what can't be replaced and why
 //   umgmod tex-preview <package> <widget> <image.png> <out.png> [--in SCREEN] [--margins0] [--scope widget|package|all]
 //   umgmod [--set NAME] tex <package> <widget> <image.png> [--name NEW] [--source TEXTURE] [--margins0] [--scope widget|package|all] [--yes]
 //   umgmod [--set NAME] tex-white <package> <widget> [--name NEW] [--scope widget|package|all] [--yes]
@@ -63,6 +64,7 @@ var marginsZero = Flag("--margins0");
 var allUsers = Flag("--all-users"); // = --scope all
 var scopeArg = Option("--scope");
 var folderFilter = Option("--folder");
+var listAll = Flag("--list");
 TextureEditScope scope;
 switch (allUsers ? "all" : scopeArg?.ToLowerInvariant() ?? "widget")
 {
@@ -439,6 +441,14 @@ try
                               (result.ShowsHidden ? " (hidden at rest: drawn with every hidden widget)" : "") + (result.Boxes == 0 ? $" (the texture isn't on {GamePaths.ShortName(screen.PackagePath)}; try --in)" : ""));
             return 0;
         }
+        case "stock-chunk" when argv.Count >= 3:
+        {
+            // read-only: a stock package's raw Zen chunk (decrypted, decompressed) for independent checks (check_point.py)
+            var (fileKey, bytes) = source.ReadPackageBytes(ResolvePackage(argv[1]));
+            File.WriteAllBytes(argv[2], bytes);
+            Console.WriteLine($"{fileKey}: {bytes.Length} bytes, chunk {source.ChunkIdHex(fileKey)} -> {argv[2]}");
+            return 0;
+        }
         case "tex-coverage":
         {
             // every uiImage outside the library: plan a white copy (of the widget's own texture, or of the best source for
@@ -461,7 +471,11 @@ try
                     {
                         needSource++;
                         // the same-length rule (before appending + pointing) needed a source whose clone path is as long
-                        if (!all.Any(x => TextureEdits.NewNameMapPath(x, GamePaths.ShortName(x)).Length == r.NameMapPath.Length)) noSameLength++;
+                        if (!all.Any(x => TextureEdits.NewNameMapPath(x, GamePaths.ShortName(x)).Length == r.NameMapPath.Length))
+                        {
+                            noSameLength++;
+                            if (listAll) Console.WriteLine($"  no same-length source: {GamePaths.ShortName(r.Package)}/{r.Export} ({GamePaths.ShortName(r.Texture)}, path {r.NameMapPath.Length} characters, shown in: {string.Join(", ", c.EmbeddedBy(r.Package).Select(GamePaths.ShortName).Order())})");
+                        }
                     }
                     if (bad != null && src == null) why = bad + ", and no source";
                     else
@@ -564,7 +578,8 @@ static int Usage()
           umgmod tex-info <package> <widget>
           umgmod tex-users <texture>
           umgmod tex-sources <package> <widget>
-          umgmod tex-coverage [--folder SUBSTR]
+          umgmod stock-chunk <package> <out.bin>
+          umgmod tex-coverage [--folder SUBSTR] [--list]
           umgmod tex-preview <package> <widget> <image.png> <out.png> [--in SCREEN] [--margins0] [--scope widget|package|all]
           umgmod [--set NAME] tex <package> <widget> <image.png> [--name NEW] [--source TEXTURE] [--margins0] [--scope widget|package|all] [--yes]
           umgmod [--set NAME] tex-white <package> <widget> [--name NEW] [--scope widget|package|all] [--yes]
