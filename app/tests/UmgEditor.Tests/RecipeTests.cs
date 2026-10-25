@@ -115,6 +115,19 @@ public class RecipeTests
         Refused(text.Replace("\"Recipe\": 1,", "// comment\n\"Recipe\": 1,"), "not a valid recipe");
         Refused(text.TrimEnd().TrimEnd('}') + ",}", "not a valid recipe");
         Refused(With(o => o["Packages"]![0]!.AsObject()["Values"] = null), "not a valid recipe");
+
+        // computed properties are neither written nor read: a copy of the data under their names would be ignored, so it's refused
+        // (recipe-from-set wrote them into C16b_test.json before this was fixed)
+        Refused(With(o => o["PackagesOrEmpty"] = new JsonArray()), "PackagesOrEmpty");
+        Refused(With(o => o["InputsOrEmpty"] = new JsonObject()), "InputsOrEmpty");
+        Refused(WithRecipe("C13", o => o["Clones"]![0]!["NewPath"] = "/Game/x"), "NewPath");
+        foreach (var name in new[] { "C10", "C13", "C14", "C16b_test" })
+        {
+            var written = RecipeReader.Write(Parse(RecipeText(name)));
+            foreach (var computed in new[] { "OrEmpty", "NewPath" })
+                Assert.IsFalse(written.Contains(computed), $"{name}: Write emits {computed}");
+            Assert.AreEqual(written, RecipeReader.Write(Parse(written)), $"{name}: Write(Read(Write(r))) changed");
+        }
     }
 
     [TestMethod]

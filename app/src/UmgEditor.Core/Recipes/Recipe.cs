@@ -33,11 +33,33 @@ public sealed record Recipe(
     RecipeExpect? Expect = null)
 {
     public const int CurrentVersion = 1;
-    public IReadOnlyDictionary<string, RecipeInput> InputsOrEmpty => Inputs ?? new Dictionary<string, RecipeInput>();
-    public IReadOnlyList<RecipePackage> PackagesOrEmpty => Packages ?? [];
-    public IReadOnlyList<RecipeTexture> TexturesOrEmpty => Textures ?? [];
-    public IReadOnlyList<RecipeClone> ClonesOrEmpty => Clones ?? [];
-    public IReadOnlyList<RecipeRepoint> RepointsOrEmpty => Repoints ?? [];
+}
+
+/// <summary>
+/// Computed members of the recipe records, as extension properties so the serializer never sees them: a recipe can't
+/// carry a field under one of these names (the reader refuses it as unknown) and the writer never emits one. As record
+/// properties they were written by recipe-from-set and silently ignored on reading.
+/// </summary>
+public static class RecipeSections
+{
+    extension(Recipe r)
+    {
+        public IReadOnlyDictionary<string, RecipeInput> InputsOrEmpty => r.Inputs ?? new Dictionary<string, RecipeInput>();
+        public IReadOnlyList<RecipePackage> PackagesOrEmpty => r.Packages ?? [];
+        public IReadOnlyList<RecipeTexture> TexturesOrEmpty => r.Textures ?? [];
+        public IReadOnlyList<RecipeClone> ClonesOrEmpty => r.Clones ?? [];
+        public IReadOnlyList<RecipeRepoint> RepointsOrEmpty => r.Repoints ?? [];
+    }
+
+    extension(RecipeClone c)
+    {
+        public string NewPath => c.From[..(c.From.LastIndexOf('/') + 1)] + c.NewName;
+    }
+
+    extension(RecipeRepoint p)
+    {
+        public IReadOnlyList<RecipeRepointValue> ValuesOrEmpty => p.Values ?? [];
+    }
 }
 
 /// <param name="Path">Relative to the workspace root (the folder holding work\), inside it</param>
@@ -64,19 +86,13 @@ public sealed record RecipeTexture(string Package, string Widget, string Texture
 /// <param name="StockSha256">From's stock chunk</param>
 /// <param name="Solid">"#RRGGBB": every pixel of every mip, at the stock size (exactly one of Solid and Input)</param>
 /// <param name="Input">A PNG input: mip 0 at the image's size, each further mip half the one before, as many mips as stock</param>
-public sealed record RecipeClone(string From, string StockSha256, string NewName, string? Solid = null, string? Input = null)
-{
-    public string NewPath => From[..(From.LastIndexOf('/') + 1)] + NewName;
-}
+public sealed record RecipeClone(string From, string StockSha256, string NewName, string? Solid = null, string? Input = null);
 
 /// <summary>One stock package whose soft path <paramref name="From"/> becomes <paramref name="To"/> (a same-length name-map rename).</summary>
 /// <param name="From">The name-map string, e.g. "/Game/…/Tex720/DemoTitlePlate.DemoTitlePlate"</param>
 /// <param name="To">The new one; its package must be made by the recipe or be in the game</param>
 /// <param name="Values">Stored floats changed in the same patch (e.g. a 9-slice margin to 0), each with its stock value</param>
-public sealed record RecipeRepoint(string Package, string StockSha256, string From, string To, IReadOnlyList<RecipeRepointValue>? Values = null)
-{
-    public IReadOnlyList<RecipeRepointValue> ValuesOrEmpty => Values ?? [];
-}
+public sealed record RecipeRepoint(string Package, string StockSha256, string From, string To, IReadOnlyList<RecipeRepointValue>? Values = null);
 
 /// <param name="Export">The export's name (exactly one in the package), e.g. Img_Plate</param>
 /// <param name="Path">The stored value's path, e.g. Margin.Left</param>
@@ -92,6 +108,8 @@ public static partial class RecipeReader
     private static readonly JsonSerializerOptions Options = new()
     {
         UnmappedMemberHandling = JsonUnmappedMemberHandling.Disallow,
+        // a get-only property would be "mapped" yet ignored on reading: the records have none (see RecipeSections)
+        IgnoreReadOnlyProperties = true,
         AllowDuplicateProperties = false,
         RespectNullableAnnotations = true,
         RespectRequiredConstructorParameters = true,
@@ -104,6 +122,7 @@ public static partial class RecipeReader
     private static readonly JsonSerializerOptions WriteOptions = new()
     {
         WriteIndented = true,
+        IgnoreReadOnlyProperties = true,
         DefaultIgnoreCondition = JsonIgnoreCondition.WhenWritingNull,
         Converters = { new JsonStringEnumConverter(allowIntegerValues: false) },
     };

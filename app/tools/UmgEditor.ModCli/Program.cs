@@ -33,6 +33,7 @@ using UmgEditor.Core.Editing;
 using UmgEditor.Core.Layout;
 using UmgEditor.Core.Modding;
 using UmgEditor.Core.Patching;
+using UmgEditor.Core.Recipes;
 using UmgEditor.Core.Textures;
 
 const int W = 1786, H = 1000; // the validated LDPlayer game view
