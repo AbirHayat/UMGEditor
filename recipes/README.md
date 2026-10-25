@@ -18,6 +18,22 @@ CUE4Parse read-back, new textures mounted on the game, predictions, `TEST_INSTRU
 be exactly the pinned ones (no file missing, none extra), or `mod\` is removed, `FAILED.txt` says why, and the exit code
 is 4. Exit codes: 0 built, 2 refused, 3 Danger not acknowledged, 4 the device files aren't the pinned ones.
 
+Every successful `recipe-build` also writes `DISABLE.ps1` next to `mod\` (`umgmod disable-script <mod>` writes one for
+any built mod). Files reach the device by hand, so it never touches the phone:
+```
+.\DISABLE.ps1                                  the files to delete in the phone's Paks folder (name, size, sha256)
+.\DISABLE.ps1 -Dir <folder>                    dry run: what would move
+.\DISABLE.ps1 -Dir <folder> -Apply             move this mod's files into <folder>\_disabled\<mod>\
+.\DISABLE.ps1 -Dir <folder> -Restore [-Apply]  move them back
+```
+It moves a file only when its name AND sha256 are one of this build's device files (read from `mod\`, and required to
+equal `recipe.json`'s `Expect.Files` when there is one). Files sharing a base name (a container's `.pak` stub, `.ucas`,
+`.utoc`) move only together: every mod built into `pc9999_mobile_and_P` has the same stub, so another mod's container is
+never left without its stub. It never deletes or overwrites (a target that exists = that group is left alone, exit 1),
+never lists or moves a stock file name (`pc0010…`, `global.*`, `pakchunk*`, every name in the stock Paks folder), and
+refuses the stock Paks folder itself (exit 2). Run it with `powershell -ExecutionPolicy Bypass -File DISABLE.ps1 …`
+if scripts are blocked.
+
 `recipe-from-set` writes an app project's saved edits and texture edits as `work\out\recipes\<name>.json`. It is
 refused while anything is unsaved or a saved file no longer equals a rebuild of its edits. Images become inputs pinned by
 sha256, pointing into the project's `_art` folder. It adds no `Expect`: pins come from a device-tested build. Copy the

@@ -23,6 +23,7 @@
 //   umgmod recipe-check <recipe.json> [--ack-danger]   a recipe checked and built in memory (read only): exit 0 ok, 2 refused, 3 Danger
 //   umgmod recipe-build <recipe.json> [--name MOD] [--ack-danger]   check, pack, verify, pins: exit 0 / 2 / 3 / 4 = device files aren't the pinned ones
 //   umgmod [--set NAME] recipe-from-set [--name RECIPE] [--container C]   the set's saved edits + texture edits as work\out\recipes\<name>.json
+//   umgmod disable-script <mod>   writes work\out\mods\<mod>\DISABLE.ps1 (recipe-build writes it too) and prints the files to delete on the phone
 // <package> is a /Game/... path or a unique suffix such as MatchTime/MatchTimeBase. Edits are saved PatchSessions in
 // work\edits[\NAME]\<package path>; build packs their saved chunks into work\out\mods\<modName>\mod (the export
 // dialog's plan and run: predictions\ and TEST_INSTRUCTIONS.md next to it). Exit 0 = done, 2 = refused, 3 = needs
@@ -314,6 +315,15 @@ try
                 Console.WriteLine(recipe.Expect?.Files == null ? "(no Expect.Files pins in the recipe)" : "all device files as pinned");
             }
             return outcome.Code;
+        }
+        case "disable-script" when argv.Count >= 2:
+        {
+            if (ModBuilder.ModNameRefusal(argv[1]) is { } badMod) { Console.Error.WriteLine($"refused: {badMod}"); return 2; }
+            var (script, files, why) = DisableScript.Write(config, Path.Combine(WriteGuard.ForMods(config).Root, argv[1]), DateTime.Now);
+            if (script == null) { Console.Error.WriteLine($"refused: {why}"); return 2; }
+            Console.Write(DisableScript.Checklist(argv[1], files!));
+            Console.WriteLine($"wrote {script}: run it with no arguments for this list, or -Dir <folder> (dry run) [-Apply] [-Restore] to move the files in a folder on this PC");
+            return 0;
         }
         case "recipe-from-set":
         {
@@ -653,6 +663,7 @@ static int Usage()
           umgmod recipe-check <recipe.json> [--ack-danger]
           umgmod recipe-build <recipe.json> [--name MOD] [--ack-danger]
           umgmod [--set NAME] recipe-from-set [--name RECIPE] [--container C]
+          umgmod disable-script <mod>
         <package>: /Game/... path or a unique suffix (MatchTime/MatchTimeBase); <field>: e.g. Offsets.Right
         """);
     return 1;

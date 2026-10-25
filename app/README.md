@@ -150,6 +150,7 @@ umgmod [--set NAME] tex-reset <package> <widget>
 umgmod recipe-check <recipe.json> [--ack-danger]
 umgmod recipe-build <recipe.json> [--name MOD] [--ack-danger]
 umgmod [--set NAME] recipe-from-set [--name RECIPE] [--container C]
+umgmod disable-script <mod>
 ```
 
 - `recipe-check` checks a recipe (`recipes\README.md`) and builds it in memory, read only: exit 0 ok, 2 refused, 3 a Danger
@@ -157,6 +158,10 @@ umgmod [--set NAME] recipe-from-set [--name RECIPE] [--container C]
 - `recipe-build` builds a recipe through the export's build path into `work\out\mods\<name>` and checks its
   `Expect.Files` pins (exit 4 and `mod\` removed when they differ); `recipe-from-set` writes a project as a recipe under
   `work\out\recipes`. See `recipes\README.md`.
+- `disable-script <mod>` writes `work\out\mods\<mod>\DISABLE.ps1` (`recipe-build` writes it too) and prints the files to
+  delete on the phone. The script never touches the phone: with no arguments it prints that list; with `-Dir <folder>`
+  it moves only this mod's files (name and sha256) into `<folder>\_disabled\<mod>\` (dry run unless `-Apply`;
+  `-Restore` moves them back). See `recipes\README.md`.
 - `edit` applies one SlotEditor edit to the package's PatchSession and saves it (`work\edits[\NAME]\<package path>`).
   The first edit of a package prints the pre-edit warnings and stops (exit 3); add `--yes` once you've read them.
 - `show` prints the saved edits and the bytes to patch (offset, old/new value, hex, ±32-byte context).

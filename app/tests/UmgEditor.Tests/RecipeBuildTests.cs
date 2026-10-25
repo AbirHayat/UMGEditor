@@ -90,6 +90,9 @@ public class RecipeBuildTests
             Assert.AreEqual(f.Sha256, RecipeBuild.Sha256(File.ReadAllBytes(Path.Combine(outcome.Result.ModDir, f.Name))), $"{f.Name} on disk");
         Assert.AreEqual(text, File.ReadAllText(Path.Combine(outcome.Result.OutDir, RecipeBuild.RecipeCopy)), "the recipe built is kept next to mod\\");
         Assert.IsTrue(File.Exists(outcome.Result.InstructionsPath));
+        var disable = File.ReadAllText(Path.Combine(outcome.Result.OutDir, DisableScript.FileName));
+        foreach (var f in outcome.Result.Files) StringAssert.Contains(disable, $"Name = '{f.Name}'; Size = {f.Size}; Sha256 = '{f.Sha256}'");
+        Assert.AreEqual(outcome.Result.Files.Count, disable.Split("; Sha256 = '").Length - 1, "the script lists exactly the device files");
         Console.WriteLine($"{name}: {string.Join(", ", outcome.Result.Files.Select(f => $"{f.Name} {f.Sha256[..12]}…"))}");
     }
 

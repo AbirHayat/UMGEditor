@@ -84,6 +84,9 @@ public static class RecipeBuild
             }
             log?.Report($"Expect.Files: all {pinned.Count} device files as pinned");
         }
+        // the disable script for these files (it never touches the phone: a checklist, or moves in a folder on this PC)
+        var (script, _, why) = DisableScript.Write(context.Source.Config, plan.OutDir, DateTime.Now);
+        log?.Report(script != null ? $"Disable script: {script} (no arguments: the files to delete on the phone)" : $"warning: no disable script: {why}");
         return new Outcome(Done, check, plan, result, []);
     }
 
