@@ -206,7 +206,9 @@ umgmod [--set NAME] tex-reset <package> <widget>
     scoreboard logo) `tex-sources` lists B8G8R8A8 textures of any path length, best first (same folder, same theme
     copies, same path length = renamed in place); pass one with `--source` (C16 cloned the logo from
     `ExtraLoginBonusInfo`). `tex-coverage [--folder SUBSTR]` plans a white copy for every image widget outside the
-    library (nothing saved) and prints what can't be replaced and why (2026-10-25: TVGraphics 213 of 213).
+    library (nothing saved) and prints what can't be replaced and why (2026-10-25: TVGraphics 213 of 213, the whole game
+    4305 of 4306); `--list` names the widgets that have no same-length source. A source must pass the copy step's
+    name check (a texture whose file key differs in letter case from its stored path can't be cloned).
   - `tex-preview` draws the screen (default: the widget's package; `--in` another, e.g. `MatchTime/MatchTimeGoal`)
     stock above and with the image below, cropped around the boxes that change. Software drawing: images only,
     texts as outlines, no tint. Nothing is saved.
