@@ -24,29 +24,38 @@ public static class SoftPathRepoint
         var log = new List<string>();
         var writes = new List<(int Offset, byte[] Bytes, string What)>();
         var expected = new Dictionary<(int Export, string Path), string>();
-        if (values is { Count: > 0 })
-        {
-            var package = source.ParsePackage(fileKey, stock);
-            var exports = package.ExportsLazy.Select(e => e.Value).ToList();
-            var changes = new List<FieldChange>();
-            foreach (var (exportName, path, value) in values)
-            {
-                var index = exports.FindIndex(e => e.Name == exportName);
-                if (index < 0 || exports.Count(e => e.Name == exportName) != 1) return new Result(null, [$"{packagePath} has {exports.Count(e => e.Name == exportName)} exports named {exportName}"], log);
-                changes.Add(new FieldChange(new FieldKey(packagePath, index, path), 0, value));
-                expected[(index, "Properties." + path)] = value.ToString("R", System.Globalization.CultureInfo.InvariantCulture);
-            }
-            // the parse writes a float as its shortest decimal ("0.33"); the stored value is the float that decimal stands for
-            double? Stock(FieldKey k) => WidgetTreeReader.StoredValues(exports[k.SlotExport]).TryGetValue(k.Path, out var t)
-                && double.TryParse(t, System.Globalization.NumberStyles.Float, System.Globalization.CultureInfo.InvariantCulture, out var v)
-                    ? t.IndexOfAny(['.', 'E', 'e']) >= 0 ? (float) v : v : null;
-            var plan = BytePlanner.Plan(stock, ZenPackageLayout.Read(stock, package), packagePath, EditSet.Empty.With(changes, Stock), Stock, i => exports[i].Name);
-            if (!plan.Ok) return new Result(null, plan.Refusals.Select(r => r.Message).ToList(), log);
-            if (plan.Insertions.Count > 0) return new Result(null, ["only stored values can be changed here"], log);
-            writes.AddRange(plan.Entries.Select(e => (e.Offset, e.NewBytes, $"{e.SlotName}.{e.Key.Path} {e.OldValue} → {e.NewValue} (context x{e.ContextMatches}, window ±{e.Window})")));
-        }
+        if (PlanValues(source, packagePath, fileKey, stock, values, writes, expected) is { } why) return new Result(null, [why], log);
         var r = NameRenamePatch.Apply(source, fileKey, stock, [(from, to)], writes, expected);
         log.AddRange(r.Log);
         return r.Ok ? new Result(new ModPackage(packagePath, fileKey, source.ChunkIdHex(fileKey), r.Chunk!), [], log) : new Result(null, r.Refusals, log);
+    }
+
+    /// <summary>
+    /// Plans stored values (export name, path, new value) on <paramref name="chunk"/> through BytePlanner (tag walk, stock
+    /// value, location proof): the writes and what the re-parse must show for them. Returns why not, or null.
+    /// </summary>
+    internal static string? PlanValues(GameSource source, string packagePath, string fileKey, byte[] chunk, IReadOnlyList<(string Export, string Path, double Value)>? values,
+        List<(int Offset, byte[] Bytes, string What)> writes, Dictionary<(int Export, string Path), string> expected)
+    {
+        if (values is not { Count: > 0 }) return null;
+        var package = source.ParsePackage(fileKey, chunk);
+        var exports = package.ExportsLazy.Select(e => e.Value).ToList();
+        var changes = new List<FieldChange>();
+        foreach (var (exportName, path, value) in values)
+        {
+            var index = exports.FindIndex(e => e.Name == exportName);
+            if (index < 0 || exports.Count(e => e.Name == exportName) != 1) return $"{packagePath} has {exports.Count(e => e.Name == exportName)} exports named {exportName}";
+            changes.Add(new FieldChange(new FieldKey(packagePath, index, path), 0, value));
+            expected[(index, "Properties." + path)] = value.ToString("R", System.Globalization.CultureInfo.InvariantCulture);
+        }
+        // the parse writes a float as its shortest decimal ("0.33"); the stored value is the float that decimal stands for
+        double? Stock(FieldKey k) => WidgetTreeReader.StoredValues(exports[k.SlotExport]).TryGetValue(k.Path, out var t)
+            && double.TryParse(t, System.Globalization.NumberStyles.Float, System.Globalization.CultureInfo.InvariantCulture, out var v)
+                ? t.IndexOfAny(['.', 'E', 'e']) >= 0 ? (float) v : v : null;
+        var plan = BytePlanner.Plan(chunk, ZenPackageLayout.Read(chunk, package), packagePath, EditSet.Empty.With(changes, Stock), Stock, i => exports[i].Name);
+        if (!plan.Ok) return string.Join("; ", plan.Refusals.Select(r => r.Message));
+        if (plan.Insertions.Count > 0) return "only stored values can be changed here";
+        writes.AddRange(plan.Entries.Select(e => (e.Offset, e.NewBytes, $"{e.SlotName}.{e.Key.Path} {e.OldValue} → {e.NewValue} (context x{e.ContextMatches}, window ±{e.Window})")));
+        return null;
     }
 }

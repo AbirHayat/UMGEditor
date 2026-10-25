@@ -186,15 +186,150 @@ public class TextureEditTests
         Console.WriteLine(name);
     }
 
+    private static TextureFormats Formats => _formats ??= TextureFormats.LoadOrBuild(Source, UiIndex);
+    private static TextureFormats? _formats;
+
     [TestMethod]
-    public void Sources_ForTheEtc2Logo_IncludeC16sAndFitThePathLength()
+    public void Sources_ForTheEtc2Logo_IncludeC16s_AnyPathLength_SameLengthFirstAfterTheme()
     {
         var logo = Usage.Of(MT + "MatchTime", "Img_Logo")!;
         StringAssert.Contains(TextureEdits.SourceRefusal(Source, logo.Texture), "only PF_B8G8R8A8");
-        var sources = TextureEdits.Sources(Source, UiIndex, logo);
+        var sources = TextureEdits.Sources(Source, Formats, logo);
         Console.WriteLine($"{sources.Count} sources: {string.Join(", ", sources.Take(10).Select(GamePaths.ShortName))}");
         CollectionAssert.Contains(sources.ToList(), Logo + "ExtraLoginBonusInfo");
-        Assert.IsTrue(sources.All(s => TextureEdits.NewNameMapPath(s, GamePaths.ShortName(s)).Length == logo.NameMapPath.Length));
+        Assert.IsTrue(sources.Any(s => TextureEdits.NewNameMapPath(s, GamePaths.ShortName(s)).Length != logo.NameMapPath.Length), "paths of any length");
+        Assert.IsTrue(sources.All(s => Formats.Of(s)!.Cloneable && !s.Contains("/0164F/")));
+        Assert.AreEqual(sources.Count, sources.Distinct().Count());
+    }
+
+    // ---- appended + pointed paths (a widget alone, or a path of another length) ----
+
+    private const string Special = Tv + "MatchMemberChangeSpecial/";
+
+    /// <summary>The texture each export of a package names (parsed).</summary>
+    private static Dictionary<string, string> TexturesIn(ModPackage p) => TexturesIn(p.FileKey, p.Chunk);
+
+    private static Dictionary<string, string> TexturesIn(string fileKey, byte[] chunk) =>
+        Source.ParsePackage(fileKey, chunk).ExportsLazy.Select(e => e.Value)
+            .Select(e => (e.Name, Value: WidgetTreeReader.StoredValues(e).GetValueOrDefault("texture")))
+            .Where(x => x.Value != null).ToDictionary(x => x.Name, x => x.Value!);
+
+    [TestMethod]
+    public void PlateBlue_Etc2LongPath_ThisWidgetOnly_IsPointed_TheSkillPlatesKeepTheStockPath()
+    {
+        var blue = Usage.Of(Special + "MatchMemberChangeSpecial", "Img_PlateBlue")!;
+        Assert.AreEqual(Special + "Tex720/MatchMemberChangeSpecialPlate_1", blue.Texture);
+        var source = TextureEdits.Sources(Source, Formats, blue).First();
+        Console.WriteLine($"source {source}");
+        var red = ImportSolid(16, 16, 255, 0, 0);
+        var name = TextureEdits.SuggestName(Source, source, []);
+        var edit = Image(Special + "MatchMemberChangeSpecial", "Img_PlateBlue", blue.Texture, name, red, source: source);
+        var plan = TextureEdits.Plan(Source, Usage, _folder, [edit]);
+        foreach (var l in plan.Log) Console.WriteLine(l);
+        Assert.IsTrue(plan.Ok, string.Join("\n", plan.Refusals));
+        var info = plan.Items.Single();
+        CollectionAssert.AreEqual(new[] { Special + "MatchMemberChangeSpecial" }, info.Pointed.ToList());
+        Assert.AreEqual(0, info.Following.Count);
+        Assert.IsTrue(info.Warnings.Any(w => w.Contains("Img_PlateSkill1") && w.Contains("keeps the stock image")), string.Join("\n", info.Warnings));
+
+        var (fileKey, stockBytes) = Source.ReadPackageBytes(Special + "MatchMemberChangeSpecial");
+        var stock = TexturesIn(fileKey, stockBytes);
+        var after = TexturesIn(plan.Packages.Single());
+        var changed = stock.Keys.Where(k => stock[k] != after[k]).ToList();
+        CollectionAssert.AreEqual(new[] { "Img_PlateBlue" }, changed, "only the picked widget names another texture");
+        Assert.AreEqual(TextureEdits.NewObjectPath(source, name), after["Img_PlateBlue"]);
+        foreach (var skill in new[] { "Img_PlateSkill1", "Img_PlateSkill2", "Img_PlateSkill3" })
+            Assert.AreEqual(blue.ObjectPath, after[skill], $"{skill} keeps {blue.ObjectPath}");
+        Assert.IsTrue(plan.Packages.Single().Chunk.Length > Source.ReadPackageBytes(Special + "MatchMemberChangeSpecial").Bytes.Length, "the name map grew");
+        Assert.AreEqual(ZenNameMap.Read(Source.ReadPackageBytes(Special + "MatchMemberChangeSpecial").Bytes).Count + 1, ZenNameMap.Read(plan.Packages.Single().Chunk).Count);
+        Assert.AreEqual(TextureEdits.ThemeCopies(Source, source).Count, plan.Clones.Count, "a clone in each theme folder of the source");
+
+        // scope This package: all four plates change (still pointed: the path has another length)
+        var package = TextureEdits.Plan(Source, Usage, _folder, [edit with { Scope = TextureEditScope.Package }]);
+        Assert.IsTrue(package.Ok, string.Join("\n", package.Refusals));
+        var all = TexturesIn(package.Packages.Single());
+        foreach (var w in new[] { "Img_PlateBlue", "Img_PlateSkill1", "Img_PlateSkill2", "Img_PlateSkill3" })
+            Assert.AreEqual(TextureEdits.NewObjectPath(source, name), all[w], w);
+        Assert.AreEqual(3, package.Items.Single().Following.Count);
+
+        // two widgets of one package, each its own image: both pointed, one layer each
+        var green = ImportSolid(16, 16, 0, 255, 0);
+        var name2 = TextureEdits.SuggestName(Source, source, [name]);
+        var two = TextureEdits.Plan(Source, Usage, _folder, [edit, Image(Special + "MatchMemberChangeSpecial", "Img_PlateSkill1", blue.Texture, name2, green, source: source)]);
+        Assert.IsTrue(two.Ok, string.Join("\n", two.Refusals));
+        var both = TexturesIn(two.Packages.Single());
+        Assert.AreEqual(TextureEdits.NewObjectPath(source, name), both["Img_PlateBlue"]);
+        Assert.AreEqual(TextureEdits.NewObjectPath(source, name2), both["Img_PlateSkill1"]);
+        Assert.AreEqual(blue.ObjectPath, both["Img_PlateSkill2"]);
+        StringAssert.Contains(string.Join("\n", two.Log), "union of 2 layer(s)");
+    }
+
+    [TestMethod]
+    public void SoftPathPoint_Refuses_AWrongStockPath_AndAPathAlreadyNamed()
+    {
+        var blue = Usage.Of(Special + "MatchMemberChangeSpecial", "Img_PlateBlue")!;
+        var to = TextureEdits.NewObjectPath(Logo + "ExtraLoginBonusInfo", "ExtraLoginBonusU9fo");
+        var wrong = SoftPathPoint.Build(Source, Special + "MatchMemberChangeSpecial", Special + "Tex720/MatchMemberChangeSpecialPlate_2.MatchMemberChangeSpecialPlate_2", to, ["Img_PlateBlue"]);
+        Assert.IsNull(wrong.Package);
+        StringAssert.Contains(string.Join("\n", wrong.Refusals), "not " + Special + "Tex720/MatchMemberChangeSpecialPlate_2");
+        var same = SoftPathPoint.Build(Source, Special + "MatchMemberChangeSpecial", blue.ObjectPath, blue.ObjectPath, ["Img_PlateBlue"]);
+        StringAssert.Contains(string.Join("\n", same.Refusals), "already named");
+        var notImage = SoftPathPoint.Build(Source, Special + "MatchMemberChangeSpecial", blue.ObjectPath, to, ["Main"]);
+        Assert.IsNull(notImage.Package);
+        Console.WriteLine(string.Join("\n", notImage.Refusals));
+        var ok = SoftPathPoint.Build(Source, Special + "MatchMemberChangeSpecial", blue.ObjectPath, to, ["Img_PlateBlue"]);
+        Assert.IsNotNull(ok.Package, string.Join("\n", ok.Refusals));
+        foreach (var l in ok.Log) Console.WriteLine(l);
+        Assert.AreEqual(("/Game/a/X.X", 0), SoftPathPoint.Split("/Game/a/X.X"));
+        Assert.AreEqual(("/Game/a/X_1.X", 2), SoftPathPoint.Split("/Game/a/X_1.X_1"));
+    }
+
+    [TestMethod]
+    public void Store_Version1Widget_LoadsAsPackage_SavesVersion2()
+    {
+        Directory.CreateDirectory(_folder);
+        var v1 = """
+        { "Version": 1, "Edits": [
+          { "Package": "/Game/P", "Widget": "W", "Texture": "/Game/T", "Mode": "White", "NewName": "N", "Scope": "Widget" },
+          { "Package": "/Game/P", "Widget": "V", "Texture": "/Game/T", "Mode": "White", "NewName": "M", "Scope": "AllUsers" } ] }
+        """;
+        Guard.WriteAllText(Path.Combine(_folder, TextureEditStore.FileName), v1);
+        var loaded = TextureEditStore.Load(_folder);
+        Assert.AreEqual(TextureEditScope.Package, loaded[0].Scope, "version 1's Widget re-pointed the whole package");
+        Assert.AreEqual(TextureEditScope.AllUsers, loaded[1].Scope);
+        TextureEditStore.Save(Guard, _folder, loaded);
+        StringAssert.Contains(File.ReadAllText(Path.Combine(_folder, TextureEditStore.FileName)), "\"Version\": 2");
+        CollectionAssert.AreEqual(loaded.ToList(), TextureEditStore.Load(_folder).ToList());
+    }
+
+    /// <summary>
+    /// The user's C16b_test (built from project C16b on 2026-10-24 and working in game): its textures.json is version 1,
+    /// so its "Widget" edits load as Package, and planning it again gives the same chunks as its build.json.
+    /// </summary>
+    [TestMethod]
+    public void C16bTest_Version1Project_PlansTheChunksOfItsBuild()
+    {
+        var folder = Path.Combine(Guard.Root, "C16b");
+        var build = Path.Combine(Source.Config.WorkDir, "out", "mods", "C16b_test", "build.json");
+        if (!File.Exists(Path.Combine(folder, TextureEditStore.FileName)) || !File.Exists(build)) Assert.Inconclusive("project C16b or its C16b_test build is missing");
+        string Hashes() => string.Join("\n", Directory.EnumerateFiles(folder, "*", SearchOption.AllDirectories).Order().Select(f => f + " " + Sha(File.ReadAllBytes(f))));
+        var before = Hashes();
+        var c = Controller("C16b");
+        var plan = c.PlanTextures();
+        Assert.IsTrue(plan.Ok, string.Join("\n", plan.Refusals));
+        Assert.AreEqual(0, plan.Items.Sum(i => i.Pointed.Count), "a version 1 project keeps renaming in place");
+        var shipped = System.Text.Json.JsonDocument.Parse(File.ReadAllText(build)).RootElement.GetProperty("Packages").EnumerateArray()
+            .ToDictionary(p => p.GetProperty("PackagePath").GetString()!, p => p.GetProperty("ChunkSha256").GetString()!, StringComparer.OrdinalIgnoreCase);
+        int compared = 0;
+        foreach (var p in plan.All)
+        {
+            Assert.IsTrue(shipped.TryGetValue(p.PackagePath, out var sha), $"{p.PackagePath} isn't in C16b_test");
+            Assert.AreEqual(sha, Sha(p.Chunk), $"{p.PackagePath} differs from C16b_test's chunk");
+            compared++;
+        }
+        Console.WriteLine($"{compared} chunks identical to C16b_test ({plan.Clones.Count} clones)");
+        Assert.AreEqual(52, plan.Clones.Count);
+        Assert.AreEqual(before, Hashes(), "planning doesn't write into the project");
     }
 
     [TestMethod]
@@ -214,8 +349,10 @@ public class TextureEditTests
         StringAssert.Contains(Refused(bar with { NewName = "MatchTimePlaU12_0" }), "must be as long as");
         StringAssert.Contains(Refused(bar with { NewName = "MatchTimePlate_1" }), "already exists");
         StringAssert.Contains(Refused(Image(MT + "MatchTime", "Img_Logo", MT + "Tex720/MatchTimeLogo", "MatchTimeLoU1", red)), "only PF_B8G8R8A8");
-        StringAssert.Contains(Refused(Image(MT + "MatchTime", "Img_Logo", MT + "Tex720/MatchTimeLogo", "MatchTimePlaU1_0", red, source: MT + "Tex720/MatchTimePlate_0")), "must keep its length");
         StringAssert.Contains(Refused(bar, bar with { Widget = "Img_Line" }), "already re-pointed");
+        var blue = Usage.Of(Special + "MatchMemberChangeSpecial", "Img_PlateBlue")!;
+        var plate = Image(Special + "MatchMemberChangeSpecial", "Img_PlateBlue", blue.Texture, "MatchTimePlaU1_0", red, source: MT + "Tex720/MatchTimePlate_0");
+        StringAssert.Contains(Refused(plate, plate with { Widget = "Img_PlateSkill1", Scope = TextureEditScope.Package }), "already re-pointed");
         var green = ImportSolid(8, 8, 0, 255, 0);
         StringAssert.Contains(Refused(bar, Image(MT + "MatchTimeBase", "Img_Plate", MT + "Tex720/MatchTimePlate_0", "MatchTimePlaU1_0", green)), "with other pixels");
         StringAssert.Contains(Refused(bar with { ImageSha256 = new string('0', 64) }), "changed since it was imported");

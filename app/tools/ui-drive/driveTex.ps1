@@ -1,8 +1,11 @@
 ﻿# Step 3 UI run (textures): click the scoreboard logo -> its texture, size, theme copies and every widget that draws it;
 # import a PNG -> a trial in the Preview tab (banner, magenta outline, Stock toggle), checked in the background; a name that
 # doesn't fit is refused; inject (first-edit prompt) -> project edit, Bytes tab row, undo/redo/save (textures.json); the
-# export dialog lists it; "Open" on the online board's row opens it with its logo selected. Creates project $Project
-# (work\edits\zztex; delete it afterwards). Stops at the first failed check.
+# export dialog lists it; "Open" on the online board's row opens it with its logo selected. Then the case of
+# ss\c16b_test.mp4: MatchMemberChangeSpecial's Img_PlateBlue (ETC2, a 154-character path no source fits, shared with
+# three Skill plates): a bad PNG is refused visibly, the source picker and the scope buttons show before Import, the
+# trial points only that widget (This package: all four), inject -> "this widget only", Bytes row "appended". Creates
+# project $Project (work\edits\zztex; delete it afterwards). Stops at the first failed check.
 # usage: powershell -NoProfile -ExecutionPolicy Bypass -File driveTex.ps1 -Exe <UmgEditor.App.exe> -Out <folder for PNGs>
 param([string]$Exe, [string]$Out, [string]$Project = 'zztex')
 $ErrorActionPreference = 'Stop'
@@ -163,6 +166,19 @@ function WaitText($id, $like, $timeout = 60) {
     while ($sw.Elapsed.TotalSeconds -lt $timeout) { $t = Text $id; if ($t -like $like) { return $t }; Start-Sleep -Milliseconds 500 }
     throw "$id not '$like': $(Text $id)"
 }
+# pick an item of a (virtualized) combo box by its name
+function PickCombo($combo, $name) {
+    Expand $combo; Start-Sleep -Milliseconds 800
+    $ic = $combo.GetCurrentPattern([System.Windows.Automation.ItemContainerPattern]::Pattern)
+    $item = $ic.FindItemByProperty($null, $AE::NameProperty, $name)
+    if (-not $item) { throw "combo item not found: $name" }
+    try { $item.GetCurrentPattern([System.Windows.Automation.VirtualizedItemPattern]::Pattern).Realize() } catch {}
+    Start-Sleep -Milliseconds 500
+    Select-Item $item; Start-Sleep -Milliseconds 800
+    try { $combo.GetCurrentPattern([System.Windows.Automation.ExpandCollapsePattern]::Pattern).Collapse() } catch {}
+    Start-Sleep -Seconds 1
+}
+function IsChecked($e) { $e.GetCurrentPattern([System.Windows.Automation.SelectionItemPattern]::Pattern).Current.IsSelected }
 function OpenExport {
     [LaterInvoke]::Invoke((ById $win 'ExportButton'))
     $sw = [Diagnostics.Stopwatch]::StartNew()
@@ -213,6 +229,10 @@ try {
     Check 'the online board is listed with an Open button' (Present 'OpenUser_MatchTimeConnection_Img_Logo')
     Check 'no Open button for the widget itself' (-not (ById $win 'OpenUser_MatchTime_Img_Logo').Current.IsEnabled)
     Shot '1_texture_section'
+    # ETC2: the source picker and the scope buttons show before Import; pick C16's source for the logo
+    Check 'source picker shown before Import' ((ById $win 'TrialSourcePicker').Current.IsOffscreen -eq $false)
+    Check 'scope This widget by default' (IsChecked (ById $win 'TrialScopeWidget'))
+    PickCombo (ById $win 'TrialSourcePicker') '/Game/Assets/ui/Data/Widget/General/Modals/ExtraLoginBonus/Tex720/ExtraLoginBonusInfo'
 
     # 2) import a PNG: a trial in the Preview tab, checked in the background, nothing in the project yet
     [LaterInvoke]::Invoke((ById $win 'ImportTextureButton'))
@@ -291,6 +311,61 @@ try {
     Check 'opened MatchTimeConnection with its logo selected' ((Title) -notlike '*`*' -and (Present 'OpenUser_MatchTime_Img_Logo') -and (ById $win 'OpenUser_MatchTime_Img_Logo').Current.IsEnabled)
     Check 'its own row has no edit' (-not (Text 'TextureEditText'))
     Shot '5_open_user'
+
+    # 8) the c16b_test case: MatchMemberChangeSpecial's Img_PlateBlue
+    $bad = Join-Path $Out 'not_a_png.png'
+    [IO.File]::WriteAllBytes($bad, [byte[]](1..64))
+    Select-Package 'MatchMemberChangeSpecial' '/MatchMemberChangeSpecial.uasset'
+    Select-Tree @('ScaleBox', 'Main', 'Window', 'Parts_MemberChange', 'Img_PlateBlue') | Out-Null
+    WaitText 'TextureNameText' 'MatchMemberChangeSpecialPlate_1' | Out-Null
+    Check 'used by 4 widgets' ((Text 'TextureUsersHeader') -eq 'Used by 4 widgets')
+    Check 'source picker shown before Import' ((ById $win 'TrialSourcePicker').Current.IsOffscreen -eq $false)
+    Check 'This widget ticked' (IsChecked (ById $win 'TrialScopeWidget'))
+    Shot '6_plateblue_section'
+    # a file that isn't a PNG: refused where it can be seen (no trial panel yet) and on the status line
+    [LaterInvoke]::Invoke((ById $win 'ImportTextureButton'))
+    PickFile 'Image for Img_PlateBlue (replaces MatchMemberChangeSpecialPlate_1)' $bad
+    $msg = WaitText 'TextureMessageText' 'Not imported:*' 20
+    "refusal: $msg / status: $(ActionStatus)"
+    Check 'the status line says the import was refused' ((ActionStatus) -like '*import refused*')
+    Shot '7_plateblue_refused'
+    # the real image: a trial that points only this widget
+    $png2 = Join-Path $Out 'trial_plate.png'
+    $bmp = New-Object System.Drawing.Bitmap(32, 32, [System.Drawing.Imaging.PixelFormat]::Format32bppArgb)
+    $g = [System.Drawing.Graphics]::FromImage($bmp); $g.Clear([System.Drawing.Color]::FromArgb(255, 230, 40, 120)); $g.Dispose()
+    $bmp.Save($png2, [System.Drawing.Imaging.ImageFormat]::Png); $bmp.Dispose()
+    [LaterInvoke]::Invoke((ById $win 'ImportTextureButton'))
+    PickFile 'Image for Img_PlateBlue (replaces MatchMemberChangeSpecialPlate_1)' $png2
+    $check = WaitText 'TrialCheckText' 'OK:*' 90
+    "plate trial check: $check"
+    Check 'the refusal message is gone' (-not (Text 'TextureMessageText'))
+    Check 'only MatchMemberChangeSpecial is re-pointed' ($check -like '*Re-pointed: MatchMemberChangeSpecial.*')
+    Check 'the Skill plates keep the stock image' ($check -like '*Img_PlateSkill1 names the same texture in the same package and keeps the stock image*')
+    Check 'pointed route named' ($check -like '*appended to the name map*')
+    Shot '8_plateblue_trial'
+    # This package: all four change
+    Select-Item (ById $win 'TrialScopePackage'); Start-Sleep -Seconds 2
+    $check = WaitText 'TrialCheckText' 'OK:*' 90
+    Check 'This package: the Skill plates change too' ($check -like '*Img_PlateSkill1 names the same texture in the same package: it changes too*')
+    Select-Item (ById $win 'TrialScopeWidget'); Start-Sleep -Seconds 2
+    $check = WaitText 'TrialCheckText' 'OK:*' 90
+    Check 'back to This widget' ($check -like '*keeps the stock image*')
+    # inject (the first edit of the package asks), the edit says this widget only, the Bytes row says appended
+    [LaterInvoke]::Invoke((ById $win 'InjectTextureButton'))
+    $d = Dialog 'First edit of MatchMemberChangeSpecial'
+    "first-edit prompt: $(DialogText $d)"
+    Answer $d 'OK'
+    $edit = WaitText 'TextureEditText' 'Replaced in this project*' 30
+    "edit: $edit"
+    Check 'the edit is for this widget only' ($edit -like '*this widget only*')
+    Tab (ById $win 'BytesTab')
+    $sw.Restart(); while (-not ((ById $win 'BytesTab').Current.Name -like '*2 texture*') -and $sw.Elapsed.TotalSeconds -lt 60) { Start-Sleep -Milliseconds 500 }
+    $rows = @((ById $win 'TextureBytesList').FindAll($TS::Descendants, (Cond $AE::ControlTypeProperty $CT::Edit)) | Where-Object { (Value $_) -like '*appended*Img_PlateBlue pointed at it*' })
+    Check 'bytes row: path appended and Img_PlateBlue pointed' ($rows.Count -ge 1)
+    Shot '9_plateblue_bytes'
+    Invoke (ById $win 'SaveButton'); Start-Sleep -Seconds 3
+    Check 'saved: title clean' (-not ((Title) -like '*`*'))
+    Check 'textures.json says Widget scope' ((Get-Content $json -Raw) -like '*"Widget": "Img_PlateBlue"*"Scope": "Widget"*')
     "ALL CHECKS PASSED"
 }
 finally {

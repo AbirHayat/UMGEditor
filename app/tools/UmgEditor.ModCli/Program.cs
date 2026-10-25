@@ -12,10 +12,11 @@
 //   umgmod [--set NAME] anim-end <package> <anim> <oldEndTicks> <newEndTicks> [--yes]
 //   umgmod tex-info <package> <widget>          what a uiImage shows, every widget naming that texture, where it's shown
 //   umgmod tex-users <texture>                  every widget naming a texture (path or unique suffix)
-//   umgmod tex-sources <package> <widget>       B8G8R8A8 textures a clone can come from (fitting path length)
-//   umgmod tex-preview <package> <widget> <image.png> <out.png> [--in SCREEN] [--margins0] [--all-users]
-//   umgmod [--set NAME] tex <package> <widget> <image.png> [--name NEW] [--source TEXTURE] [--margins0] [--all-users] [--yes]
-//   umgmod [--set NAME] tex-white <package> <widget> [--name NEW] [--all-users] [--yes]
+//   umgmod tex-sources <package> <widget>       B8G8R8A8 textures a clone can come from (best first)
+//   umgmod tex-coverage [--folder SUBSTR]       plans a white copy for every uiImage (read-only): what can't be replaced and why
+//   umgmod tex-preview <package> <widget> <image.png> <out.png> [--in SCREEN] [--margins0] [--scope widget|package|all]
+//   umgmod [--set NAME] tex <package> <widget> <image.png> [--name NEW] [--source TEXTURE] [--margins0] [--scope widget|package|all] [--yes]
+//   umgmod [--set NAME] tex-white <package> <widget> [--name NEW] [--scope widget|package|all] [--yes]
 //   umgmod [--set NAME] tex-show
 //   umgmod [--set NAME] tex-reset <package> <widget>
 // <package> is a /Game/... path or a unique suffix such as MatchTime/MatchTimeBase. Edits are saved PatchSessions in
@@ -59,8 +60,18 @@ var newName = Option("--name");
 var cloneSource = Option("--source");
 var screenArg = Option("--in");
 var marginsZero = Flag("--margins0");
-var allUsers = Flag("--all-users");
-if (argv.Count == 0 || argv.Count < 2 && argv[0] != "tex-show") return Usage();
+var allUsers = Flag("--all-users"); // = --scope all
+var scopeArg = Option("--scope");
+var folderFilter = Option("--folder");
+TextureEditScope scope;
+switch (allUsers ? "all" : scopeArg?.ToLowerInvariant() ?? "widget")
+{
+    case "widget": scope = TextureEditScope.Widget; break;
+    case "package": scope = TextureEditScope.Package; break;
+    case "all": scope = TextureEditScope.AllUsers; break;
+    default: Console.Error.WriteLine($"--scope {scopeArg}: use widget, package or all"); return 1;
+}
+if (argv.Count == 0 || argv.Count < 2 && argv[0] is not ("tex-show" or "tex-coverage")) return Usage();
 
 var config = GameConfig.LoadOrDefault(Path.Combine(AppContext.BaseDirectory, "umgeditor.json"));
 using var source = GameSource.Open(config);
@@ -150,6 +161,8 @@ void PrintTexturePlan(TexturePlan plan)
         Console.WriteLine($"{GamePaths.ShortName(e.Package)}/{e.Widget}: {GamePaths.ShortName(e.Texture)} {i.StockWidth}x{i.StockHeight} -> {e.NewName} {i.Width}x{i.Height}" +
                           $"{(e.Mode == TextureEditMode.White ? " (white)" : "")}{(e.MarginsZero ? ", margins 0" : "")}{(e.Source != null ? $", cloned from {GamePaths.ShortName(e.Source)}" : "")}");
         Console.WriteLine($"  path {i.From}\n    -> {i.To}");
+        Console.WriteLine($"  scope {e.Scope}; {(i.Pointed.Count == 0 ? "path renamed in place" : $"path appended + pointed in {string.Join(", ", i.Pointed.Select(GamePaths.ShortName))}")}" +
+                          (i.Following.Count > 0 ? $"; changes with it: {string.Join(", ", i.Following.Select(f => f.Export))}" : ""));
         Console.WriteLine($"  new packages: {string.Join(", ", i.ClonePaths)}");
         Console.WriteLine($"  re-pointed: {string.Join(", ", i.Storing.Select(GamePaths.ShortName))}");
         foreach (var w in i.Warnings) Console.WriteLine($"  [Info] {w}");
@@ -163,8 +176,7 @@ int TextureEdit(TextureEditMode mode, string packageArg, string widget, string? 
 {
     var c = Controller();
     var package = ResolvePackage(packageArg);
-    var (edit, image, why) = c.PrepareTextureEdit(package, widget, mode, png, newName, cloneSource is { } src ? ResolveTexture(src) : null, marginsZero,
-        allUsers ? TextureEditScope.AllUsers : TextureEditScope.Widget);
+    var (edit, image, why) = c.PrepareTextureEdit(package, widget, mode, png, newName, cloneSource is { } src ? ResolveTexture(src) : null, marginsZero, scope);
     if (edit == null) { Console.Error.WriteLine($"refused: {why}"); return 2; }
     if (newName == null) Console.WriteLine($"name: {edit.NewName} (suggested; --name to pick another of the same length)");
     if (image != null) Console.WriteLine($"image: {png} ({image.Format}, {image.Width}x{image.Height}) -> {edit.Image}");
@@ -401,12 +413,13 @@ try
             var c = Controller();
             var package = ResolvePackage(argv[1]);
             if (c.TextureOf(package, argv[2]) is not { } current) { Console.Error.WriteLine($"refused: {argv[2]} isn't a uiImage with a stored texture"); return 2; }
-            var sources = TextureEdits.Sources(source, index, current);
-            Console.WriteLine($"{sources.Count} B8G8R8A8 texture(s) whose clone path is {current.NameMapPath.Length} characters like {GamePaths.ShortName(current.Texture)}'s (same folder first):");
+            var sources = TextureEdits.Sources(source, c.TextureFormats, current);
+            Console.WriteLine($"{sources.Count} B8G8R8A8 texture(s) a clone of {GamePaths.ShortName(current.Texture)} can come from (best first: same folder, same theme copies, a path of the same length):");
             foreach (var s in sources.Take(40))
             {
-                var t = TextureEdits.LoadTexture(source, s)!;
-                Console.WriteLine($"  {s}  ({t.PlatformData.SizeX}x{t.PlatformData.SizeY}, {t.PlatformData.Mips.Length} mip(s); a clone's name is {GamePaths.ShortName(s).Length} characters)");
+                var f = c.TextureFormats.Of(s)!;
+                var same = TextureEdits.NewNameMapPath(s, GamePaths.ShortName(s)).Length == current.NameMapPath.Length;
+                Console.WriteLine($"  {s}  ({f.Width}x{f.Height}, {f.Mips} mip(s); a clone's name is {GamePaths.ShortName(s).Length} characters{(same ? "; same path length" : "")})");
             }
             return 0;
         }
@@ -418,12 +431,67 @@ try
             var (image, why) = PngReader.Read(argv[3]);
             if (image == null) { Console.Error.WriteLine($"refused: {why}"); return 2; }
             var screen = WidgetTreeReader.Build(source, screenArg != null ? ResolvePackage(screenArg) : package);
-            var repointed = allUsers ? c.TextureUsers(current.Texture).Where(r => r.NameMapPath == current.NameMapPath).Select(r => r.Package).Distinct().ToList() : [package];
-            var result = TexturePreview.Render(source, p => WidgetTreeReader.Build(source, p, readOnly: true), screen, current.Texture, repointed, image, marginsZero, W, H);
+            var repointed = scope == TextureEditScope.AllUsers ? c.TextureUsers(current.Texture).Where(r => r.NameMapPath == current.NameMapPath).Select(r => r.Package).Distinct().ToList() : [package];
+            var result = TexturePreview.Render(source, p => WidgetTreeReader.Build(source, p, readOnly: true), screen, current.Texture, repointed, image, marginsZero, W, H,
+                scope == TextureEditScope.Widget ? argv[2] : null);
             PngWriter.Write(argv[4], result.Image);
             Console.WriteLine($"{argv[4]}: {GamePaths.ShortName(screen.PackagePath)} at {W}x{H}, {result.Boxes} box(es) with {GamePaths.ShortName(current.Texture)}; stock above, the image below" +
                               (result.ShowsHidden ? " (hidden at rest: drawn with every hidden widget)" : "") + (result.Boxes == 0 ? $" (the texture isn't on {GamePaths.ShortName(screen.PackagePath)}; try --in)" : ""));
             return 0;
+        }
+        case "tex-coverage":
+        {
+            // every uiImage outside the library: plan a white copy (of the widget's own texture, or of the best source for
+            // one that can't be cloned) with nothing saved, and count what is refused and why
+            var c = Controller();
+            var refs = c.TextureUsage.Refs.Where(r => r.IsImageTexture && !GamePaths.IsLibrary(r.Package)
+                && (folderFilter == null || r.Package.Contains(folderFilter, StringComparison.OrdinalIgnoreCase))).ToList();
+            Console.WriteLine($"{refs.Count} uiImage widget(s){(folderFilter != null ? $" in packages containing \"{folderFilter}\"" : "")}");
+            var reasons = new Dictionary<string, List<string>>();
+            int ok = 0, renamed = 0, pointed = 0, done = 0, needSource = 0, noSameLength = 0;
+            foreach (var r in refs)
+            {
+                string? why = null;
+                try
+                {
+                    var bad = TextureEdits.SourceRefusal(source, r.Texture);
+                    var all = bad == null ? [] : TextureEdits.Sources(source, c.TextureFormats, r);
+                    var src = all.FirstOrDefault();
+                    if (bad != null)
+                    {
+                        needSource++;
+                        // the same-length rule (before appending + pointing) needed a source whose clone path is as long
+                        if (!all.Any(x => TextureEdits.NewNameMapPath(x, GamePaths.ShortName(x)).Length == r.NameMapPath.Length)) noSameLength++;
+                    }
+                    if (bad != null && src == null) why = bad + ", and no source";
+                    else
+                    {
+                        var edit = new UmgEditor.Core.Modding.TextureEdit(r.Package, r.Export, r.Texture, TextureEditMode.White,
+                            TextureEdits.SuggestName(source, src ?? r.Texture, []), TextureEditScope.Widget, Source: src);
+                        var plan = TextureEdits.Plan(source, c.TextureUsage, c.ProjectFolder, [edit]);
+                        if (!plan.Ok) why = plan.Refusals[0];
+                        else if (plan.Items[0].Pointed.Count > 0) pointed++;
+                        else renamed++;
+                    }
+                }
+                catch (Exception e) { why = $"{e.GetType().Name}: {e.Message}"; }
+                if (why == null) ok++;
+                else
+                {
+                    var key = System.Text.RegularExpressions.Regex.Replace(why, @"^texture edit \d+ \([^)]*\): ", "");
+                    key = System.Text.RegularExpressions.Regex.Replace(key, @"/Game/[^\s,;:]+|""[^""]*""|\d+", "…");
+                    (reasons.TryGetValue(key, out var l) ? l : reasons[key] = []).Add($"{GamePaths.ShortName(r.Package)}/{r.Export}: {why}");
+                }
+                if (++done % 50 == 0) Console.Error.WriteLine($"  {done}/{refs.Count}");
+            }
+            Console.WriteLine($"replaceable: {ok} of {refs.Count} ({renamed} by renaming the path in place, {pointed} by appending + pointing)");
+            Console.WriteLine($"{needSource} can't be cloned themselves (ETC2 or an ETC2 theme copy) and take a source; {noSameLength} of them have no source of the same path length (impossible with renames alone)");
+            foreach (var (key, list) in reasons.OrderByDescending(kv => kv.Value.Count))
+            {
+                Console.WriteLine($"refused {list.Count}x: {key}");
+                foreach (var line in list.Take(5)) Console.WriteLine($"    {line}");
+            }
+            return reasons.Count == 0 ? 0 : 2;
         }
         case "tex" when argv.Count >= 4:
             return TextureEdit(TextureEditMode.Image, argv[1], argv[2], argv[3]);
@@ -496,9 +564,10 @@ static int Usage()
           umgmod tex-info <package> <widget>
           umgmod tex-users <texture>
           umgmod tex-sources <package> <widget>
-          umgmod tex-preview <package> <widget> <image.png> <out.png> [--in SCREEN] [--margins0] [--all-users]
-          umgmod [--set NAME] tex <package> <widget> <image.png> [--name NEW] [--source TEXTURE] [--margins0] [--all-users] [--yes]
-          umgmod [--set NAME] tex-white <package> <widget> [--name NEW] [--all-users] [--yes]
+          umgmod tex-coverage [--folder SUBSTR]
+          umgmod tex-preview <package> <widget> <image.png> <out.png> [--in SCREEN] [--margins0] [--scope widget|package|all]
+          umgmod [--set NAME] tex <package> <widget> <image.png> [--name NEW] [--source TEXTURE] [--margins0] [--scope widget|package|all] [--yes]
+          umgmod [--set NAME] tex-white <package> <widget> [--name NEW] [--scope widget|package|all] [--yes]
           umgmod [--set NAME] tex-show
           umgmod [--set NAME] tex-reset <package> <widget>
         <package>: /Game/... path or a unique suffix (MatchTime/MatchTimeBase); <field>: e.g. Offsets.Right

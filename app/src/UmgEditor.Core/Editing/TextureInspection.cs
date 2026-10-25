@@ -15,8 +15,8 @@ public sealed class TextureUserRow
     /// <summary>"uiImage_C.texture"</summary>
     public required string What { get; init; }
     public bool IsThis { get; init; }
-    /// <summary>Same package and same name-map path as the inspected widget: a re-point of it changes this one too.</summary>
-    public bool Follows { get; init; }
+    /// <summary>Same package and same path as the inspected widget: scope This package changes it too, This widget doesn't.</summary>
+    public bool SamePackage { get; init; }
     public bool IsOnline { get; init; }
     /// <summary>"shown in 8: MatchTime, MatchTimeCard, …" or "".</summary>
     public string ShownIn { get; init; } = "";
@@ -24,7 +24,7 @@ public sealed class TextureUserRow
     public string Label => $"{PackageName} › {Widget}";
     /// <summary>"MatchTimeConnection_Img_Logo": for the row's AutomationId</summary>
     public string Id => $"{PackageName}_{Widget}";
-    public string Note => IsThis ? "this widget" : Follows ? "same package: changes with it" : "";
+    public string Note => IsThis ? "this widget" : SamePackage ? "same package" : "";
 }
 
 /// <summary>The inspector's Texture section for a uiImage: what it draws, who else draws it, and its edit in the project.</summary>
@@ -38,7 +38,7 @@ public sealed class TextureInspection
     public required IReadOnlyList<string> ThemeCopies { get; init; }
     /// <summary>Why this texture can't be cloned (not B8G8R8A8), or null</summary>
     public string? CloneRefusal { get; init; }
-    /// <summary>B8G8R8A8 textures a clone can come from when this one can't (fitting path length)</summary>
+    /// <summary>B8G8R8A8 textures a clone can come from when this one can't (best first, see <see cref="Modding.TextureEdits.Sources"/>)</summary>
     public IReadOnlyList<string> Sources { get; init; } = [];
     public PreviewRaster.Margins Margins { get; init; }
     public required IReadOnlyList<TextureUserRow> Users { get; init; }
@@ -54,7 +54,7 @@ public sealed class TextureInspection
     public string UsersHeader => Users.Count == 1 ? "Used by this widget only" : $"Used by {Users.Count} widgets";
     public bool IsShared => Users.Count > 1;
     public string? EditText => Edit is not { } e ? null
-        : $"Replaced in this project: {(e.Mode == TextureEditMode.White ? "white copy" : "your image")} → {e.NewName}{(e.MarginsZero ? ", margins 0" : "")}{(e.Scope == TextureEditScope.AllUsers ? ", every package naming it" : "")}{(e.Source != null ? $", cloned from {GamePaths.ShortName(e.Source)}" : "")}";
+        : $"Replaced in this project: {(e.Mode == TextureEditMode.White ? "white copy" : "your image")} → {e.NewName}{(e.MarginsZero ? ", margins 0" : "")}{e.Scope switch { TextureEditScope.AllUsers => ", every package naming it", TextureEditScope.Package => ", every widget of this package naming it", _ => ", this widget only" }}{(e.Source != null ? $", cloned from {GamePaths.ShortName(e.Source)}" : "")}";
 }
 
 /// <summary>One texture edit in the Bytes tab: what it changes and the packages it ships (a reference type, for UIA).</summary>
@@ -75,7 +75,9 @@ public sealed class TextureBytesRow
         {
             Widget = $"{GamePaths.ShortName(e.Package)} › {e.Widget}",
             Change = $"{GamePaths.ShortName(e.Texture)} {i.StockWidth}×{i.StockHeight} → {e.NewName} {i.Width}×{i.Height}{(e.Mode == TextureEditMode.White ? " (white)" : "")}{(e.MarginsZero ? " · margins 0" : "")}",
-            Path = $"name map: {i.From}\n       → {i.To}  (same length, {i.To.Length} characters)",
+            Path = i.Pointed.Count == i.Storing.Count
+                ? $"name map: {i.To} appended ({i.To.Length} characters); {(i.Following.Count == 0 ? e.Widget : $"{e.Widget} + {i.Following.Count} more")} pointed at it, {i.From} kept"
+                : $"name map: {i.From}\n       → {i.To}  (renamed, same length, {i.To.Length} characters)" + (i.Pointed.Count > 0 ? $"; appended + pointed in {string.Join(", ", i.Pointed.Select(GamePaths.ShortName))}" : ""),
             Packages = string.Join("\n", clones.Select(c => $"new {c.PackagePath[(c.PackagePath.IndexOf("/Widget/", StringComparison.Ordinal) + 8)..]}  {c.Chunk.Length:N0} bytes (clone of {GamePaths.ShortName(c.CloneOf ?? "")})")
                 .Concat(repointed.Select(p => $"re-pointed {GamePaths.ShortName(p.PackagePath)}  {p.Chunk.Length:N0} bytes"))),
             Notes = string.Join("\n", i.Warnings),

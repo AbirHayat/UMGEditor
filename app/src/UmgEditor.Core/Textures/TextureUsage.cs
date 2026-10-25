@@ -6,7 +6,8 @@ namespace UmgEditor.Core.Textures;
 
 /// <summary>
 /// One stored reference to a texture: an export property of a widget package holding the texture's soft object path.
-/// Re-pointing renames the path in that package's name map, so every reference in the same package follows.
+/// The path is a name-map string: renaming it in place re-points every reference in the package; appending a new path
+/// and pointing one property at it (<see cref="Modding.SoftPathPoint"/>) re-points only that one.
 /// </summary>
 /// <param name="Texture">The texture's package path, e.g. "/Game/…/Tex720/MatchTimePlate_0"</param>
 /// <param name="ObjectPath">The path as the parse shows it, e.g. "/Game/…/Tex720/MatchTimePlate_0.MatchTimePlate_0"</param>

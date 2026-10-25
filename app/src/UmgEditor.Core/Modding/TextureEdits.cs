@@ -9,8 +9,11 @@ namespace UmgEditor.Core.Modding;
 
 public enum TextureEditMode { Image, White }
 
-/// <summary>Which packages a texture edit re-points: the one storing the picked widget's path, or every package naming the texture.</summary>
-public enum TextureEditScope { Widget, AllUsers }
+/// <summary>
+/// What a texture edit re-points: only the picked widget (other widgets naming the texture keep it, even in the same
+/// package), every widget of the picked widget's package that names it, or every package naming the texture.
+/// </summary>
+public enum TextureEditScope { Widget, AllUsers, Package }
 
 /// <summary>
 /// One texture replacement in a project (step 3). The picked widget (<see cref="Package"/>/<see cref="Widget"/>) names
@@ -32,7 +35,8 @@ public sealed record TextureEdit(
 public static class TextureEditStore
 {
     public const string FileName = "textures.json", ArtFolder = "_art";
-    private const int Version = 1;
+    // 2: scope Widget means only the picked widget; version 1's "Widget" re-pointed the whole package (now Package)
+    private const int Version = 2;
     private static readonly JsonSerializerOptions Json = new() { WriteIndented = true, Converters = { new JsonStringEnumConverter() } };
 
     private sealed record FileContent(int Version, IReadOnlyList<TextureEdit> Edits);
@@ -43,8 +47,12 @@ public static class TextureEditStore
         if (!File.Exists(path)) return [];
         var content = JsonSerializer.Deserialize<FileContent>(File.ReadAllText(path), Json)
             ?? throw new InvalidDataException($"{path} is empty");
-        if (content.Version != Version) throw new InvalidDataException($"{path}: version {content.Version}, this build reads {Version}");
-        return content.Edits;
+        return content.Version switch
+        {
+            1 => content.Edits.Select(e => e.Scope == TextureEditScope.Widget ? e with { Scope = TextureEditScope.Package } : e).ToList(),
+            Version => content.Edits,
+            _ => throw new InvalidDataException($"{path}: version {content.Version}, this build reads 1 and {Version}"),
+        };
     }
 
     /// <summary>Writes the list (an empty list removes the file).</summary>
@@ -89,9 +97,13 @@ public static class TextureEditStore
 }
 
 /// <summary>What one texture edit does, for the inspector, umgmod and the export's instructions.</summary>
+/// <param name="Following">Other widgets that change with the picked one (in the storing packages)</param>
+/// <param name="Pointed">Storing packages re-pointed by appending the new path and pointing the widgets at it
+/// (<see cref="SoftPathPoint"/>); the others rename the stock path in place (<see cref="SoftPathRepoint"/>)</param>
 public sealed record TextureEditInfo(
     TextureEdit Edit, string From, string To, IReadOnlyList<string> Storing, IReadOnlyList<TextureRef> Following,
-    IReadOnlyList<string> ClonePaths, int Width, int Height, int StockWidth, int StockHeight, IReadOnlyList<string> Warnings);
+    IReadOnlyList<string> ClonePaths, int Width, int Height, int StockWidth, int StockHeight, IReadOnlyList<string> Warnings,
+    IReadOnlyList<string> Pointed);
 
 /// <summary>Every package a project's texture edits produce, each verified, plus what the mounted mod must decode to.</summary>
 public sealed class TexturePlan
@@ -139,11 +151,17 @@ public static class TextureEdits
         catch (Exception) { return null; }
     }
 
-    /// <summary>Why a texture can't be a clone source (only uncompressed B8G8R8A8 with inline mips can), or null.</summary>
+    /// <summary>
+    /// Why a texture can't be a clone source (only uncompressed B8G8R8A8 with inline mips can, in every theme folder it
+    /// has: a clone is made from each copy), or null.
+    /// </summary>
     public static string? SourceRefusal(GameSource source, string texture)
     {
         if (LoadTexture(source, texture) is not { } t) return $"{GamePaths.ShortName(texture)} isn't a Texture2D package";
         if (t.PlatformData.PixelFormat != "PF_B8G8R8A8") return $"{GamePaths.ShortName(texture)} is {t.PlatformData.PixelFormat}; only PF_B8G8R8A8 textures can be cloned (pick another source)";
+        foreach (var copy in ThemeCopies(source, texture).Skip(1))
+            if (LoadTexture(source, copy) is not { PlatformData.PixelFormat: "PF_B8G8R8A8" } c)
+                return $"{GamePaths.ShortName(texture)}'s theme copy {copy[(copy.LastIndexOf("/0164F/", StringComparison.Ordinal) + 1)..]} is {LoadTexture(source, copy)?.PlatformData.PixelFormat ?? "not a Texture2D"}; only PF_B8G8R8A8 textures can be cloned (pick another source)";
         return null;
     }
 
@@ -168,8 +186,10 @@ public static class TextureEdits
     }
 
     /// <summary>The name-map path of a new texture package next to <paramref name="source"/>: "…/Tex720/New_0.New".</summary>
-    public static string NewNameMapPath(string source, string newName) =>
-        TextureUsage.NameMapForm($"{source[..(source.LastIndexOf('/') + 1)]}{newName}.{newName}");
+    public static string NewNameMapPath(string source, string newName) => TextureUsage.NameMapForm(NewObjectPath(source, newName));
+
+    /// <summary>The object path of a new texture package next to <paramref name="source"/>: "…/Tex720/New_0.New_0".</summary>
+    public static string NewObjectPath(string source, string newName) => $"{source[..(source.LastIndexOf('/') + 1)]}{newName}.{newName}";
 
     /// <summary>
     /// A same-length, unused name for a clone of <paramref name="source"/> that keeps its FName number suffix:
@@ -210,7 +230,17 @@ public static class TextureEdits
         var plan = new TexturePlan();
         var layers = new Dictionary<string, List<byte[]>>(StringComparer.OrdinalIgnoreCase);
         var cloned = new Dictionary<string, (TextureEdit Edit, string Key)>(StringComparer.OrdinalIgnoreCase);
-        var repointed = new Dictionary<(string Package, string From), int>();
+        // (package, stock path, export or "*" for a rename of the whole path) → the edit that re-pointed it
+        var repointed = new Dictionary<(string Package, string From, string Export), int>();
+        // an earlier edit that already changed this path here: any one for a rename, the same widget's for a point
+        int? EarlierEdit(string package, string from, bool rename, IReadOnlyList<TextureRef> here)
+        {
+            if (repointed.TryGetValue((package, from, "*"), out var whole)) return whole;
+            if (rename) return repointed.Where(kv => kv.Key.Package == package && kv.Key.From == from).Select(kv => (int?) kv.Value).FirstOrDefault();
+            foreach (var r in here)
+                if (repointed.TryGetValue((package, from, r.Export), out var one)) return one;
+            return null;
+        }
         foreach (var (edit, n) in edits.Select((e, i) => (e, i + 1)))
         {
             var head = $"texture edit {n} ({GamePaths.ShortName(edit.Package)}/{edit.Widget} → {edit.NewName})";
@@ -224,11 +254,7 @@ public static class TextureEdits
             if (edit.NewName.Length != sourceName.Length) { Refuse($"\"{edit.NewName}\" must be as long as \"{sourceName}\" ({sourceName.Length} characters)"); continue; }
             var from = picked.NameMapPath;
             var to = NewNameMapPath(edit.SourceTexture, edit.NewName);
-            if (to.Length != from.Length)
-            {
-                Refuse($"the new path {to} is {to.Length} characters, the stock path {from.Length}: the soft path must keep its length (a source in another folder needs a fitting path; see tex-sources)");
-                continue;
-            }
+            var toObject = NewObjectPath(edit.SourceTexture, edit.NewName);
 
             // the pixels: the image (any size, halved down the mip chain) or the stock pixels whitened
             var copies = ThemeCopies(source, edit.SourceTexture);
@@ -265,14 +291,29 @@ public static class TextureEdits
                 cloned[edit.NewName] = (edit, key);
             }
 
-            // the re-point: in the picked widget's package, or in every package naming the texture
+            // the re-point: the picked widget, every widget of its package, or every package naming the texture
             var storing = edit.Scope == TextureEditScope.AllUsers
                 ? usage.UsersOf(edit.Texture).Where(r => r.NameMapPath == from).Select(r => r.Package).Distinct(StringComparer.OrdinalIgnoreCase).ToList()
                 : [edit.Package];
-            var following = storing.SelectMany(usage.In).Where(r => r.NameMapPath == from && !(r.Package == edit.Package && r.Export == edit.Widget)).ToList();
+            var changing = edit.Scope == TextureEditScope.Widget ? [picked] : storing.SelectMany(usage.In).Where(r => r.NameMapPath == from).ToList();
+            var following = changing.Where(r => !(r.Package.Equals(edit.Package, StringComparison.OrdinalIgnoreCase) && r.Export == edit.Widget)).ToList();
+            var pointed = new List<string>();
             foreach (var package in storing)
             {
-                if (repointed.TryGetValue((package, from), out var by)) { Refuse($"{GamePaths.ShortName(package)}'s path to {GamePaths.ShortName(edit.Texture)} is already re-pointed by texture edit {by}"); continue; }
+                var here = changing.Where(r => r.Package.Equals(package, StringComparison.OrdinalIgnoreCase)).ToList();
+                // rename the stock path in place (as C13-C16) when every widget naming it changes and the new path is as long;
+                // otherwise append the new path and point only the changing widgets at it
+                bool rename = to.Length == from.Length && usage.In(package).Where(r => r.NameMapPath == from).All(here.Contains);
+                if (EarlierEdit(package, from, rename, here) is { } by)
+                {
+                    Refuse($"{GamePaths.ShortName(package)}'s path to {GamePaths.ShortName(edit.Texture)} is already re-pointed by texture edit {by}");
+                    continue;
+                }
+                if (!rename && here.FirstOrDefault(r => !r.IsImageTexture) is { } other)
+                {
+                    Refuse($"{GamePaths.ShortName(package)}/{other.Export}.{other.Property} names the texture but isn't a uiImage texture: only those are pointed (the new path's length differs from the stock one)");
+                    continue;
+                }
                 if (!layers.TryGetValue(package, out var list))
                 {
                     layers[package] = list = [];
@@ -283,7 +324,7 @@ public static class TextureEdits
                 {
                     var input = list.Count > 0 ? list[^1] : source.ReadPackageBytes(package).Bytes;
                     var parsed = source.ParsePackage(source.ResolveFileKey(package), input).ExportsLazy.Select(e => e.Value).ToList();
-                    foreach (var r in usage.In(package).Where(r => r.NameMapPath == from && r.IsImageTexture))
+                    foreach (var r in here.Where(r => r.IsImageTexture))
                     {
                         var stored = WidgetTreeReader.StoredValues(parsed.Single(e => e.Name == r.Export));
                         foreach (var side in new[] { "Left", "Top", "Right", "Bottom" })
@@ -291,17 +332,26 @@ public static class TextureEdits
                             else plan.Log.Add($"{head}: {r.Export}.Margin.{side} isn't stored (already the default), left as is");
                     }
                 }
-                var repoint = SoftPathRepoint.Build(source, package, from, to, values, list.Count > 0 ? list[^1] : null);
-                plan.Log.Add($"{head}: {GamePaths.ShortName(package)} re-pointed{(values.Count > 0 ? $" + {values.Count} margins 0" : "")}");
+                var repoint = rename
+                    ? SoftPathRepoint.Build(source, package, from, to, values, list.Count > 0 ? list[^1] : null)
+                    : SoftPathPoint.Build(source, package, picked.ObjectPath, toObject, here.Select(r => r.Export).ToList(), values, list.Count > 0 ? list[^1] : null);
+                plan.Log.Add($"{head}: {GamePaths.ShortName(package)} {(rename ? "re-pointed (path renamed)" : $"{string.Join(", ", here.Select(r => r.Export))} pointed at the appended path")}{(values.Count > 0 ? $" + {values.Count} margins 0" : "")}");
                 plan.Log.AddRange(repoint.Log.Select(l => "  " + l));
                 if (repoint.Package == null) { repoint.Refusals.ToList().ForEach(Refuse); continue; }
                 list.Add(repoint.Package.Chunk);
-                repointed[(package, from)] = n;
+                if (rename) repointed[(package, from, "*")] = n;
+                else
+                {
+                    pointed.Add(package);
+                    foreach (var r in here) repointed[(package, from, r.Export)] = n;
+                }
             }
 
             var warnings = new List<string>();
             foreach (var f in following)
                 warnings.Add($"{GamePaths.ShortName(f.Package)}/{f.Export} names the same texture in the same package: it changes too");
+            foreach (var keeps in storing.SelectMany(usage.In).Where(r => r.NameMapPath == from && !changing.Contains(r)))
+                warnings.Add($"{GamePaths.ShortName(keeps.Package)}/{keeps.Export} names the same texture in the same package and keeps the stock image (scope This package changes it too)");
             foreach (var package in storing)
                 if (embeddedBy?.Invoke(package) is { Count: > 0 } users)
                     warnings.Add($"{GamePaths.ShortName(package)} is shown in {users.Count} package(s): {string.Join(", ", users.Select(GamePaths.ShortName).Order(StringComparer.OrdinalIgnoreCase))}");
@@ -309,9 +359,11 @@ public static class TextureEdits
                 warnings.Add($"{GamePaths.ShortName(other)} also names {GamePaths.ShortName(edit.Texture)} and keeps the stock image");
             if (copies.Count == 1 && ThemeCopies(source, edit.Texture).Count > 1)
                 warnings.Add($"{GamePaths.ShortName(edit.SourceTexture)} has no 0164F theme copy: only the Tex720 clone is made");
-            if (!edit.MarginsZero && edit.Mode == TextureEditMode.Image && StoredMarginWidgets(source, storing, usage, from) is { Count: > 0 } sliced)
+            if (!edit.MarginsZero && edit.Mode == TextureEditMode.Image && StoredMarginWidgets(source, changing) is { Count: > 0 } sliced)
                 warnings.Add($"{string.Join(", ", sliced)} {(sliced.Count == 1 ? "is" : "are")} 9-sliced (stored Margin): the image's borders stay at their own size and only the middle stretches; tick Margins 0 to stretch the whole image");
-            plan.Items.Add(new TextureEditInfo(edit, from, to, storing, following, clonePaths, width, height, shown.PlatformData.SizeX, shown.PlatformData.SizeY, warnings));
+            if (pointed.Count > 0)
+                warnings.Add($"{string.Join(", ", pointed.Select(GamePaths.ShortName))}: the new path is appended to the name map and only the changing widgets point at it; this route is untested on device until canary C18 passes");
+            plan.Items.Add(new TextureEditInfo(edit, from, to, storing, following, clonePaths, width, height, shown.PlatformData.SizeX, shown.PlatformData.SizeY, warnings, pointed));
         }
 
         foreach (var (package, list) in layers)
@@ -326,16 +378,15 @@ public static class TextureEdits
         return plan;
     }
 
-    /// <summary>The uiImage widgets (package/export) that follow a re-point and store a non-zero Margin.</summary>
-    private static List<string> StoredMarginWidgets(GameSource source, IEnumerable<string> storing, TextureUsage usage, string from)
+    /// <summary>The uiImage widgets (package/export) among the re-pointed ones that store a non-zero Margin.</summary>
+    private static List<string> StoredMarginWidgets(GameSource source, IReadOnlyList<TextureRef> changing)
     {
         var found = new List<string>();
-        foreach (var package in storing)
+        foreach (var group in changing.Where(r => r.IsImageTexture).GroupBy(r => r.Package, StringComparer.OrdinalIgnoreCase))
         {
-            var refs = usage.In(package).Where(r => r.NameMapPath == from && r.IsImageTexture).ToList();
-            if (refs.Count == 0) continue;
+            var package = group.Key;
             var exports = source.LoadPackage(package).GetExports().ToList();
-            foreach (var r in refs)
+            foreach (var r in group)
                 if (exports.FirstOrDefault(e => e.Name == r.Export) is { } e && WidgetTreeReader.StoredValues(e)
                         .Any(kv => kv.Key.StartsWith("Margin.", StringComparison.Ordinal) && double.TryParse(kv.Value, System.Globalization.CultureInfo.InvariantCulture, out var v) && v != 0))
                     found.Add($"{GamePaths.ShortName(package)}/{r.Export}");
@@ -344,18 +395,24 @@ public static class TextureEdits
     }
 
     /// <summary>
-    /// B8G8R8A8 textures (inline mips) whose clone could replace <paramref name="current"/>'s soft path: the path a clone
-    /// next to them would have is as long as the current one. Sorted by folder distance (same folder first).
+    /// B8G8R8A8 textures (inline mips) a clone for <paramref name="current"/> can come from. Any path works: a path of
+    /// another length is pointed at instead of renamed (<see cref="SoftPathPoint"/>). Sorted: same folder first, then
+    /// sources with the same theme copies (Tex720 + 0164F when the current texture has both), then a path of the same
+    /// length (renamed in place, the route proven since C13), then fewer mips, then by path.
     /// </summary>
-    public static IReadOnlyList<string> Sources(GameSource source, IReadOnlyList<UiAssetEntry> index, TextureRef current)
+    public static IReadOnlyList<string> Sources(GameSource source, TextureFormats formats, TextureRef current)
     {
         var length = current.NameMapPath.Length;
         var folder = current.Texture[..current.Texture.LastIndexOf('/')];
-        return index.Where(e => e.Kind == UiAssetKind.Texture && !e.IsBulkImageSet && !e.IsPlatformOverride)
-            .Select(e => GamePaths.ToPackagePath(e.Path))
-            .Where(p => !p.Contains("/0164F/", StringComparison.Ordinal) && NewNameMapPath(p, GamePaths.ShortName(p)).Length == length)
-            .Where(p => SourceRefusal(source, p) == null)
-            .OrderBy(p => p.StartsWith(folder + "/", StringComparison.OrdinalIgnoreCase) ? 0 : 1).ThenBy(p => p, StringComparer.OrdinalIgnoreCase)
-            .ToList();
+        bool themed = ThemeCopies(source, current.Texture).Count > 1;
+        return formats.All.Where(f => f.Cloneable && !f.Texture.Contains("/0164F/", StringComparison.Ordinal))
+            .Select(f => (f.Texture, f.Mips, Copies: ThemeCopies(source, f.Texture)))
+            .Where(s => s.Copies.All(c => formats.Of(c)?.Cloneable == true)) // a clone is made from every theme copy
+            .Select(s => (s.Texture, s.Mips, Themed: themed && s.Copies.Count > 1))
+            .OrderBy(s => s.Texture.StartsWith(folder + "/", StringComparison.OrdinalIgnoreCase) ? 0 : 1)
+            .ThenBy(s => themed && !s.Themed ? 1 : 0)
+            .ThenBy(s => NewNameMapPath(s.Texture, GamePaths.ShortName(s.Texture)).Length == length ? 0 : 1)
+            .ThenBy(s => s.Mips).ThenBy(s => s.Texture, StringComparer.OrdinalIgnoreCase)
+            .Select(s => s.Texture).ToList();
     }
 }

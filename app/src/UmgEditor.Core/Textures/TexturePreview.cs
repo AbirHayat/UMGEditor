@@ -4,7 +4,7 @@ namespace UmgEditor.Core.Textures;
 
 /// <summary>
 /// A before/after drawing of a texture replacement on a screen (step 3, umgmod tex-preview): the screen laid out twice
-/// (stock; the image in every box that shows the texture from a re-pointed package, auto-sized images at its size,
+/// (stock; the image in every box that shows the texture from a re-pointed package, or only in the one widget's, auto-sized images at its size,
 /// margins 0 when asked), drawn by <see cref="PreviewRaster"/>, cropped around those boxes and stacked stock above new.
 /// Nothing is written to the project.
 /// </summary>
@@ -13,7 +13,7 @@ public static class TexturePreview
     public sealed record Result(DecodedImage Image, int Boxes, bool ShowsHidden);
 
     public static Result Render(GameSource source, Func<string, WidgetPackageTree> loadTree, WidgetPackageTree screen, string texture,
-        IReadOnlyCollection<string> repointed, DecodedImage replacement, bool marginsZero, int width, int height)
+        IReadOnlyCollection<string> repointed, DecodedImage replacement, bool marginsZero, int width, int height, string? onlyWidget = null)
     {
         texture = GamePaths.PackageOf(texture);
         var cache = new TextureCache(source, new AssetRipperTextureDecoder());
@@ -25,7 +25,7 @@ public static class TexturePreview
             return embedded[p] = t;
         }
         bool Replaced(LayoutBox b) => b.TexturePath != null && GamePaths.PackageOf(b.TexturePath).Equals(texture, StringComparison.OrdinalIgnoreCase)
-            && repointed.Contains(b.Node.PackagePath, StringComparer.OrdinalIgnoreCase);
+            && repointed.Contains(b.Node.PackagePath, StringComparer.OrdinalIgnoreCase) && (onlyWidget == null || b.Node.Name == onlyWidget);
         (int, int)? StockSize(string t) => cache.Get(t) is { IsPlaceholder: false } i ? (i.Width, i.Height) : null;
 
         var settings = UiScaleSettings.Load(source);

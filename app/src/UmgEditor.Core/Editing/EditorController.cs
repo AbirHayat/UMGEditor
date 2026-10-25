@@ -531,6 +531,9 @@ public sealed class EditorController
     // ---- step 3: texture edits ----
 
     public TextureUsage TextureUsage => _textureUsage.Value;
+    private TextureFormats? _textureFormats;
+    /// <summary>Every UI texture's format (clone sources), built once per game and cached in work/cache.</summary>
+    public TextureFormats TextureFormats => _textureFormats ??= TextureFormats.LoadOrBuild(_source, UiAssetIndex.LoadOrBuild(_source));
     /// <summary>The project's texture edits as they are now (textures.json plus unsaved changes).</summary>
     public IReadOnlyList<TextureEdit> TextureEdits => _textures;
     public bool TexturesDirty => !_textures.SequenceEqual(_texturesSaved);
@@ -560,11 +563,11 @@ public sealed class EditorController
             {
                 Package = u.Package, Widget = u.Export, What = $"{u.ExportClass}.{u.Property}",
                 IsThis = u.Package.Equals(node.PackagePath, StringComparison.OrdinalIgnoreCase) && u.Export == node.Name,
-                Follows = u.Package.Equals(node.PackagePath, StringComparison.OrdinalIgnoreCase) && u.Export != node.Name && u.NameMapPath == current.NameMapPath,
+                SamePackage = u.Package.Equals(node.PackagePath, StringComparison.OrdinalIgnoreCase) && u.Export != node.Name && u.NameMapPath == current.NameMapPath,
                 IsOnline = u.Package.Contains("/MatchTimeConnection/", StringComparison.OrdinalIgnoreCase),
                 ShownIn = shown.Count == 0 ? "" : $"shown in {shown.Count}: {string.Join(", ", shown.Select(GamePaths.ShortName).Order(StringComparer.OrdinalIgnoreCase))}",
             };
-        }).OrderByDescending(r => r.IsThis).ThenByDescending(r => r.Follows).ThenBy(r => r.IsOnline).ThenBy(r => r.Label, StringComparer.OrdinalIgnoreCase).ToList();
+        }).OrderByDescending(r => r.IsThis).ThenByDescending(r => r.SamePackage).ThenBy(r => r.IsOnline).ThenBy(r => r.Label, StringComparer.OrdinalIgnoreCase).ToList();
         return new TextureInspection
         {
             Ref = current,
@@ -572,7 +575,7 @@ public sealed class EditorController
             Format = tex?.PlatformData.PixelFormat ?? "not a Texture2D", Mips = tex?.PlatformData.Mips.Length ?? 0,
             ThemeCopies = Modding.TextureEdits.ThemeCopies(_source, current.Texture),
             CloneRefusal = refusal,
-            Sources = refusal == null ? [] : Modding.TextureEdits.Sources(_source, UiAssetIndex.LoadOrBuild(_source), current),
+            Sources = refusal == null ? [] : Modding.TextureEdits.Sources(_source, TextureFormats, current),
             Margins = Layout.PreviewRaster.StoredMargins(node),
             Users = users,
             Blocked = GamePaths.IsLibrary(node.PackagePath) ? "This image belongs to a library widget, shared by the whole game: replace it in the widget that uses it." : null,
@@ -591,10 +594,12 @@ public sealed class EditorController
         var list = new List<TextureOverride>();
         foreach (var e in (edits ?? _textures).Where(e => trial == null || !(e.Package == trial.Value.Edit.Package && e.Widget == trial.Value.Edit.Widget)))
             if (ImageOf(e) is { } image)
-                list.Add(new TextureOverride(e.Texture, StoringPackages(e).ToHashSet(StringComparer.OrdinalIgnoreCase), image, e.MarginsZero));
+                list.Add(new TextureOverride(e.Texture, StoringPackages(e).ToHashSet(StringComparer.OrdinalIgnoreCase), image, e.MarginsZero, Widget: OnlyWidget(e)));
         if (trial is var (t, img))
-            list.Add(new TextureOverride(t.Texture, StoringPackages(t).ToHashSet(StringComparer.OrdinalIgnoreCase), img, t.MarginsZero, IsTrial: true));
+            list.Add(new TextureOverride(t.Texture, StoringPackages(t).ToHashSet(StringComparer.OrdinalIgnoreCase), img, t.MarginsZero, IsTrial: true, Widget: OnlyWidget(t)));
         return new TextureOverrides(list);
+
+        static string? OnlyWidget(TextureEdit e) => e.Scope == TextureEditScope.Widget ? e.Widget : null;
     }
 
     /// <summary>An edit's pixels as the clone's mip 0 will hold them (the imported PNG, or the stock pixels whitened).</summary>
@@ -767,7 +772,7 @@ public sealed class EditorController
     /// <summary>The packages a texture edit re-points: the picked widget's, or every package naming the texture.</summary>
     public IReadOnlyList<string> StoringPackages(TextureEdit edit)
     {
-        if (edit.Scope == TextureEditScope.Widget) return [edit.Package];
+        if (edit.Scope != TextureEditScope.AllUsers) return [edit.Package];
         var from = TextureUsage.Of(edit.Package, edit.Widget)?.NameMapPath;
         return TextureUsage.UsersOf(edit.Texture).Where(r => r.NameMapPath == from).Select(r => r.Package).Distinct(StringComparer.OrdinalIgnoreCase).ToList();
     }

@@ -151,6 +151,7 @@ public sealed class MainViewModel : ObservableObject
             OnPropertyChanged(nameof(NodeSource));
             OnPropertyChanged(nameof(TrialForSelected));
             ClearEditMessage();
+            TextureMessage = null;
             _ = InspectAsync();
         }
     }
@@ -320,8 +321,26 @@ public sealed class MainViewModel : ObservableObject
     private bool _trialMarginsZero;
     public bool TrialMarginsZero { get => _trialMarginsZero; set { if (Set(ref _trialMarginsZero, value)) RePrepareTrial(); } }
 
-    private bool _trialAllUsers;
-    public bool TrialAllUsers { get => _trialAllUsers; set { if (Set(ref _trialAllUsers, value)) RePrepareTrial(); } }
+    private TextureEditScope _trialScope = TextureEditScope.Widget;
+    /// <summary>What an import re-points: only this widget (default), every widget of its package naming the texture, or every package.</summary>
+    public TextureEditScope TrialScope
+    {
+        get => _trialScope;
+        set
+        {
+            if (!Set(ref _trialScope, value)) return;
+            OnPropertyChanged(nameof(ScopeWidget)); OnPropertyChanged(nameof(ScopePackage)); OnPropertyChanged(nameof(ScopeAllUsers));
+            RePrepareTrial();
+        }
+    }
+    // the three radio buttons (a radio's binding only acts when it is ticked)
+    public bool ScopeWidget { get => _trialScope == TextureEditScope.Widget; set { if (value) TrialScope = TextureEditScope.Widget; } }
+    public bool ScopePackage { get => _trialScope == TextureEditScope.Package; set { if (value) TrialScope = TextureEditScope.Package; } }
+    public bool ScopeAllUsers { get => _trialScope == TextureEditScope.AllUsers; set { if (value) TrialScope = TextureEditScope.AllUsers; } }
+
+    private string? _textureMessage;
+    /// <summary>Why an import or white copy was refused before a trial existed (shown under the Texture section's buttons).</summary>
+    public string? TextureMessage { get => _textureMessage; private set => Set(ref _textureMessage, value); }
 
     private string? _trialSource;
     /// <summary>The B8G8R8A8 texture the clone comes from when the widget's own texture can't be cloned.</summary>
@@ -347,13 +366,16 @@ public sealed class MainViewModel : ObservableObject
     {
         if (_controller is not { } c || SelectedNode?.Node is not { } node || TextureInfo is not { } info) return;
         var source = info.CloneRefusal == null ? null : _trialSource ?? info.Sources.FirstOrDefault();
-        if (info.CloneRefusal != null && source == null) { SetTrialRefused($"{info.CloneRefusal}, and no B8G8R8A8 texture has a fitting path."); return; }
+        if (info.CloneRefusal != null && source == null) { SetTrialRefused($"{info.CloneRefusal}, and no B8G8R8A8 texture can be the source."); return; }
         var name = keepName && _trialName.Trim().Length > 0 ? _trialName.Trim() : null;
-        var (edit, image, why) = c.PrepareTextureEdit(node.PackagePath, node.Name, mode, file, name, source, _trialMarginsZero,
-            _trialAllUsers ? TextureEditScope.AllUsers : TextureEditScope.Widget);
+        (TextureEdit? Edit, DecodedImage? Image, string? Why) prepared;
+        try { prepared = c.PrepareTextureEdit(node.PackagePath, node.Name, mode, file, name, source, _trialMarginsZero, _trialScope); }
+        catch (Exception e) { prepared = (null, null, $"{e.GetType().Name}: {e.Message}"); }
+        var (edit, image, why) = prepared;
         if (edit == null) { SetTrialRefused(why!); return; }
         image ??= c.ImageOf(edit);
         if (image == null) { SetTrialRefused("the white copy can't be made: the texture isn't B8G8R8A8"); return; }
+        TextureMessage = null;
         _trial = (edit, image, file, mode);
         _trialName = edit.NewName; OnPropertyChanged(nameof(TrialName));
         if (source != _trialSource) { _trialSource = source; OnPropertyChanged(nameof(TrialSource)); }
@@ -370,10 +392,16 @@ public sealed class MainViewModel : ObservableObject
         if (_trial is { } t && TrialForSelected) PrepareTrial(t.Mode, t.File, keepName: true);
     }
 
+    /// <summary>
+    /// A refusal: under the trial when there is one for this widget, otherwise in the Texture section (no trial panel shows
+    /// then), and on the status line either way, so an import never fails silently.
+    /// </summary>
     private void SetTrialRefused(string why)
     {
         TrialCheck = why;
         TrialRefused = true;
+        if (!TrialForSelected) TextureMessage = "Not imported: " + why;
+        SetAction($"Texture {(TrialForSelected ? "trial" : "import")} refused: {why.Split('\n')[0]}", why);
         CommandManager.InvalidateRequerySuggested();
     }
 
@@ -845,7 +873,17 @@ public sealed class MainViewModel : ObservableObject
             TextureThumbnail = stock is { IsPlaceholder: false } ? PreviewRenderer.ToBitmap(stock) : null;
             var edited = TrialForSelected ? _trial!.Value.Image : texture?.Edit is { } e ? controller.ImageOf(e) : null;
             EditThumbnail = edited != null ? PreviewRenderer.ToBitmap(edited) : null;
-            if (texture?.CloneRefusal != null && _trialSource == null) { _trialSource = texture.Sources.FirstOrDefault(); OnPropertyChanged(nameof(TrialSource)); }
+            // the source picker shows this texture's sources (the first by default); a widget with an edit shows its scope
+            if (!TrialForSelected)
+            {
+                var source = texture?.Edit?.Source is { } s && texture.Sources.Contains(s) ? s : texture?.Sources.FirstOrDefault();
+                if (source != _trialSource) { _trialSource = source; OnPropertyChanged(nameof(TrialSource)); }
+                if (texture?.Edit is { } done && done.Scope != _trialScope)
+                {
+                    _trialScope = done.Scope;
+                    OnPropertyChanged(nameof(TrialScope)); OnPropertyChanged(nameof(ScopeWidget)); OnPropertyChanged(nameof(ScopePackage)); OnPropertyChanged(nameof(ScopeAllUsers));
+                }
+            }
         }
         catch (Exception e)
         {

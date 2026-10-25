@@ -646,7 +646,7 @@
                         <TextBlock Foreground="#666" FontSize="11" TextWrapping="Wrap" Text="{Binding TextureInfo.ThemeText}" />
                         <TextBlock Foreground="#92400E" FontSize="11" TextWrapping="Wrap" Text="{Binding TextureInfo.MarginsText}"
                                    Visibility="{Binding TextureInfo.MarginsText, Converter={StaticResource NullToVis}}" />
-                        <TextBlock Foreground="#991B1B" FontSize="11" TextWrapping="Wrap" Text="{Binding TextureInfo.CloneRefusal, StringFormat='{}{0}: the clone comes from the source picked below.'}"
+                        <TextBlock Foreground="#991B1B" FontSize="11" TextWrapping="Wrap" Text="{Binding TextureInfo.CloneRefusal, StringFormat='{}{0}: the clone comes from the source picked below (any path length).'}"
                                    Visibility="{Binding TextureInfo.CloneRefusal, Converter={StaticResource NullToVis}}" />
                         <TextBlock Foreground="#991B1B" TextWrapping="Wrap" Text="{Binding TextureInfo.Blocked}"
                                    Visibility="{Binding TextureInfo.Blocked, Converter={StaticResource NullToVis}}" />
@@ -677,6 +677,19 @@
                             </ItemsControl.ItemTemplate>
                         </ItemsControl>
 
+                        <StackPanel x:Name="TextureSourcePanel" Margin="0,8,0,0" Visibility="{Binding TextureInfo.CloneRefusal, Converter={StaticResource NullToVis}}">
+                            <TextBlock Foreground="#444" FontSize="11" TextWrapping="Wrap" Text="Clone source (a B8G8R8A8 texture: the clone takes its package shape, your image replaces its pixels):" />
+                            <ComboBox x:Name="TrialSourcePicker" ItemsSource="{Binding TextureInfo.Sources}" SelectedItem="{Binding TrialSource}" />
+                        </StackPanel>
+                        <WrapPanel x:Name="TextureScopePanel" Margin="0,6,0,0" Visibility="{Binding CanReplaceTexture, Converter={StaticResource BoolToVis}}">
+                            <TextBlock Text="Replace on: " Foreground="#444" VerticalAlignment="Center" />
+                            <RadioButton x:Name="TrialScopeWidget" Content="This widget" Margin="0,0,10,0" VerticalAlignment="Center" IsChecked="{Binding ScopeWidget}"
+                                         ToolTip="Only this widget: other widgets naming the texture keep the stock image, even in this package" />
+                            <RadioButton x:Name="TrialScopePackage" Content="This package" Margin="0,0,10,0" VerticalAlignment="Center" IsChecked="{Binding ScopePackage}"
+                                         ToolTip="Every widget of this package that names the texture" />
+                            <RadioButton x:Name="TrialScopeAllUsers" Content="All users" VerticalAlignment="Center" IsChecked="{Binding ScopeAllUsers}"
+                                         ToolTip="Every package that names this texture" />
+                        </WrapPanel>
                         <WrapPanel Margin="0,8,0,0">
                             <Button x:Name="ImportTextureButton" Content="Import image…" Padding="8,1" Command="{Binding ImportTextureCommand}"
                                     ToolTip="Pick a PNG: it shows in the Preview tab as a trial; nothing changes in the project until you inject it" />
@@ -685,6 +698,8 @@
                             <Button x:Name="RemoveTextureEditButton" Content="Remove replacement" Padding="8,1" Margin="6,0,0,0" Command="{Binding RemoveTextureEditCommand}"
                                     ToolTip="Drop this widget's texture edit from the project (one undo step)" />
                         </WrapPanel>
+                        <TextBlock x:Name="TextureMessageText" Margin="0,6,0,0" Foreground="#991B1B" FontSize="11" TextWrapping="Wrap" Text="{Binding TextureMessage}"
+                                   Visibility="{Binding TextureMessage, Converter={StaticResource NullToVis}}" />
 
                         <Border x:Name="TrialPanel" Margin="0,8,0,0" Padding="8,6" Background="#FDF4FF" BorderBrush="#E879F9" BorderThickness="1" CornerRadius="3"
                                 Visibility="{Binding TrialForSelected, Converter={StaticResource BoolToVis}}">
@@ -695,12 +710,7 @@
                                     <TextBox x:Name="TrialNameBox" Padding="2" Text="{Binding TrialName, UpdateSourceTrigger=LostFocus}"
                                              ToolTip="Same length as the source texture's name, with the same _N ending; must not exist in the game" />
                                 </DockPanel>
-                                <StackPanel Margin="0,4,0,0" Visibility="{Binding TextureInfo.CloneRefusal, Converter={StaticResource NullToVis}}">
-                                    <TextBlock Foreground="#444" FontSize="11" TextWrapping="Wrap" Text="Clone source (a B8G8R8A8 texture whose path fits):" />
-                                    <ComboBox x:Name="TrialSourcePicker" ItemsSource="{Binding TextureInfo.Sources}" SelectedItem="{Binding TrialSource}" />
-                                </StackPanel>
                                 <CheckBox x:Name="TrialMarginsCheck" Margin="0,6,0,0" Content="Margins 0: stretch the whole image (no 9-slice)" IsChecked="{Binding TrialMarginsZero}" />
-                                <CheckBox x:Name="TrialAllUsersCheck" Margin="0,2,0,0" Content="Every package that names this texture (not only this widget's)" IsChecked="{Binding TrialAllUsers}" />
                                 <TextBlock x:Name="TrialCheckText" Margin="0,6,0,0" TextWrapping="Wrap" FontSize="11" Text="{Binding TrialCheck}">
                                     <TextBlock.Style>
                                         <Style TargetType="TextBlock">
