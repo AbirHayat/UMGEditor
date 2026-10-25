@@ -24,7 +24,9 @@ public sealed record BoxChange(string Path, string OwnerPackage, bool Visible, R
     public float DBottom => After.Bottom - Before.Bottom;
 }
 
-public sealed record PackageImpact(AffectedPackage Package, LayoutResult Stock, LayoutResult Edited, IReadOnlyList<BoxChange> Changes, string? Error = null);
+/// <param name="Edits">The edits the edited layout was arranged with (the clip warnings look at their animation keys)</param>
+public sealed record PackageImpact(AffectedPackage Package, LayoutResult Stock, LayoutResult Edited, IReadOnlyList<BoxChange> Changes, string? Error = null,
+    EditSet? Edits = null);
 
 /// <summary>
 /// Where an EditSet shows up: every edited package plus every package that embeds one of them (UsageGraph, transitively),
@@ -65,7 +67,8 @@ public sealed class EditImpact(LayoutEngine engine, UsageGraph usage, int viewpo
         UsageGraph.Scoreboards.FirstOrDefault(b => b.PackagePath.Equals(package, StringComparison.OrdinalIgnoreCase));
 
     /// <summary>Arranges every affected package stock vs edited and lists the boxes that change.</summary>
-    public IReadOnlyList<PackageImpact> Predict(EditSet edits, Func<string, WidgetPackageTree> load)
+    /// <param name="clipRemoved">Widgets whose Clipping a recipe layer removes (<see cref="LayoutEngine.ClipKey"/>): not clipping in the edited layout</param>
+    public IReadOnlyList<PackageImpact> Predict(EditSet edits, Func<string, WidgetPackageTree> load, IReadOnlySet<string>? clipRemoved = null)
     {
         var edited = edits.Values.Select(kv => kv.Key.Package).Distinct(StringComparer.OrdinalIgnoreCase);
         var result = new List<PackageImpact>();
@@ -79,8 +82,8 @@ public sealed class EditImpact(LayoutEngine engine, UsageGraph usage, int viewpo
                 continue;
             }
             var before = engine.Arrange(tree, viewportWidth, viewportHeight);
-            var after = engine.Arrange(tree, viewportWidth, viewportHeight, edits);
-            result.Add(new PackageImpact(affected, before, after, Diff(before, after)));
+            var after = engine.Arrange(tree, viewportWidth, viewportHeight, edits, clipRemoved);
+            result.Add(new PackageImpact(affected, before, after, Diff(before, after), Edits: edits));
         }
         return result;
     }

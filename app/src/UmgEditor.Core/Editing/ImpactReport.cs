@@ -166,7 +166,7 @@ public sealed record ImpactReport(string Project, int ViewportWidth, int Viewpor
                 };
                 return new ImpactBox(c, edges, e?.Inputs.Any(x => x.Source == ValueSource.Edited) == true, e == null ? null : ClipCut.Of(e, s));
             }).ToList();
-            return new ImpactPackage(i.Package, boxes, EditWarnings.ForImpact(i.Stock, i.Edited), null);
+            return new ImpactPackage(i.Package, boxes, EditWarnings.ForImpact(i.Stock, i.Edited, i.Edits), null);
         }).ToList();
         return new ImpactReport(project, viewportWidth, viewportHeight, packages);
     }

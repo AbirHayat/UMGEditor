@@ -92,6 +92,8 @@ public sealed record ExportPlan(
     public IReadOnlyList<(string PackagePath, string Names)> ExpectedNames { get; init; } = [];
     /// <summary>Loose-file paks shipped in mod\ next to the container (recipe LoosePaks); with no packages, the mod is only these</summary>
     public IReadOnlyList<LoosePak> LoosePaks { get; init; } = [];
+    /// <summary>Widgets whose Clipping a recipe layer removes (LayoutEngine.ClipKey): the predictions lay them out without their clip</summary>
+    public IReadOnlySet<string> ClipRemoved { get; init; } = new HashSet<string>();
 }
 
 /// <summary>Outcome of a background export. When not built, mod\ was removed (FAILED.txt says why) and nothing else is written.</summary>

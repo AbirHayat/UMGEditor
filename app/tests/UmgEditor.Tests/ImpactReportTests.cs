@@ -115,6 +115,68 @@ public class ImpactReportTests
         StringAssert.Contains(w.Message, "Mask ends up completely outside");
     }
 
+    // ---- item 3: which clip verdicts are Danger ----
+
+    private static EditSet C8Timer() => Edit(MatchTime, "Time_Timer", (n, e) => SlotEditor.SetField(n, e, "LayoutData.Offsets.Left", 491));
+
+    /// <summary>An edit of the first key of a widget's moving animation (margin or 2D transform) in MatchTime.</summary>
+    private static EditSet WithAnimKeyOf(EditSet edits, string widget, string animation)
+    {
+        var use = WidgetTreeReader.Build(Source, MatchTime).Find(widget)!.Animations.First(a => a.Animation == animation && a.MovingSections is { Count: > 0 });
+        return edits.With([new FieldChange(new FieldKey(MatchTime, use.MovingSections![0], "anim:Translation[0]#0"), 0, 5)], _ => null);
+    }
+
+    private static EditWarning TimerWarning(EditSet edits, IReadOnlySet<string>? clipRemoved = null) =>
+        ImpactReport.Build("test", 1786, 1000, new EditImpact(Engine, new UsageGraph(UiIndex), 1786, 1000).Predict(edits, p => WidgetTreeReader.Build(Source, p), clipRemoved))
+            .Packages.Single(p => p.Name == "MatchTime").Warnings.Single(w => w.Message.Contains("Time_Timer"));
+
+    /// <summary>
+    /// The C8 timer has its own transform tracks (Info_On holds it at -372) and the MatchTime canvas above it has Aspect_*
+    /// margin tracks, yet it vanished in game: stock animations don't make a clip verdict uncertain. Only keys the edits
+    /// change do, and only on the widget or an ancestor below its clip (another widget's edited keys don't count).
+    /// </summary>
+    [TestMethod]
+    public void C8_StaysDanger_UnlessTheEditsChangeKeysThatMoveTheTimer()
+    {
+        Assert.AreEqual(Severity.Danger, TimerWarning(C8Timer()).Severity);
+        Assert.AreEqual(Severity.Danger, TimerWarning(WithAnimKeyOf(C8Timer(), "Img_Logo", "Info_Show")).Severity, "Img_Logo's keys don't move the timer");
+
+        var uncertain = TimerWarning(WithAnimKeyOf(C8Timer(), "Time_Timer", "Info_Show"));
+        Assert.AreEqual((WarningKind.AnimatedClip, Severity.Warning), (uncertain.Kind, uncertain.Severity));
+        StringAssert.StartsWith(uncertain.Message, "Uncertain: an animation moves Time_Timer");
+        StringAssert.Contains(uncertain.Message, "\"Info_Show\" on it");
+    }
+
+    /// <summary>A recipe layer that removes Normal_Display's ClipToBounds (C15) leaves nothing to vanish behind.</summary>
+    [TestMethod]
+    public void C8_WithNormalDisplaysClippingRemoved_HasNoClipWarning()
+    {
+        var removed = new HashSet<string> { LayoutEngine.ClipKey(MatchTime, "Normal_Display") };
+        var report = ImpactReport.Build("test", 1786, 1000, new EditImpact(Engine, new UsageGraph(UiIndex), 1786, 1000).Predict(C8Timer(), p => WidgetTreeReader.Build(Source, p), removed));
+        var board = report.Packages.Single(p => p.Name == "MatchTime");
+        Assert.IsFalse(board.Warnings.Any(w => w.Kind is WarningKind.LeavesClip or WarningKind.AnimatedClip), string.Join(" | ", board.Warnings.Select(w => w.Message)));
+        Assert.IsNull(Box(board, "Normal_Display/Time_Timer").Cut, "laid out without the removed clip");
+    }
+
+    /// <summary>A widget the edit collapses to 0 px or parks off-screen won't show either: said as such, a Warning, not Danger.</summary>
+    [TestMethod]
+    public void Mask_Collapsed_OrParkedOffScreen_IsAWarningThatSaysSo_829StaysDanger()
+    {
+        var w829 = Report(Edit(MatchTime, "Mask", (n, e) => SlotEditor.SetField(n, e, "LayoutData.Offsets.Left", 829))).Packages.Single().Warnings
+            .Single(w => w.Message.Contains("Mask"));
+        Assert.AreEqual((WarningKind.LeavesClip, Severity.Danger), (w829.Kind, w829.Severity), "canary 1: on screen, outside its clip, vanished in game");
+
+        var parked = Report(Edit(MatchTime, "Mask", (n, e) => SlotEditor.SetField(n, e, "LayoutData.Offsets.Left", 3000))).Packages.Single().Warnings
+            .Single(w => w.Message.Contains("Mask"));
+        Assert.AreEqual((WarningKind.OffScreen, Severity.Warning), (parked.Kind, parked.Severity), parked.Message);
+        StringAssert.Contains(parked.Message, "moved completely off-screen");
+
+        var collapsed = Report(Edit(MatchTime, "Mask", (n, e) => SlotEditor.SetField(n, e, Right, 0))).Packages.Single().Warnings
+            .Single(w => w.Message.Contains("Mask"));
+        Assert.AreEqual((WarningKind.Collapsed, Severity.Warning), (collapsed.Kind, collapsed.Severity), collapsed.Message);
+        StringAssert.Contains(collapsed.Message, "collapsed to 0 px wide");
+    }
+
     /// <summary>
     /// Canary C8 in game: Time_Timer Left 368→491 left 0.9 px of it inside Normal_Display (clips at x 500) and the timer
     /// was gone. Danger, and the timer's boxes are marked cut off; the away name, cut 1.9 px at the bottom in stock as

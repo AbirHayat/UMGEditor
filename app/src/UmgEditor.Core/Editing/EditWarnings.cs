@@ -19,6 +19,12 @@ public enum WarningKind
     ClippingParent,
     /// <summary>The pending edit puts the widget (partly) outside a clipping ancestor.</summary>
     LeavesClip,
+    /// <summary>The edits collapse the widget to zero width or height: it won't show (usually on purpose).</summary>
+    Collapsed,
+    /// <summary>The edits move the widget completely off-screen: it won't show (usually on purpose).</summary>
+    OffScreen,
+    /// <summary>Outside its clip as laid out, but the edits change keys of an animation that moves it relative to the clip: uncertain.</summary>
+    AnimatedClip,
     /// <summary>The edit changes a ScaleBox scale: the whole board rescales and moves.</summary>
     Rescale,
     /// <summary>The edit moves widgets outside the edited branch (layout feedback).</summary>
@@ -159,15 +165,44 @@ public sealed class EditWarnings(LayoutEngine engine, UsageGraph usage, int view
     /// The same consequences for one package of the impact panel, arranged stock vs edited: the edited widgets are the
     /// boxes laid out with an edited value (every instance of an edited child inside this package).
     /// </summary>
-    public static IReadOnlyList<EditWarning> ForImpact(LayoutResult before, LayoutResult after)
+    /// <param name="edits">The edits (null = unknown): a clip warning is uncertain when they change the keys of an
+    /// animation that moves the widget relative to its clip</param>
+    public static IReadOnlyList<EditWarning> ForImpact(LayoutResult before, LayoutResult after, EditSet? edits = null)
     {
         var edited = after.All().Where(b => b.Inputs.Any(i => i.Source == ValueSource.Edited)).ToList();
         var names = edited.Select(b => b.Node.Name).Distinct().ToList();
         var subject = names.Count == 0 ? "the edited widgets" : names.Count <= 3 ? string.Join(", ", names) : $"{string.Join(", ", names.Take(3))} and {names.Count - 3} more";
-        return Consequences(before, after, edited, subject);
+        return Consequences(before, after, edited, subject, edits);
     }
 
-    private static IReadOnlyList<EditWarning> Consequences(LayoutResult before, LayoutResult after, IReadOnlyList<LayoutBox> editedBoxes, string subject)
+    /// <summary>
+    /// Animations that move <paramref name="box"/> relative to its clip and whose keys the edits change: margin or 2D
+    /// transform tracks on the widget or an ancestor below the clipping one (an animation on the clipper or above it moves
+    /// the clip too). With such keys edited, the layout of stored values isn't where the widget rests at runtime (canary
+    /// C16: Goal's Translation[1] keys hold the goal row 60 units lower than its slot), so a clip verdict is uncertain.
+    /// Stock animations whose keys aren't edited don't count: canary C8's timer vanished in game although Info_On can
+    /// translate it by -372.
+    /// </summary>
+    internal static List<string> EditedMovingAnimations(LayoutBox box, EditSet? edits, IReadOnlySet<string> clipRemoved)
+    {
+        var found = new List<string>();
+        if (edits is not { Count: > 0 }) return found;
+        for (var b = box; b != null && !ClipsIn(b, clipRemoved); b = b.Parent)
+            foreach (var use in b.Node.Animations.Where(a => a.MovesWidget && a.MovingSections is { Count: > 0 }))
+                if (edits.Values.Any(kv => kv.Key.Path.StartsWith("anim:", StringComparison.Ordinal) && use.MovingSections!.Contains(kv.Key.SlotExport)
+                                           && kv.Key.Package.Equals(b.Node.PackagePath, StringComparison.OrdinalIgnoreCase)))
+                {
+                    var what = $"\"{use.Animation}\" on {(b == box ? "it" : b.Node.Name)}{(use.OnSlot ? " (its slot)" : "")}";
+                    if (!found.Contains(what)) found.Add(what);
+                }
+        return found;
+    }
+
+    private static bool ClipsIn(LayoutBox box, IReadOnlySet<string> clipRemoved) =>
+        box.Node.ClipsToBounds && !clipRemoved.Contains(LayoutEngine.ClipKey(box.Node.PackagePath, box.Node.Name));
+
+    private static IReadOnlyList<EditWarning> Consequences(LayoutResult before, LayoutResult after, IReadOnlyList<LayoutBox> editedBoxes, string subject,
+        EditSet? edits = null)
     {
         var warnings = new List<EditWarning>();
         foreach (var c in ScaleChanges(before, after))
@@ -199,7 +234,7 @@ public sealed class EditWarnings(LayoutEngine engine, UsageGraph usage, int view
             var stockBox = beforeByPath.GetValueOrDefault(branch);
             var stockR = stockBox?.Bounds ?? r;
             var stockInside = stockBox?.Clip is { } stockClip ? stockR.Intersect(stockClip) : stockR;
-            var clipper = ClipperName(editedBox);
+            var clipper = ClipperName(editedBox, after.ClipRemoved);
             var stockShowed = $"stock showed {stockInside.Width:0.#}×{stockInside.Height:0.#} of {stockR.Width:0.#}×{stockR.Height:0.#}";
             EditWarning? w = null;
             if (inside.Width <= 0 || inside.Height <= 0)
@@ -212,6 +247,26 @@ public sealed class EditWarnings(LayoutEngine engine, UsageGraph usage, int view
                         $"so it will practically vanish in game ({stockShowed}).")
                     : new(WarningKind.LeavesClip, Severity.Warning,
                         $"{name} ends up partly outside {clipper}: it will be cut off (visible {inside.Width:0.#}×{inside.Height:0.#} px of {r.Width:0.#}×{r.Height:0.#}, {stockShowed}).");
+            if (w is { Severity: Severity.Danger })
+            {
+                // a vanish the edits make on purpose, or one the layout can't decide, isn't a Danger: said as such
+                var stockSize = stockBox == null || stockR.Width > MovedPx && stockR.Height > MovedPx;
+                var viewport = new RectangleF(0, 0, after.ViewportWidth, after.ViewportHeight);
+                var stockOnScreen = stockBox == null || stockR.IntersectsWith(viewport);
+                var animated = EditedMovingAnimations(editedBox, edits, after.ClipRemoved);
+                if ((r.Width <= MovedPx || r.Height <= MovedPx) && stockSize)
+                    w = new(WarningKind.Collapsed, Severity.Warning,
+                        $"{name} is collapsed to 0 px {(r.Width <= MovedPx ? "wide" : "high")} by the edits: it won't show (hidden on purpose?).");
+                else if (!r.IntersectsWith(viewport) && stockOnScreen)
+                    w = new(WarningKind.OffScreen, Severity.Warning,
+                        $"{name} is moved completely off-screen by the edits (x {r.X:0.#}–{r.Right:0.#}, y {r.Y:0.#}–{r.Bottom:0.#} px; the screen is {after.ViewportWidth}×{after.ViewportHeight}): " +
+                        "it won't show (parked there on purpose?).");
+                else if (animated.Count > 0)
+                    w = new(WarningKind.AnimatedClip, Severity.Warning,
+                        $"Uncertain: an animation moves {name}. As laid out it ends up {(inside.Width <= 0 || inside.Height <= 0 ? "completely" : "almost completely")} outside {clipper}, " +
+                        $"but {string.Join(", ", animated)} move{(animated.Count == 1 ? "s" : "")} it relative to that clip and the edits change {(animated.Count == 1 ? "its" : "their")} keys, " +
+                        "so the stored layout isn't where it rests at runtime. Check it in game.");
+            }
             if (w != null && !warnings.Contains(w)) warnings.Add(w);
         }
         return warnings;
@@ -230,8 +285,8 @@ public sealed class EditWarnings(LayoutEngine engine, UsageGraph usage, int view
     }
 
     /// <summary>The nearest ancestor that clips this box (the one named in the clip warnings).</summary>
-    internal static string ClipperName(LayoutBox box) =>
-        Ancestors(box).FirstOrDefault(a => a.Node.ClipsToBounds)?.Node.Name ?? "a clipping ancestor";
+    internal static string ClipperName(LayoutBox box, IReadOnlySet<string>? clipRemoved = null) =>
+        Ancestors(box).FirstOrDefault(a => ClipsIn(a, clipRemoved ?? new HashSet<string>()))?.Node.Name ?? "a clipping ancestor";
 
     private static bool Differs(RectangleF a, RectangleF b) =>
         Math.Abs(a.X - b.X) > MovedPx || Math.Abs(a.Y - b.Y) > MovedPx || Math.Abs(a.Width - b.Width) > MovedPx || Math.Abs(a.Height - b.Height) > MovedPx;

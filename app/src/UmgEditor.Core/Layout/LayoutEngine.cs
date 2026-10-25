@@ -63,6 +63,8 @@ public readonly record struct RectangleF(float X, float Y, float Width, float He
     public float Right => X + Width;
     public float Bottom => Y + Height;
     public bool Contains(float px, float py) => px >= X && py >= Y && px <= Right && py <= Bottom;
+    /// <summary>The two overlap by a positive area (touching edges don't count).</summary>
+    public bool IntersectsWith(RectangleF o) => X < o.Right && o.X < Right && Y < o.Bottom && o.Y < Bottom;
 
     public RectangleF Intersect(RectangleF o)
     {
@@ -83,6 +85,8 @@ public sealed class LayoutResult
     public required double DpiRuleInput { get; init; }
     public required UiScaleSettings Settings { get; init; }
     public List<ScaleBoxInfo> ScaleBoxes { get; } = [];
+    /// <summary>Widgets laid out without their stored ClipToBounds (a recipe layer removes it), as <see cref="LayoutEngine.ClipKey"/>s</summary>
+    public IReadOnlySet<string> ClipRemoved { get; init; } = new HashSet<string>();
 
     public IEnumerable<LayoutBox> All() => Root == null ? [] : Root.Descendants().Prepend(Root);
     public LayoutBox? Find(string name) => All().FirstOrDefault(b => b.Node.Name == name);
@@ -97,6 +101,11 @@ public sealed class LayoutEngine(UiScaleSettings settings, Func<string, WidgetPa
 {
     /// <summary>Edited values for the current Arrange (read through, never written into the stock tree).</summary>
     private EditSet _edits = EditSet.Empty;
+    /// <summary>Widgets whose stored ClipToBounds a recipe layer removes (TagRemover), for the current Arrange.</summary>
+    private IReadOnlySet<string> _clipRemoved = new HashSet<string>();
+
+    /// <summary>The key of a widget in a clip-removed set: its package (any letter case) and its name.</summary>
+    public static string ClipKey(string package, string widget) => package.ToLowerInvariant() + "|" + widget;
 
     private const int MaxDepth = 40;
     /// <summary>Konami library widgets drawn directly (texture / text) instead of expanding their own blueprint.</summary>
@@ -105,10 +114,12 @@ public sealed class LayoutEngine(UiScaleSettings settings, Func<string, WidgetPa
     private static readonly HashSet<string> Stacking = ["VerticalBox", "HorizontalBox", "VerticalBoxCustom", "HorizontalBoxCustom", "ScrollBox", "WrapBox", "UniformGridPanel", "GridPanel", "Overlay"];
 
     /// <param name="edits">Edited slot values to lay out with (feature 4); stock data stays untouched.</param>
-    public LayoutResult Arrange(WidgetPackageTree tree, int viewportWidth, int viewportHeight, EditSet? edits = null)
+    /// <param name="clipRemoved">Widgets (<see cref="ClipKey"/>) laid out as not clipping: a recipe layer removes their Clipping tag</param>
+    public LayoutResult Arrange(WidgetPackageTree tree, int viewportWidth, int viewportHeight, EditSet? edits = null, IReadOnlySet<string>? clipRemoved = null)
     {
-        if (edits != null && edits.Count > 0)
-            return new LayoutEngine(settings, loadEmbedded, textureSize) { _edits = edits }.Arrange(tree, viewportWidth, viewportHeight);
+        if (edits is { Count: > 0 } || clipRemoved is { Count: > 0 })
+            return new LayoutEngine(settings, loadEmbedded, textureSize) { _edits = edits ?? EditSet.Empty, _clipRemoved = clipRemoved ?? new HashSet<string>() }
+                .Arrange(tree, viewportWidth, viewportHeight);
 
         var dpi = settings.DpiScale(viewportWidth, viewportHeight);
         var result = new LayoutResult
@@ -118,6 +129,7 @@ public sealed class LayoutEngine(UiScaleSettings settings, Func<string, WidgetPa
             DpiScale = dpi,
             DpiRuleInput = settings.RuleInput(viewportWidth, viewportHeight),
             Settings = settings,
+            ClipRemoved = _clipRemoved,
         };
         if (tree.Root == null) return result;
         // a widget added to the viewport fills it, in slate units
@@ -125,6 +137,8 @@ public sealed class LayoutEngine(UiScaleSettings settings, Func<string, WidgetPa
         result.Root = Place(tree.Root, null, Vector2.Zero, size, Matrix3x2.CreateScale((float) dpi), null, result, 0);
         return result;
     }
+
+    private bool Clips(WidgetNode node) => node.ClipsToBounds && !_clipRemoved.Contains(ClipKey(node.PackagePath, node.Name));
 
     private LayoutBox? Place(WidgetNode node, LayoutBox? parent, Vector2 position, Vector2 size, Matrix3x2 parentToViewport,
         RectangleF? clip, LayoutResult result, int depth)
@@ -158,7 +172,7 @@ public sealed class LayoutEngine(UiScaleSettings settings, Func<string, WidgetPa
         box.Inputs.AddRange(rtInputs);
 
         var childClip = clip;
-        if (node.ClipsToBounds)
+        if (Clips(node))
         {
             var b = box.Bounds;
             childClip = clip is { } c ? c.Intersect(b) : b;

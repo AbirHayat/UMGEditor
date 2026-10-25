@@ -68,16 +68,16 @@ public class RecipeBuildTests
 
     [TestMethod]
     [DataRow("C10", false)]
-    [DataRow("C12", true)]
+    [DataRow("C12", false)]
     [DataRow("C18", false)]
     [DataRow("C16b_test", true)]
     [DataRow("C13", false)]
     [DataRow("C14", false)]
-    [DataRow("C15", true)]
-    [DataRow("C16", true)]
-    [DataRow("C16b", true)]
+    [DataRow("C15", false)]
+    [DataRow("C16", false)]
+    [DataRow("C16b", false)]
     [DataRow("C17a", false)]
-    [DataRow("C17b", true)]
+    [DataRow("C17b", false)]
     public void Acceptance_RecipeBuildsTheDeviceTestedFiles(string name, bool ack)
     {
         NeedsInputs(name);
@@ -137,7 +137,7 @@ public class RecipeBuildTests
     public void Danger_WithoutAck_NeedsAck_AndWritesNothing()
     {
         var name = ScratchName();
-        var outcome = Build(RecipeText("C12"), ack: false, name: name);
+        var outcome = Build(RecipeTests.C8Recipe(), ack: false, name: name);
         Assert.AreEqual(RecipeBuild.NeedsAck, outcome.Code);
         Assert.IsTrue(outcome.Refusals.Single().Contains("--ack-danger"), outcome.Refusals.Single());
         Assert.IsFalse(Directory.Exists(Path.Combine(Mods.Root, name)));

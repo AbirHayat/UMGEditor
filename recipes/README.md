@@ -132,22 +132,34 @@ the result with `Expect.Chunks`. It writes nothing: only the shared caches under
 | Recipe | Device-tested | What it covers |
 |---|---|---|
 | `C10.json` | C10 | one inserted tag (MatchTime Text_Score_Home Left = 20) |
-| `C12.json` | C12 | 23 in-place values, 2 inserted tags, 13 animation key/frame/interp/range edits; 5 Danger warnings by design |
+| `C12.json` | C12 | 23 in-place values, 2 inserted tags, 13 animation key/frame/interp/range edits; no Danger warning (see Layout warnings below) |
 | `C18.json` | C18 | two texture edits, This widget, appended + pointed route, 2 clones |
 | `C13.json` | C13 | 2 solid-colour clones of DemoTitlePlate (Tex720 green, 0164F magenta) + DemoTitleBase re-pointed |
 | `C14.json` | C14 | 2 clones resized to UCL's 696×192 image (input from `umgcompare recipe-input C14`) + the re-point with Img_Plate's margins 0.33 → 0 |
-| `C15.json` | C15 | MatchTime: edit set C15 → Rename (Img_Line's path, scores white) → RemoveTag (Normal_Display's clipping); the bar art (2964×96 `.bgra`) in both theme folders; 3 Danger warnings |
-| `C16.json` | C16 | the complete UCL look: 7 layered packages (MatchTime, both ColorTables, MatchTimeGoal with a ClassSwap, MatchTimeCard, MatchTimeMemberChange, DemoTitle with a ClassSwap), 11 clones (4 white, bar, logo, navy, goal art), 4 re-points; 15 Danger warnings |
-| `C16b.json` | C16b | C16 with set C16b's values and art, plus AppendNames + EnumInsert (Justification = Center) on MatchTimeGoal and MatchTimeCard; 15 Danger warnings |
+| `C15.json` | C15 | MatchTime: edit set C15 → Rename (Img_Line's path, scores white) → RemoveTag (Normal_Display's clipping); the bar art (2964×96 `.bgra`) in both theme folders |
+| `C16.json` | C16 | the complete UCL look: 7 layered packages (MatchTime, both ColorTables, MatchTimeGoal with a ClassSwap, MatchTimeCard, MatchTimeMemberChange, DemoTitle with a ClassSwap), 11 clones (4 white, bar, logo, navy, goal art), 4 re-points |
+| `C16b.json` | C16b | C16 with set C16b's values and art, plus AppendNames + EnumInsert (Justification = Center) on MatchTimeGoal and MatchTimeCard |
 | `C17a.json` | C17a | no container: `pc9998_mobile_and_P.pak` with UCL's font as `eFootballStencil-Regular.ufont` |
-| `C17b.json` | C17b | C16b + UCL's font on the scoreboard: NameTag layers on 21 texts in 7 packages (MatchTimeTimer/Additional/Aggregate font-only), `pes` FontFace (Latin HeadlineBoldSub → NotoSansThai-ExtraBold), and the font pak with UCL's font as `NotoSansThai-ExtraBold.ufont`; 26 chunks + 4 device files; 15 Danger warnings |
+| `C17b.json` | C17b | C16b + UCL's font on the scoreboard: NameTag layers on 21 texts in 7 packages (MatchTimeTimer/Additional/Aggregate font-only), `pes` FontFace (Latin HeadlineBoldSub → NotoSansThai-ExtraBold), and the font pak with UCL's font as `NotoSansThai-ExtraBold.ufont`; 26 chunks + 4 device files |
+| `C16b_test.json` | C16b_test | `recipe-from-set` of project C16b: 8 packages, 255 values, 36 texture edits (version 1 scopes = Package), 74 chunks; one Danger warning (MatchCard `Img_VI_1` moved below `Mask_1`; stock Show keys), so it needs `--ack-danger` |
 
 C15, C16, C16b, C17a and C17b are written by `umgcompare recipe-ucl <name>` from the builders that made the
 device-tested mods (`canary-scoreboard`, `UclC16`, `canary-font`): the same ops in the same order, the values from the canary's edit set (the saved
 file must equal a rebuild), stock values read from the game, the art as pinned `.bgra` inputs in `work\out\art`, and
-`Expect` copied from `pins\device-tested.json`. Their Danger warnings come from the static layout of the edit sets'
-values (umgcompare never computed them); the same values passed in game.
-| `C16b_test.json` | C16b_test | `recipe-from-set` of project C16b: 8 packages, 255 values, 36 texture edits (version 1 scopes = Package), 74 chunks; Danger warnings acknowledged when it was built |
+`Expect` copied from `pins\device-tested.json`.
+
+## Layout warnings
+`recipe-check` lays out the value edits (stock vs edited) and lists what the export dialog would. A widget that ends up
+(almost) completely outside its clip is **Danger** (canary C8: the timer kept 0.9 px inside `Normal_Display` and was gone;
+canary 1: Mask at Left 829), except when the layout itself can't tell, which is said as a Warning:
+- **collapsed to 0 px** wide or high by the edits (it won't show; usually on purpose: the UCL look hides plates that way);
+- **moved completely off-screen** by the edits (parked, e.g. +3000 units);
+- **uncertain: an animation moves it**: a margin or 2D transform track on the widget or an ancestor below its clip has
+  keys the edits change (C16: Goal's `Translation[1]` keys hold the goal row 60 units lower than its slot), so the
+  stored layout isn't where it rests at runtime. Stock animations whose keys aren't edited don't count: C8's timer has
+  its own Info_On translation (−372) and still vanished.
+A `RemoveTag` layer that takes a widget's `ClipToBounds` away (C15–C17b: `Normal_Display`) is laid out without that
+clip. With these rules no canary that passed on the phone has a Danger warning; C8's edit still has one.
 
 Each of these builds into exactly its device-tested files (`RecipeBuildTests`).
 

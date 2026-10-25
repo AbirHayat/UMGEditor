@@ -59,15 +59,15 @@ public class RecipeTests
 
     [TestMethod]
     [DataRow("C10", 1, 0)]
-    [DataRow("C12", 1, 5)]
+    [DataRow("C12", 1, 0)]
     [DataRow("C18", 4, 0)]
     [DataRow("C13", 3, 0)]
     [DataRow("C14", 3, 0)]
-    [DataRow("C15", 3, 3)]
-    [DataRow("C16", 22, 15)]
-    [DataRow("C16b", 22, 15)]
+    [DataRow("C15", 3, 0)]
+    [DataRow("C16", 22, 0)]
+    [DataRow("C16b", 22, 0)]
     [DataRow("C17a", 0, 0)]
-    [DataRow("C17b", 26, 15)]
+    [DataRow("C17b", 26, 0)]
     public void Acceptance_RecipeGivesThePinnedChunks_AndWritesNothing(string name, int chunks, int danger)
     {
         var json = RecipeText(name);
@@ -440,13 +440,67 @@ public class RecipeTests
         CollectionAssert.IsSubsetOf(new[] { "C13", "C14", "C16b_test", "C18" }, compared, string.Join(", ", compared));
     }
 
+    /// <summary>Canary C8 as a recipe: Time_Timer Left 368 → 491, which left 0.9 px inside Normal_Display and vanished in game.</summary>
+    internal static string C8Recipe()
+    {
+        var timer = WidgetTreeReader.Build(Source, MatchTime).Find("Time_Timer")!.Slot!;
+        return new JsonObject
+        {
+            ["Recipe"] = 1, ["Name"] = "zzC8", ["Container"] = "pc9999_mobile_and_P",
+            ["Packages"] = new JsonArray(new JsonObject
+            {
+                ["Package"] = MatchTime, ["StockSha256"] = RecipeCheck.Sha256(Source.ReadPackageBytes(MatchTime).Bytes),
+                ["Values"] = new JsonArray(new JsonObject
+                    { ["Export"] = timer.ExportIndex, ["Slot"] = timer.Name, ["Path"] = "LayoutData.Offsets.Left", ["Stock"] = 368, ["Value"] = 491 }),
+            }),
+        }.ToJsonString();
+    }
+
     [TestMethod]
     public void Check_DangerNeedsTheCommandLine_TheRecipeCantAcknowledge()
     {
-        var r = Check(RecipeText("C12"));
+        var r = Check(C8Recipe());
         Assert.IsTrue(r.Ok, string.Join("\n", r.Refusals));
-        Assert.AreEqual(5, r.Danger.Count);
-        Assert.IsTrue(r.Danger.All(w => w.Warning.Message.Contains("vanish")), string.Join("\n", r.Danger.Select(w => w.Text)));
+        Assert.AreEqual("Time_Timer", r.Danger.Single().Warning.Message.Split(' ')[0], string.Join("\n", r.Danger.Select(w => w.Text)));
+        StringAssert.Contains(r.Danger.Single().Warning.Message, "practically vanish");
+    }
+
+    /// <summary>
+    /// Item 3: the layout warnings of the canaries that passed on the phone. Group A (collapsed to 0 px by the edits) and B
+    /// (parked off-screen) are Warnings that say so; group C (the goal scorer's and card player's names: the edits change
+    /// keys of an animation that moves them relative to their clip) is "uncertain"; group D (the timer: a RemoveTag layer
+    /// takes Normal_Display's clipping away) has no clip warning at all. Nothing is Danger.
+    /// </summary>
+    [TestMethod]
+    [DataRow("C16")]
+    [DataRow("C16b")]
+    [DataRow("C17b")]
+    public void PassedOnThePhone_IsNotDanger_AndSaysWhy(string name)
+    {
+        var json = RecipeText(name);
+        NeedsInputs(json, name);
+        var r = Check(json);
+        Assert.IsTrue(r.Ok, string.Join("\n", r.Refusals));
+        Assert.AreEqual(0, r.Danger.Count, string.Join("\n", r.Danger.Select(w => w.Text)));
+        string Kind(string package, string widget) => string.Join(",", r.Warnings.Where(w => w.Package == package && System.Text.RegularExpressions.Regex.IsMatch(w.Warning.Message, $@"\b{widget}\b(?!_)")).Select(w => w.Warning.Kind));
+        Assert.AreEqual("AnimatedClip", Kind("MatchTimeGoal", "Text_PlayerName"), "the scorer's name: Goal's Show/Hide keys are edited");
+        Assert.AreEqual("AnimatedClip", Kind("MatchTimeCard", "Text_Value"), "the card player's name: its own Card_On/Card_Off keys are edited");
+        Assert.AreEqual("Collapsed", Kind("MatchTimeGoal", "MatchTimeBase_2"));
+        Assert.AreEqual("OffScreen", Kind("MatchTimeGoal", "Text_Item"));
+        Assert.AreEqual("", Kind("MatchTime", "Time_Timer"), "Normal_Display's clipping is removed by the recipe, so the timer leaves no clip");
+        Assert.IsTrue(r.ClipRemoved.Contains(UmgEditor.Core.Layout.LayoutEngine.ClipKey(MatchTime, "Normal_Display")));
+        var uncertain = r.Warnings.First(w => w.Warning.Kind == WarningKind.AnimatedClip).Warning.Message;
+        StringAssert.StartsWith(uncertain, "Uncertain: an animation moves");
+        StringAssert.Contains(uncertain, "the edits change");
+    }
+
+    [TestMethod]
+    public void C15_TheTimerAndTheCollapsedPlates_LeaveNoClipOnceItIsRemoved()
+    {
+        var r = Check(RecipeText("C15"));
+        Assert.IsTrue(r.Ok, string.Join("\n", r.Refusals));
+        Assert.AreEqual(0, r.Warnings.Count(w => w.Package == "MatchTime" && w.Warning.Kind is WarningKind.LeavesClip or WarningKind.AnimatedClip),
+            string.Join("\n", r.Warnings.Select(w => w.Text)));
     }
 
     // ---- the in-memory session ----

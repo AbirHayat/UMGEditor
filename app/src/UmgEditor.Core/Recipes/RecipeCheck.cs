@@ -35,6 +35,8 @@ public sealed class RecipeCheckResult
     public List<(string PackagePath, string Names)> RepointNames { get; } = [];
     /// <summary>The loose-file paks, built and read back</summary>
     public List<LoosePak> LoosePaks { get; } = [];
+    /// <summary>Widgets whose Clipping a RemoveTag layer removes (LayoutEngine.ClipKey): laid out without their clip in the predictions</summary>
+    public HashSet<string> ClipRemoved { get; } = [];
     public List<ExportWarning> Warnings { get; } = [];
     /// <summary>Danger warnings: a build needs --ack-danger for these (a recipe can't acknowledge them)</summary>
     public IReadOnlyList<ExportWarning> Danger => Warnings.Where(w => w.IsDanger).ToList();
@@ -315,7 +317,11 @@ public static class RecipeCheck
         result.Edits = allEdits;
         if (allEdits.Count > 0)
         {
-            var impact = ImpactReport.Build(recipe.Name, context.ViewportWidth, context.ViewportHeight, context.Impact.Predict(allEdits, context.LoadTree));
+            // a RemoveTag layer that takes a widget's ClipToBounds away (C15: Normal_Display) is laid out as the game will show it
+            foreach (var p in recipe.PackagesOrEmpty)
+                foreach (var l in p.LayersOrEmpty.OfType<RemoveTagLayer>().Where(l => l.Tag == "Clipping" && l.Stock.EndsWith("ClipToBounds", StringComparison.Ordinal)))
+                    result.ClipRemoved.Add(Layout.LayoutEngine.ClipKey(p.Package, l.Export));
+            var impact = ImpactReport.Build(recipe.Name, context.ViewportWidth, context.ViewportHeight, context.Impact.Predict(allEdits, context.LoadTree, result.ClipRemoved));
             result.Warnings.AddRange(ExportWarning.From(impact));
         }
 

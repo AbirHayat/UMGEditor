@@ -50,6 +50,7 @@ public static class RecipeBuild
             ExpectedTextures = [.. check.Textures?.Expected ?? [], .. check.CloneMips],
             ExpectedNames = check.RepointNames,
             LoosePaks = check.LoosePaks,
+            ClipRemoved = check.ClipRemoved,
         };
     }
 

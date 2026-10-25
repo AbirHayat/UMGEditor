@@ -65,7 +65,7 @@ public static class ExportRunner
 
         log?.Report("Laying out every package the saved edits reach (stock vs edited)…");
         var mods = WriteGuard.ForMods(env.Source.Config);
-        var impacts = new EditImpact(env.Engine, env.Usage, env.Width, env.Height).Predict(plan.SavedEdits, env.LoadTree);
+        var impacts = new EditImpact(env.Engine, env.Usage, env.Width, env.Height).Predict(plan.SavedEdits, env.LoadTree, plan.ClipRemoved);
         var predictions = Path.Combine(plan.OutDir, "predictions");
         var files = new List<string>();
         foreach (var i in impacts.Where(i => i.Error == null))

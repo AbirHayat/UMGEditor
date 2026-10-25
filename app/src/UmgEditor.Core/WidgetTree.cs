@@ -12,7 +12,8 @@ public sealed record SlotField(string Path, bool Stored, string Value, bool Defa
 
 /// <param name="Tracks">e.g. "Margin (LayoutData)", "Byte (Visibility)", "2DTransform (RenderTransform)"</param>
 /// <param name="OnSlot">True when the animation drives the widget's slot (layout), not the widget itself</param>
-public sealed record AnimationUse(string Animation, IReadOnlyList<string> Tracks, bool OnSlot)
+/// <param name="MovingSections">Export indexes of the sections of its margin and 2D transform tracks (where their keys are stored)</param>
+public sealed record AnimationUse(string Animation, IReadOnlyList<string> Tracks, bool OnSlot, IReadOnlyList<int>? MovingSections = null)
 {
     /// <summary>Margin tracks move the slot; 2D transform tracks move the rendered widget.</summary>
     public bool MovesWidget => Tracks.Any(t => t.StartsWith("Margin") || t.StartsWith("2DTransform"));
@@ -212,26 +213,30 @@ public static class WidgetTreeReader
             var label = props?["DisplayLabel"]?.Value<string>() ?? obj(i).Name.Replace("_INST", "");
             if (reference(props?["MovieScene"]) is not { } sceneIndex) continue;
 
-            var tracksByGuid = new Dictionary<string, List<string>>();
+            var tracksByGuid = new Dictionary<string, (List<string> Tracks, List<int> Sections)>();
             foreach (var binding in json(sceneIndex)["Properties"]?["ObjectBindings"] as JArray ?? [])
             {
                 var tracks = new List<string>();
+                var sections = new List<int>();
                 foreach (var track in binding["Tracks"] as JArray ?? [])
                 {
                     var type = track["ObjectName"]?.Value<string>()?.Split('\'')[0].Replace("MovieScene", "").Replace("Track", "") ?? "?";
                     var property = reference(track) is { } t ? json(t)["Properties"]?["PropertyBinding"]?["PropertyName"]?.Value<string>() : null;
                     tracks.Add(property != null ? $"{type} ({property})" : type);
+                    if ((type.StartsWith("Margin") || type.StartsWith("2DTransform")) && reference(track) is { } moving)
+                        foreach (var section in json(moving)["Properties"]?["Sections"] as JArray ?? [])
+                            if (reference(section) is { } s) sections.Add(s);
                 }
-                if (tracks.Count > 0) tracksByGuid[binding["ObjectGuid"]?.Value<string>() ?? ""] = tracks;
+                if (tracks.Count > 0) tracksByGuid[binding["ObjectGuid"]?.Value<string>() ?? ""] = (tracks, sections);
             }
 
             foreach (var b in props?["AnimationBindings"] as JArray ?? [])
             {
-                if (!tracksByGuid.TryGetValue(b["AnimationGuid"]?.Value<string>() ?? "", out var tracks)) continue;
+                if (!tracksByGuid.TryGetValue(b["AnimationGuid"]?.Value<string>() ?? "", out var bound)) continue;
                 var widget = b["WidgetName"]?.Value<string>() ?? "";
                 var onSlot = b["SlotWidgetName"]?.Value<string>() is { } s && s != "None";
                 if (!result.TryGetValue(widget, out var list)) result[widget] = list = [];
-                list.Add(new AnimationUse(label, tracks, onSlot));
+                list.Add(new AnimationUse(label, bound.Tracks, onSlot, bound.Sections));
             }
         }
         return result;
