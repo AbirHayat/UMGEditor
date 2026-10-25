@@ -1,0 +1,31 @@
+{
+  "Recipe": 1,
+  "Name": "C10",
+  "Container": "pc9999_mobile_and_P",
+  "Packages": [
+    {
+      "Package": "/Game/Assets/ui/Data/Widget/TVGraphics/SwitchAssets_Original/MatchTime/MatchTime",
+      "StockSha256": "65ea9c621fa6f2f4069ea1427d4b9961add222cbc52e4258b019fe0911c85910",
+      "Values": [
+        {
+          "Export": 11,
+          "Slot": "CanvasPanelSlot_0",
+          "Path": "LayoutData.Offsets.Left",
+          "Stock": 0,
+          "Value": 20,
+          "Inserted": true
+        }
+      ]
+    }
+  ],
+  "Expect": {
+    "Chunks": {
+      "/Game/Assets/ui/Data/Widget/TVGraphics/SwitchAssets_Original/MatchTime/MatchTime": "69fde3309e907969b6dea25f29a20d42f6c1cf1e2d3c1c86306bd8cdf27473e2"
+    },
+    "Files": {
+      "pc9999_mobile_and_P.pak": "0c9d79129f5ca913335ca2f864ae40d39818a16a12805c9ab55fa1329c7f9424",
+      "pc9999_mobile_and_P.ucas": "7eb7156433695905e4f06225131d00e69956f5a5354b68b14b30088da1908ac7",
+      "pc9999_mobile_and_P.utoc": "9b94e8295e39253895031a09b2c0696a13574284f6d02b4ff454244fc34d4e20"
+    }
+  }
+}

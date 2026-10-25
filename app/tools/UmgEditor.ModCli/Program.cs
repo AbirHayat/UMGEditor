@@ -20,6 +20,7 @@
 //   umgmod [--set NAME] tex-white <package> <widget> [--name NEW] [--scope widget|package|all] [--yes]
 //   umgmod [--set NAME] tex-show
 //   umgmod [--set NAME] tex-reset <package> <widget>
+//   umgmod recipe-check <recipe.json> [--ack-danger]   a recipe checked and built in memory (read only): exit 0 ok, 2 refused, 3 Danger
 // <package> is a /Game/... path or a unique suffix such as MatchTime/MatchTimeBase. Edits are saved PatchSessions in
 // work\edits[\NAME]\<package path>; build packs their saved chunks into work\out\mods\<modName>\mod (the export
 // dialog's plan and run: predictions\ and TEST_INSTRUCTIONS.md next to it). Exit 0 = done, 2 = refused, 3 = needs
@@ -262,6 +263,29 @@ try
             if (controller.TextureEdits.Count > 0) Console.WriteLine($"with {controller.TextureEdits.Count} texture edit(s): {string.Join(", ", packages.Select(GamePaths.ShortName))}");
             var request = new ExportRequest(argv[1], container, packages, config.RetocPath);
             return BuildCommand.Run(controller, request, ackDanger, new RetocProcess(config.RetocPath), Console.Out, Console.Error);
+        }
+        case "recipe-check" when argv.Count >= 2:
+        {
+            // read only: data, inputs and stock by sha256, every edit built and verified in memory, textures, warnings, pins
+            if (!File.Exists(argv[1])) { Console.Error.WriteLine($"refused: {argv[1]} not found"); return 2; }
+            var (recipe, bad) = UmgEditor.Core.Recipes.RecipeReader.Read(File.ReadAllText(argv[1]));
+            if (recipe == null) { foreach (var b in bad) Console.Error.WriteLine($"refused: {b}"); return 2; }
+            var context = new UmgEditor.Core.Recipes.RecipeContext(source, UmgEditor.Core.Recipes.RecipeContext.RootOf(config),
+                () => TextureUsage.LoadOrBuild(source, index), new UsageGraph(index), new EditImpact(NewEngine(), new UsageGraph(index), W, H),
+                p => WidgetTreeReader.Build(source, p), W, H);
+            Console.WriteLine($"recipe {recipe.Name} ({argv[1]}): {recipe.PackagesOrEmpty.Count} edited package(s), {recipe.TexturesOrEmpty.Count} texture edit(s), container {recipe.Container}");
+            var checkResult = UmgEditor.Core.Recipes.RecipeCheck.Run(recipe, context);
+            foreach (var l in checkResult.Log) Console.WriteLine(l);
+            Console.WriteLine(checkResult.Warnings.Count == 0 ? "layout warnings: none" : $"layout warnings ({checkResult.Warnings.Count}):");
+            foreach (var w in checkResult.Warnings) Console.WriteLine($"  {w.Text}{(w.IsDanger ? ackDanger ? $" (acknowledged by {BuildCommand.AckFlag})" : " (NOT acknowledged)" : "")}");
+            if (!checkResult.Ok) { foreach (var r in checkResult.Refusals) Console.Error.WriteLine($"refused: {r}"); return 2; }
+            if (checkResult.Danger.Count > 0 && !ackDanger)
+            {
+                Console.Error.WriteLine($"Read the danger warning{(checkResult.Danger.Count == 1 ? "" : "s")} above, then rerun with {BuildCommand.AckFlag}.");
+                return 3;
+            }
+            Console.WriteLine($"OK: {checkResult.Chunks.Count} chunk(s){(checkResult.ChunksPinned ? ", all as pinned" : recipe.Expect?.Chunks == null ? " (no Expect.Chunks pins)" : "")}; nothing written");
+            return 0;
         }
         case "predict" when argv.Count >= 2:
         {

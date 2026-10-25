@@ -1,0 +1,50 @@
+{
+  "Recipe": 1,
+  "Name": "C18",
+  "Container": "pc9999_mobile_and_P",
+  "Inputs": {
+    "C18_PlateBlue_64x16": {
+      "Path": "work/out/art/C18/C18_PlateBlue_64x16.png",
+      "Sha256": "eb3acc89ffa3e08e76159051ac78a74669e302a0c9b11c94fcb16d5d902bdcd7"
+    },
+    "C18_ButtonLargeFeedback_200x200": {
+      "Path": "work/out/art/C18/C18_ButtonLargeFeedback_200x200.png",
+      "Sha256": "a0d77c5ec5e185e7d733f97e45cb88b6843360702eda3f1215da2a8ba3453469"
+    }
+  },
+  "Textures": [
+    {
+      "Package": "/Game/Assets/ui/Data/Widget/TVGraphics/SwitchAssets_Original/MatchMemberChangeSpecial/MatchMemberChangeSpecial",
+      "Widget": "Img_PlateBlue",
+      "Texture": "/Game/Assets/ui/Data/Widget/TVGraphics/SwitchAssets_Original/MatchMemberChangeSpecial/Tex720/MatchMemberChangeSpecialPlate_1",
+      "Mode": "Image",
+      "NewName": "ExtraLoginBonusInU1",
+      "Scope": "Widget",
+      "Input": "C18_PlateBlue_64x16",
+      "Source": "/Game/Assets/ui/Data/Widget/General/Modals/ExtraLoginBonus/Tex720/ExtraLoginBonusInfo"
+    },
+    {
+      "Package": "/Game/Assets/ui/Data/Widget/TVGraphics/TVGraphicsCommon/VirtualPad/VirtualPadButtonLarge",
+      "Widget": "Img_ButtonLargeFeedback",
+      "Texture": "/Game/Assets/ui/Data/Widget/TVGraphics/TVGraphicsCommon/VirtualPad/Tex720/VirtualPadButtonLargeFeedback",
+      "Mode": "Image",
+      "NewName": "ExtraLoginBonusInU2",
+      "Scope": "Widget",
+      "Input": "C18_ButtonLargeFeedback_200x200",
+      "Source": "/Game/Assets/ui/Data/Widget/General/Modals/ExtraLoginBonus/Tex720/ExtraLoginBonusInfo"
+    }
+  ],
+  "Expect": {
+    "Chunks": {
+      "/Game/Assets/ui/Data/Widget/General/Modals/ExtraLoginBonus/Tex720/ExtraLoginBonusInU1": "b54118b747c9763d82cabeaff47bd408316f73f2b439ef21d8a31211cd61a22b",
+      "/Game/Assets/ui/Data/Widget/General/Modals/ExtraLoginBonus/Tex720/ExtraLoginBonusInU2": "534493094b15e9da859bae80c8715a758b63767a91b96b39136b29bc6331fa56",
+      "/Game/Assets/ui/Data/Widget/TVGraphics/TVGraphicsCommon/VirtualPad/VirtualPadButtonLarge": "bdade22c0c7267deff16fc2ab7d26eadeb78f2a060c4b2ffb79af66e047d83aa",
+      "/Game/Assets/ui/Data/Widget/TVGraphics/SwitchAssets_Original/MatchMemberChangeSpecial/MatchMemberChangeSpecial": "760a638598b216c22417677e269478553d2d81a26f236bb9004ec1ee40e8b800"
+    },
+    "Files": {
+      "pc9999_mobile_and_P.pak": "0c9d79129f5ca913335ca2f864ae40d39818a16a12805c9ab55fa1329c7f9424",
+      "pc9999_mobile_and_P.ucas": "3f0430d7e4431489f78175a548630171bfb132848c0f1ba4f1f10a09f6514ad4",
+      "pc9999_mobile_and_P.utoc": "7a4fbb44df105b53fcb72fd9770a1fe14dc62efd509cd0f2605f07f6f7afd754"
+    }
+  }
+}

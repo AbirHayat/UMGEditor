@@ -147,8 +147,11 @@ umgmod [--set NAME] tex <package> <widget> <image.png> [--name NEW] [--source TE
 umgmod [--set NAME] tex-white <package> <widget> [--name NEW] [--scope widget|package|all] [--yes]
 umgmod [--set NAME] tex-show
 umgmod [--set NAME] tex-reset <package> <widget>
+umgmod recipe-check <recipe.json> [--ack-danger]
 ```
 
+- `recipe-check` checks a recipe (`recipes\README.md`) and builds it in memory, read only: exit 0 ok, 2 refused, 3 a Danger
+  layout warning (rerun with `--ack-danger`).
 - `edit` applies one SlotEditor edit to the package's PatchSession and saves it (`work\edits[\NAME]\<package path>`).
   The first edit of a package prints the pre-edit warnings and stops (exit 3); add `--yes` once you've read them.
 - `show` prints the saved edits and the bytes to patch (offset, old/new value, hex, ±32-byte context).

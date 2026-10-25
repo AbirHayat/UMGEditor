@@ -1,0 +1,291 @@
+{
+  "Recipe": 1,
+  "Name": "C12",
+  "Container": "pc9999_mobile_and_P",
+  "Packages": [
+    {
+      "Package": "/Game/Assets/ui/Data/Widget/TVGraphics/SwitchAssets_Original/MatchTime/MatchTimeGoal",
+      "StockSha256": "346a9f82c2d036390d3985fd0c729dc0aa61ea81df33e541a2802e1e18b2f180",
+      "Values": [
+        {
+          "Export": 9,
+          "Slot": "CanvasPanelSlot_1",
+          "Path": "LayoutData.Offsets.Left",
+          "Stock": 24,
+          "Value": 3000
+        },
+        {
+          "Export": 10,
+          "Slot": "CanvasPanelSlot_11",
+          "Path": "LayoutData.Offsets.Bottom",
+          "Stock": 48,
+          "Value": 60
+        },
+        {
+          "Export": 10,
+          "Slot": "CanvasPanelSlot_11",
+          "Path": "LayoutData.Offsets.Left",
+          "Stock": 0,
+          "Value": 60,
+          "Inserted": true
+        },
+        {
+          "Export": 10,
+          "Slot": "CanvasPanelSlot_11",
+          "Path": "LayoutData.Offsets.Right",
+          "Stock": 552,
+          "Value": 312
+        },
+        {
+          "Export": 10,
+          "Slot": "CanvasPanelSlot_11",
+          "Path": "LayoutData.Offsets.Top",
+          "Stock": 48,
+          "Value": 0
+        },
+        {
+          "Export": 11,
+          "Slot": "CanvasPanelSlot_20",
+          "Path": "LayoutData.Offsets.Bottom",
+          "Stock": 48,
+          "Value": 60
+        },
+        {
+          "Export": 11,
+          "Slot": "CanvasPanelSlot_20",
+          "Path": "LayoutData.Offsets.Right",
+          "Stock": 552,
+          "Value": 372
+        },
+        {
+          "Export": 11,
+          "Slot": "CanvasPanelSlot_20",
+          "Path": "LayoutData.Offsets.Top",
+          "Stock": 0,
+          "Value": -60,
+          "Inserted": true
+        },
+        {
+          "Export": 12,
+          "Slot": "CanvasPanelSlot_3",
+          "Path": "LayoutData.Offsets.Left",
+          "Stock": 24,
+          "Value": 3000
+        },
+        {
+          "Export": 13,
+          "Slot": "CanvasPanelSlot_5",
+          "Path": "LayoutData.Offsets.Bottom",
+          "Stock": 2,
+          "Value": 0
+        },
+        {
+          "Export": 14,
+          "Slot": "CanvasPanelSlot_6",
+          "Path": "LayoutData.Offsets.Left",
+          "Stock": 72,
+          "Value": 12
+        },
+        {
+          "Export": 14,
+          "Slot": "CanvasPanelSlot_6",
+          "Path": "LayoutData.Offsets.Right",
+          "Stock": 456,
+          "Value": 354
+        },
+        {
+          "Export": 14,
+          "Slot": "CanvasPanelSlot_6",
+          "Path": "LayoutData.Offsets.Top",
+          "Stock": -3,
+          "Value": -58
+        },
+        {
+          "Export": 15,
+          "Slot": "CanvasPanelSlot_7",
+          "Path": "LayoutData.Offsets.Bottom",
+          "Stock": 78,
+          "Value": 48
+        },
+        {
+          "Export": 15,
+          "Slot": "CanvasPanelSlot_7",
+          "Path": "LayoutData.Offsets.Left",
+          "Stock": 561,
+          "Value": 6
+        },
+        {
+          "Export": 15,
+          "Slot": "CanvasPanelSlot_7",
+          "Path": "LayoutData.Offsets.Right",
+          "Stock": 78,
+          "Value": 48
+        },
+        {
+          "Export": 15,
+          "Slot": "CanvasPanelSlot_7",
+          "Path": "LayoutData.Offsets.Top",
+          "Stock": 9,
+          "Value": 6
+        },
+        {
+          "Export": 16,
+          "Slot": "CanvasPanelSlot_9",
+          "Path": "LayoutData.Offsets.Bottom",
+          "Stock": 96,
+          "Value": 60
+        },
+        {
+          "Export": 16,
+          "Slot": "CanvasPanelSlot_9",
+          "Path": "LayoutData.Offsets.Left",
+          "Stock": 552,
+          "Value": 0
+        },
+        {
+          "Export": 16,
+          "Slot": "CanvasPanelSlot_9",
+          "Path": "LayoutData.Offsets.Right",
+          "Stock": 96,
+          "Value": 60
+        },
+        {
+          "Export": 18,
+          "Slot": "CanvasPanelSlot_0",
+          "Path": "LayoutData.Offsets.Bottom",
+          "Stock": 96,
+          "Value": 60
+        },
+        {
+          "Export": 18,
+          "Slot": "CanvasPanelSlot_0",
+          "Path": "LayoutData.Offsets.Right",
+          "Stock": 648,
+          "Value": 372
+        },
+        {
+          "Export": 19,
+          "Slot": "CanvasPanelSlot_0",
+          "Path": "LayoutData.Offsets.Bottom",
+          "Stock": 100,
+          "Value": 60
+        },
+        {
+          "Export": 19,
+          "Slot": "CanvasPanelSlot_0",
+          "Path": "LayoutData.Offsets.Right",
+          "Stock": 648,
+          "Value": 372
+        },
+        {
+          "Export": 19,
+          "Slot": "CanvasPanelSlot_0",
+          "Path": "LayoutData.Offsets.Top",
+          "Stock": 87,
+          "Value": 27
+        },
+        {
+          "Export": 31,
+          "Slot": "Show",
+          "Path": "range@48001",
+          "Stock": 48001,
+          "Value": 132001
+        },
+        {
+          "Export": 32,
+          "Slot": "MovieScene2DTransformSection_0",
+          "Path": "anim:Translation[1]#0",
+          "Stock": 0,
+          "Value": 60
+        },
+        {
+          "Export": 32,
+          "Slot": "MovieScene2DTransformSection_0",
+          "Path": "anim:Translation[1]#1",
+          "Stock": -96,
+          "Value": 180
+        },
+        {
+          "Export": 37,
+          "Slot": "MovieScene2DTransformSection_0",
+          "Path": "anim:Translation[1]#1@interp",
+          "Stock": 2,
+          "Value": 1
+        },
+        {
+          "Export": 37,
+          "Slot": "MovieScene2DTransformSection_0",
+          "Path": "anim:Translation[1]#2",
+          "Stock": 0,
+          "Value": 60
+        },
+        {
+          "Export": 37,
+          "Slot": "MovieScene2DTransformSection_0",
+          "Path": "anim:Translation[1]#2@frame",
+          "Stock": 48000,
+          "Value": 108000
+        },
+        {
+          "Export": 37,
+          "Slot": "MovieScene2DTransformSection_0",
+          "Path": "range@48000",
+          "Stock": 48000,
+          "Value": 132000
+        },
+        {
+          "Export": 38,
+          "Slot": "MovieScene2DTransformSection_0",
+          "Path": "range@48000",
+          "Stock": 48000,
+          "Value": 132000
+        },
+        {
+          "Export": 39,
+          "Slot": "MovieScene2DTransformSection_0",
+          "Path": "range@48000",
+          "Stock": 48000,
+          "Value": 132000
+        },
+        {
+          "Export": 91,
+          "Slot": "MovieSceneByteSection_0",
+          "Path": "range@48000",
+          "Stock": 48000,
+          "Value": 132000
+        },
+        {
+          "Export": 92,
+          "Slot": "MovieSceneByteSection_0",
+          "Path": "range@48000",
+          "Stock": 48000,
+          "Value": 132000
+        },
+        {
+          "Export": 93,
+          "Slot": "MovieSceneByteSection_0",
+          "Path": "range@48000",
+          "Stock": 48000,
+          "Value": 132000
+        },
+        {
+          "Export": 108,
+          "Slot": "CompiledData",
+          "Path": "range@48000",
+          "Stock": 48000,
+          "Value": 132000
+        }
+      ]
+    }
+  ],
+  "Expect": {
+    "Chunks": {
+      "/Game/Assets/ui/Data/Widget/TVGraphics/SwitchAssets_Original/MatchTime/MatchTimeGoal": "eb5d1b0804f3dc704dabfff293bdcd5299c3f59cea7cc1a4a5fea53e123251e7"
+    },
+    "Files": {
+      "pc9999_mobile_and_P.pak": "0c9d79129f5ca913335ca2f864ae40d39818a16a12805c9ab55fa1329c7f9424",
+      "pc9999_mobile_and_P.ucas": "d2fe4d5ab6987d8fa5a1a570bdad39d2db1dd98614a4a99842977ed6cfabd46f",
+      "pc9999_mobile_and_P.utoc": "41b4842e9f10b35ea1293f4b4c14bd3dc4c87f4769bf5e71a8e1e684176bca00"
+    }
+  }
+}

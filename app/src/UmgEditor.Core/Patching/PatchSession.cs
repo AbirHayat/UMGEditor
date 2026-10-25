@@ -22,6 +22,12 @@ public sealed record SaveResult(bool Saved, BytePlan Plan, IReadOnlyList<PatchRe
 /// stock and re-parsed with CUE4Parse, and only then moved over the previous save. All writes go through WriteGuard.
 /// Files: &lt;Name&gt;.stock.uasset (stock copy), &lt;Name&gt;.edited.uasset (last save), &lt;Name&gt;.edits.json (edits + byte plan).
 /// </summary>
+/// <summary>What a save would write for a session's edits, built and checked in memory (<see cref="PatchSession.Rebuild"/>).</summary>
+public sealed record RebuildResult(BytePlan Plan, byte[]? Chunk, IReadOnlyList<PatchRefusal> Refusals)
+{
+    public bool Ok => Chunk != null && Refusals.Count == 0;
+}
+
 public sealed class PatchSession
 {
     private readonly GameSource _source;
@@ -116,6 +122,20 @@ public sealed class PatchSession
         session.RestoreFromManifest();
         return session;
     }
+
+    /// <summary>
+    /// A session on the game's stock bytes with no working folder (recipes): edits are applied as usual and
+    /// <see cref="Rebuild"/> builds and checks the chunk in memory. Nothing is written; <see cref="Save"/> is refused.
+    /// </summary>
+    public static PatchSession InMemory(GameSource source, string packagePath)
+    {
+        var (fileKey, stock) = source.ReadPackageBytes(packagePath);
+        var package = (IoPackage) source.LoadPackage(packagePath);
+        return new PatchSession(source, new WriteGuard(source.Config), packagePath, fileKey, "", stock, package) { IsInMemory = true };
+    }
+
+    /// <summary>True for a session from <see cref="InMemory"/>: no working folder, never saved.</summary>
+    public bool IsInMemory { get; private init; }
 
     // ---- values ----
 
@@ -281,8 +301,24 @@ public sealed class PatchSession
     public BytePlan Plan() => BytePlanner.Plan(_stock, _layout, PackagePath, Current, StockValue, SlotName, AnimKey, AnimRange);
 
     /// <summary>Rebuilds the edited chunk from the stock copy + the full current EditSet and writes it if every check passes.</summary>
+    /// <summary>
+    /// What <see cref="Save"/> would write for the current edits, from the game's stock bytes held by the session, with
+    /// the same checks (plan, apply, exact byte diff, re-parse against stock), in memory only. Writes nothing.
+    /// </summary>
+    public RebuildResult Rebuild()
+    {
+        var plan = Plan();
+        if (!plan.Ok) return new RebuildResult(plan, null, plan.Refusals);
+        var candidate = BytePlanner.Apply(_stock, plan);
+        if (BeforeVerify != null) candidate = BeforeVerify(candidate);
+        var refusals = BytePlanner.Verify(_stock, candidate, plan);
+        if (refusals.Count == 0) refusals.AddRange(ReparseCheck(candidate, plan));
+        return new RebuildResult(plan, refusals.Count == 0 ? candidate : null, refusals);
+    }
+
     public SaveResult Save()
     {
+        if (IsInMemory) throw new InvalidOperationException($"{PackagePath}: an in-memory session has no working folder and can't be saved");
         var refusals = new List<PatchRefusal>();
         byte[] stock;
         if (!File.Exists(StockCopyPath))
