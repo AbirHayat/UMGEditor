@@ -55,10 +55,32 @@ Follow `TEST_INSTRUCTIONS.md` in the mod folder. In short:
 UI files, and edits to shared parts (e.g. MatchTimeBase) also change the online board and pop-ups. Put them back
 afterwards for more offline tests.
 
+## Project rules
+These hold for every route (app, `umgmod`, recipes). They were proven on the `experiment` branch by device canaries
+C9–C18 and are project rules since its merge (2026-10-25); the "Branch `experiment`" notes below mark where each came from.
+- **Location.** Each write is located by its ±32-byte stock context, which must occur exactly once in the chunk. Where
+  it repeats (two slots storing the same value, animation keys and their compiled copies, range bounds, tag insertion
+  points), the smallest window around the write, computed on the stock bytes, that occurs exactly once proves it
+  (16-byte steps, overlapping matches count), refused beyond ±512. ±32 is always tried first; `show` and the Bytes tab
+  print the window used.
+- **Size-changing edits.** A package may grow or shrink only through the tools made for it: an inserted tag (an
+  Offsets value that isn't stored, a text's Justification or font name), a removed tag (back to the class default),
+  names appended to the name map, a class swap, a resized texture clone, and a soft path appended and pointed. Each
+  fixes the headers it must (struct sizes, CookedSerialSize, later offsets) and is checked by cutting the change out
+  again. Every other edit is a same-size change of a stored value.
+- **Hard refusals.** The stock-value check, the exact byte diff, the full re-parse of every export against stock and
+  the layer union check refuse a save or build; nothing loosens them. A Danger layout warning needs the export tick
+  or `--ack-danger`.
+- **Proposal: an Advanced label.** In the app, the routes that change a package's size or edit animation data would
+  sit behind an *Advanced* label: inserted tags (fields shown as `default`/`new tag`), animation key, frame, interp
+  and range edits, and texture replacements that append and point ("This widget" scope or a longer path). Plain
+  stored-value edits and same-length renames stay unlabelled. Not implemented yet; the checks are the same either way.
+
 ## Known limits
-- **Stored values only.** A value is edited where the cooked file already stores it, at the same size. A field the
-  file doesn't store (the engine default) is greyed out, with the reason. Only CanvasPanelSlot position, size, anchors,
-  alignment and ZOrder are editable.
+- **Stored values, plus the size-changing routes above.** A value is edited in place where the cooked file stores it.
+  A field the file doesn't store is greyed out with the reason, except an Offsets member of a slot whose Offsets are
+  stored (it is inserted as a new tag, see Project rules). Only CanvasPanelSlot position, size, anchors, alignment and
+  ZOrder are editable.
 - **No keyframes in the editor.** The editor doesn't edit animation tracks. An animation that keys a slot's margins
   (e.g. `KickOff_Show`) or moves a widget can override or shift your value while it plays. The pre-edit warnings name
   these. (Branch `experiment`: `umgmod anim-flatten` changes key values; see below.)
