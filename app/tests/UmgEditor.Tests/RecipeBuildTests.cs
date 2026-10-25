@@ -12,7 +12,8 @@ namespace UmgEditor.Tests;
 /// <summary>
 /// Stage 2b: recipe-build (the export's one build path + Expect.Files) and recipe-from-set. Acceptance: recipes\C10, C12,
 /// C18 and C16b_test build into exactly the device-tested files; recipes\C18 and C16b_test are what recipe-from-set makes
-/// of projects C18 and C16b. Builds go to work\out\mods\zzrb-&lt;id&gt; and are deleted.
+/// of projects C18 and C16b. Stage 2c: recipes\C13 and C14 (Clones + Repoints) too, with their clones and re-points
+/// checked on the mounted mod. Builds go to work\out\mods\zzrb-&lt;id&gt; and are deleted.
 /// </summary>
 [TestClass]
 public class RecipeBuildTests
@@ -69,6 +70,8 @@ public class RecipeBuildTests
     [DataRow("C12", true)]
     [DataRow("C18", false)]
     [DataRow("C16b_test", true)]
+    [DataRow("C13", false)]
+    [DataRow("C14", false)]
     public void Acceptance_RecipeBuildsTheDeviceTestedFiles(string name, bool ack)
     {
         NeedsInputs(name);
@@ -82,6 +85,23 @@ public class RecipeBuildTests
         Assert.AreEqual(text, File.ReadAllText(Path.Combine(outcome.Result.OutDir, RecipeBuild.RecipeCopy)), "the recipe built is kept next to mod\\");
         Assert.IsTrue(File.Exists(outcome.Result.InstructionsPath));
         Console.WriteLine($"{name}: {string.Join(", ", outcome.Result.Files.Select(f => $"{f.Name} {f.Sha256[..12]}…"))}");
+    }
+
+    /// <summary>The mounted-mod check of C13's build passes, and fails for a path the mod doesn't name or pixels it doesn't hold.</summary>
+    [TestMethod]
+    public void MountCheck_SeesTheClonesAndTheRepoint()
+    {
+        NeedsInputs("C13");
+        var outcome = Build(RecipeText("C13"));
+        Assert.AreEqual(RecipeBuild.Done, outcome.Code, string.Join("\n", outcome.Refusals));
+        var plan = outcome.Plan!;
+        var modDir = outcome.Result!.ModDir;
+        Assert.AreEqual(2, plan.ExpectedTextures.Count);
+        Assert.IsNull(ExportRunner.TextureMountCheck(Source, plan, modDir));
+        var (package, names) = plan.ExpectedNames.Single();
+        StringAssert.Contains(ExportRunner.TextureMountCheck(Source, plan with { ExpectedNames = [(package, names.Replace("UCL01", "UCL02"))] }, modDir), "no export in DemoTitleBase names");
+        var (clone, mip0) = plan.ExpectedTextures[0];
+        StringAssert.Contains(ExportRunner.TextureMountCheck(Source, plan with { ExpectedTextures = [(clone, new byte[mip0.Length])] }, modDir), "doesn't decode");
     }
 
     // ---- refusals ----

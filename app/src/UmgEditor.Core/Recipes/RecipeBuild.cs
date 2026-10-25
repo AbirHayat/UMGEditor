@@ -47,7 +47,8 @@ public static class RecipeBuild
             refusals.Count == 0 ? check.Packages.Values.ToList() : [], check.Edits, check.ExportEdits, check.Warnings)
         {
             Textures = check.Textures?.Items ?? [],
-            ExpectedTextures = check.Textures?.Expected ?? [],
+            ExpectedTextures = [.. check.Textures?.Expected ?? [], .. check.CloneMips],
+            ExpectedNames = check.RepointNames,
         };
     }
 

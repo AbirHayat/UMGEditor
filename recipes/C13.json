@@ -1,0 +1,39 @@
+{
+  "Recipe": 1,
+  "Name": "C13",
+  "Container": "pc9999_mobile_and_P",
+  "Clones": [
+    {
+      "From": "/Game/Assets/ui/Data/Widget/TVGraphics/SwitchAssets_Original/DemoTitle/Tex720/DemoTitlePlate",
+      "StockSha256": "83f80e19938724018c0a5fcb0067cb9fcae3671e611d87951504c49a8c1c5c70",
+      "NewName": "DemoTitleUCL01",
+      "Solid": "#00FF00"
+    },
+    {
+      "From": "/Game/Assets/ui/Data/Widget/TVGraphics/SwitchAssets_Original/DemoTitle/0164F/Tex720/DemoTitlePlate",
+      "StockSha256": "486699b65788fe64373024318b1a4de3db3c769952e918dbc98aca9d3fb7d4f9",
+      "NewName": "DemoTitleUCL01",
+      "Solid": "#FF00FF"
+    }
+  ],
+  "Repoints": [
+    {
+      "Package": "/Game/Assets/ui/Data/Widget/TVGraphics/SwitchAssets_Original/DemoTitle/DemoTitleBase",
+      "StockSha256": "31919772fe67e5c492b88a71cb38be40c19b74be8031d19e64a0537581f19166",
+      "From": "/Game/Assets/ui/Data/Widget/TVGraphics/SwitchAssets_Original/DemoTitle/Tex720/DemoTitlePlate.DemoTitlePlate",
+      "To": "/Game/Assets/ui/Data/Widget/TVGraphics/SwitchAssets_Original/DemoTitle/Tex720/DemoTitleUCL01.DemoTitleUCL01"
+    }
+  ],
+  "Expect": {
+    "Chunks": {
+      "/Game/Assets/ui/Data/Widget/TVGraphics/SwitchAssets_Original/DemoTitle/0164F/Tex720/DemoTitleUCL01": "127cffb00df30a05f828ebf848b6cfbe57ebce852eaff88e8f1b76fed776fef3",
+      "/Game/Assets/ui/Data/Widget/TVGraphics/SwitchAssets_Original/DemoTitle/Tex720/DemoTitleUCL01": "872a666435e677030944793aacf387a6abd8d81ba019e818e6daf1a000d6c36c",
+      "/Game/Assets/ui/Data/Widget/TVGraphics/SwitchAssets_Original/DemoTitle/DemoTitleBase": "8fc63650260a47196b0b8e448dd0a2d96a3d0e0119ae1f21d05bc6e2d0c1ee34"
+    },
+    "Files": {
+      "pc9999_mobile_and_P.pak": "0c9d79129f5ca913335ca2f864ae40d39818a16a12805c9ab55fa1329c7f9424",
+      "pc9999_mobile_and_P.ucas": "47360bb61f304f21a3d529ad2ef82a3a0a97b903e5e87f7d9f650b56283093ca",
+      "pc9999_mobile_and_P.utoc": "cdd3c06feedb83fcfc47cf1bf9bdf07ec3edcd78ac4d64fb075dcda57b651237"
+    }
+  }
+}

@@ -38,6 +38,7 @@ switch (args.FirstOrDefault())
     case "canary-goal-slide": return CanaryGoalSlide();
     case "canary-insert": return CanaryInsert();
     case "canary-texture": return CanaryTexture();
+    case "recipe-input": return RecipeInput();
     case "canary-scoreboard": return CanaryScoreboard();
     case "canary-ucl": return CanaryUcl();
     case "canary-font": return CanaryFont();
@@ -49,6 +50,7 @@ switch (args.FirstOrDefault())
         Console.WriteLine("       umgcompare anim-dump <packagePath> <out.json> [--pc]   every MovieScene/WidgetAnimation export as JSON");
         Console.WriteLine("       umgcompare export-dump <packagePath> <out.json> [--pc]   every export (widgets, slots, animations) as JSON");
         Console.WriteLine("       umgcompare export-tex <outDir> <objectPath>... [--pc | --mod DIR]   textures decoded to PNG (read-only)");
+        Console.WriteLine("       umgcompare recipe-input C14 [--mod DIR]   copies C14's UCL image (third-party) into work\\out\\recipes\\_inputs as a PNG, prints its sha256");
         Console.WriteLine("       umgcompare font-usage [--name N[,N]] [--face F[,F]]   read-only: packages whose name map holds a font name, Font assets that use a face");
         Console.WriteLine("       umgcompare canary-font [C17a] [--ucl-pak FILE]   builds canary C17a (UCL's font as a loose .ufont in a pak-only mod, no package edits)");
         Console.WriteLine("       umgcompare canary-ucl [C16] [--set C16] [--only board,banners,replay[,pes]] [--art DIR] [--centre] [--font]   builds canary C16 (the complete UCL look); C16b = --centre; C17b = --centre --font");
@@ -174,6 +176,41 @@ int CanaryTexture()
     foreach (var f in result.Files) Console.WriteLine($"  {f.Name}  {f.Size:N0} B  {f.Sha256}");
     Console.WriteLine(failures == 0 ? "ALL PASSED" : $"{failures} FAILED");
     return failures == 0 ? 0 : 1;
+}
+
+// Stage 2c: C14's third-party input for recipes\C14.json. The UCL mod's DemoTitlePlate (696x192 B8G8R8A8, one mip, read
+// from the PC mod as canary-texture --ucl does) as a PNG in work\out\recipes\_inputs\C14 (untracked). The PNG must decode
+// back to exactly the texture's bytes; an existing file is only accepted when it is byte-identical.
+int RecipeInput()
+{
+    if (args.ElementAtOrDefault(1) != "C14") { Console.WriteLine("usage: umgcompare recipe-input C14 [--mod DIR]"); return 2; }
+    var modDir = Opt("--mod") ?? @"E:\n3tron\patch\pc_mods\3RD_PARTY\PesConsole\Content\Paks\~mods\UCL_theme_by_eFootball.cz";
+    const string Plate = Tv + "DemoTitle/Tex1080/DemoTitlePlate";
+    byte[] bgra;
+    using (var uclSource = GameSource.Open(pcConfig with { ExtraPaksDirs = [modDir] }))
+    {
+        var t = uclSource.LoadPackage(Plate).GetExports().OfType<CUE4Parse.UE4.Assets.Exports.Texture.UTexture2D>().Single();
+        Check("UCL DemoTitlePlate is 696x192 PF_B8G8R8A8 with one mip", t.PlatformData is { SizeX: 696, SizeY: 192, PixelFormat: "PF_B8G8R8A8" } && t.PlatformData.Mips.Length == 1,
+            $"{t.PlatformData.SizeX}x{t.PlatformData.SizeY} {t.PlatformData.PixelFormat}, {t.PlatformData.Mips.Length} mips");
+        if (failures > 0) return 1;
+        bgra = t.PlatformData.Mips[0].BulkData!.Data!;
+    }
+    string Sha(byte[] b) => Convert.ToHexString(System.Security.Cryptography.SHA256.HashData(b)).ToLowerInvariant();
+    var png = PngWriter.Encode(new DecodedImage(696, 192, bgra, "PF_B8G8R8A8"));
+    var (back, why) = PngReader.Read(png);
+    Check("the PNG decodes to exactly the texture's bytes", back != null && back.Width == 696 && back.Height == 192 && back.Bgra.AsSpan().SequenceEqual(bgra), why ?? "");
+    if (failures > 0) return 1;
+    var guard = UmgEditor.Core.Patching.WriteGuard.ForRecipes(config);
+    var file = Path.Combine(guard.Root, "_inputs", "C14", "DemoTitlePlate_696x192.png");
+    if (File.Exists(file))
+    {
+        Check($"{file} exists and is byte-identical", File.ReadAllBytes(file).AsSpan().SequenceEqual(png), $"sha256 {Sha(File.ReadAllBytes(file))}");
+        if (failures > 0) return 1;
+    }
+    else guard.WriteAllBytes(file, png);
+    Console.WriteLine($"texture bytes sha256 {Sha(bgra)}");
+    Console.WriteLine($"{file}: {png.Length:N0} B, sha256 {Sha(png)}");
+    return 0;
 }
 
 // C15: the UCL-style scoreboard with the user's bar design. Layers, each verified against the one before:

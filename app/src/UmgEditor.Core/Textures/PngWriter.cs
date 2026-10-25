@@ -9,8 +9,21 @@ public static class PngWriter
 {
     public static void Write(string path, DecodedImage image)
     {
-        if (image.IsPlaceholder) throw new ArgumentException("placeholder has no pixels");
         using var file = File.Create(path);
+        Write(file, image);
+    }
+
+    /// <summary>The PNG file's bytes (e.g. to write through a WriteGuard).</summary>
+    public static byte[] Encode(DecodedImage image)
+    {
+        using var s = new MemoryStream();
+        Write(s, image);
+        return s.ToArray();
+    }
+
+    private static void Write(Stream file, DecodedImage image)
+    {
+        if (image.IsPlaceholder) throw new ArgumentException("placeholder has no pixels");
         file.Write([0x89, (byte) 'P', (byte) 'N', (byte) 'G', 0x0D, 0x0A, 0x1A, 0x0A]);
 
         var ihdr = new byte[13];

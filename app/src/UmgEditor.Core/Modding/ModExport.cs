@@ -88,6 +88,8 @@ public sealed record ExportPlan(
     public IReadOnlyList<TextureEditInfo> Textures { get; init; } = [];
     /// <summary>Each new texture package and the mip 0 it must decode to once mounted</summary>
     public IReadOnlyList<(string PackagePath, byte[] Mip0)> ExpectedTextures { get; init; } = [];
+    /// <summary>Re-pointed packages outside texture edits (recipe Repoints) and the name-map path a stored value must name once mounted</summary>
+    public IReadOnlyList<(string PackagePath, string Names)> ExpectedNames { get; init; } = [];
 }
 
 /// <summary>Outcome of a background export. When not built, mod\ was removed (FAILED.txt says why) and nothing else is written.</summary>
@@ -144,7 +146,7 @@ public static class ModInstructions
         L($"| Folder | `{build.ModDir}` (copy only these files; the predictions and this file stay here) |");
         L($"| Container | `{container}` ({plan.Packages.Count} package{(plan.Packages.Count == 1 ? "" : "s")}: {string.Join(", ", plan.Packages.Select(p => GamePaths.ShortName(p.PackagePath)))}) |");
         L($"| retoc | `{plan.Retoc.Path}` sha256 `{plan.Retoc.Sha256}` {(plan.Retoc.IsTested ? "(the tested build)" : "(**not** the tested build)")} |");
-        L($"| Checks passed | retoc verify, CUE4Parse read-back of every package byte for byte{(plan.ExpectedTextures.Count > 0 ? $"; the mod mounted on the game: {plan.ExpectedTextures.Count} new texture package(s) load by path and decode to the images" : "")} |");
+        L($"| Checks passed | retoc verify, CUE4Parse read-back of every package byte for byte{(plan.ExpectedTextures.Count > 0 ? $"; the mod mounted on the game: {plan.ExpectedTextures.Count} new texture package(s) load by path and decode to the images" : "")}{(plan.ExpectedNames.Count > 0 ? $"; {plan.ExpectedNames.Count} re-pointed package(s) name their new path" : "")} |");
         L();
         var warnings = ExportWarning.From(impact);
         L("## Warnings (Impact panel)");
@@ -191,15 +193,30 @@ public static class ModInstructions
             foreach (var w in plan.Textures.SelectMany(t => t.Warnings).Distinct())
                 L($"- {w}");
         }
+        static string BelowWidget(string path) => path.IndexOf("/Widget/", StringComparison.Ordinal) is var i and >= 0 ? path[(i + 8)..] : path;
+        if (plan.ExpectedNames.Count > 0)
+        {
+            L();
+            L("## Re-points");
+            L("A soft path renamed in place to a new one of the same length (recipe Repoints), with any stored values listed in the recipe. " +
+              "Checked before the build: exact byte diff + re-parse against stock; after it: the mod mounted on top of the game names the new path.");
+            L();
+            L("| Package | Now names |");
+            L("|---|---|");
+            foreach (var (package, names) in plan.ExpectedNames)
+                L($"| {GamePaths.ShortName(package)} | `{BelowWidget(names)}` |");
+        }
         L();
         L("## Steps");
         L($"1. Force-stop eFootball. In the folder with `pc0010_mobile_and.*`, delete any old `{container}.*`, then copy the {build.Files.Count} files from `{build.ModDir}`.");
         L($"2. Offline match vs AI. Screenshots (1920×1080, same LDPlayer setup) into `ss\\`:");
         // texture edits change no box, so the Impact panel lists no screen for them: the screens that show a re-pointed package
-        var textureScreens = plan.Textures.SelectMany(t => t.Storing.SelectMany(p => (embeddedBy?.Invoke(p) ?? []).Append(p))
+        var repointed = plan.Textures.SelectMany(t => t.Storing.Select(p => (Storing: p, Label: $"{GamePaths.ShortName(t.Edit.Package)}/{t.Edit.Widget} ({t.Edit.NewName})")))
+            .Concat(plan.ExpectedNames.Select(n => (Storing: n.PackagePath, Label: $"{GamePaths.ShortName(n.PackagePath)} ({n.Names[(n.Names.LastIndexOf('.') + 1)..]})")));
+        var textureScreens = repointed.SelectMany(r => (embeddedBy?.Invoke(r.Storing) ?? []).Append(r.Storing)
                 .Where(p => isScreen(p) && !p.Contains("/MatchTimeConnection/", StringComparison.OrdinalIgnoreCase))
-                .Select(p => (Package: GamePaths.ShortName(p), Widget: $"{GamePaths.ShortName(t.Edit.Package)}/{t.Edit.Widget}", t.Edit.NewName)))
-            .GroupBy(s => s.Package).ToDictionary(g => g.Key, g => g.Select(s => $"{s.Widget} ({s.NewName})").Distinct().ToList());
+                .Select(p => (Package: GamePaths.ShortName(p), r.Label)))
+            .GroupBy(s => s.Package).ToDictionary(g => g.Key, g => g.Select(s => s.Label).Distinct().ToList());
         string Images(string screen) => textureScreens.TryGetValue(screen, out var list) ? $": the new image{(list.Count == 1 ? "" : "s")} on {string.Join(", ", list)}" : "";
         foreach (var p in offline)
             L($"   - `{Shot(name, p.Name)}`: the {ScreenName(p.Name)} ({p.Name}), {HowToSee(p.Name)}" + (p.Boxes.Count == 0 ? " (no box changes predicted)" : "") + Images(p.Name));

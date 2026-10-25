@@ -30,9 +30,10 @@ public static class ExportRunner
             return new ExportResult(false, build.Refusals, build.OutDir, [], build.Log, null, [], null);
         }
         foreach (var f in build.Files) log?.Report($"  {f.Name}  {f.Size:N0} bytes  sha256 {f.Sha256}");
-        if (plan.ExpectedTextures.Count > 0)
+        if (plan.ExpectedTextures.Count > 0 || plan.ExpectedNames.Count > 0)
         {
-            log?.Report($"Mounting the mod on top of the game: {plan.ExpectedTextures.Count} new texture package(s) must load by path and decode to the imported pixels…");
+            log?.Report($"Mounting the mod on top of the game: {plan.ExpectedTextures.Count} new texture package(s) must load by path and decode to the imported pixels" +
+                        (plan.ExpectedNames.Count > 0 ? $", {plan.ExpectedNames.Count} re-pointed package(s) must name their new path" : "") + "…");
             if (TextureMountCheck(env.Source, plan, build.ModDir) is { } problem)
             {
                 var guard = WriteGuard.ForMods(env.Source.Config);
@@ -90,6 +91,12 @@ public static class ExportRunner
                         .Count(v => v.Values.Any(x => TextureUsage.NameMapForm(x) == item.To));
                     if (named == 0) return $"mounted: no widget in {GamePaths.ShortName(package)} names {item.To}";
                 }
+            foreach (var (package, names) in plan.ExpectedNames)
+            {
+                var named = withMod.LoadPackage(package).GetExports().Select(WidgetTreeReader.StoredValues)
+                    .Count(v => v.Values.Any(x => TextureUsage.NameMapForm(x) == names));
+                if (named == 0) return $"mounted: no export in {GamePaths.ShortName(package)} names {names}";
+            }
             return null;
         }
         catch (Exception e) { return $"mounted: the game with the mod can't be read ({e.GetType().Name}: {e.Message})"; }

@@ -11,7 +11,8 @@ namespace UmgEditor.Tests;
 /// <summary>
 /// Stage 2a: the recipe format (strict, data only) and recipe-check (read only, in memory). Acceptance: recipes\C10,
 /// C12 and C18 (device-tested: an inserted tag; 23 values + 2 tags + key/range edits; the appended + pointed texture
-/// route) give exactly their pinned chunks.
+/// route) give exactly their pinned chunks. Stage 2c: Clones and Repoints, acceptance recipes\C13 (solid-colour clones +
+/// a re-point) and C14 (UCL's image, resized clones, a re-point with 9-slice margins 0).
 /// </summary>
 [TestClass]
 public class RecipeTests
@@ -29,6 +30,12 @@ public class RecipeTests
     private static RecipeContext Context() => _context ??= new RecipeContext(Source, RecipeContext.RootOf(Source.Config),
         () => TextureUsage.LoadOrBuild(Source, UiIndex), new UsageGraph(UiIndex), new EditImpact(Engine, new UsageGraph(UiIndex), 1786, 1000),
         p => WidgetTreeReader.Build(Source, p));
+
+    private static void NeedsInputs(string json, string name)
+    {
+        foreach (var input in Parse(json).InputsOrEmpty.Values)
+            if (!File.Exists(Path.Combine(RecipeContext.RootOf(Source.Config), input.Path))) Assert.Inconclusive($"{name}: input {input.Path} is missing");
+    }
 
     private static Recipe Parse(string json)
     {
@@ -50,11 +57,12 @@ public class RecipeTests
     [DataRow("C10", 1, 0)]
     [DataRow("C12", 1, 5)]
     [DataRow("C18", 4, 0)]
+    [DataRow("C13", 3, 0)]
+    [DataRow("C14", 3, 0)]
     public void Acceptance_RecipeGivesThePinnedChunks_AndWritesNothing(string name, int chunks, int danger)
     {
         var json = RecipeText(name);
-        if (name == "C18" && !File.Exists(Path.Combine(RecipeContext.RootOf(Source.Config), "work", "out", "art", "C18", "C18_PlateBlue_64x16.png")))
-            Assert.Inconclusive("C18's art (work\\out\\art\\C18) is missing");
+        NeedsInputs(json, name);
         var before = Listing();
         var r = Check(json);
         foreach (var l in r.Log.Where(l => !l.StartsWith("    "))) Console.WriteLine(l);
@@ -120,7 +128,7 @@ public class RecipeTests
         Refused(With(o => Value(o)["Value"] = 0), "Value equals Stock");
         Refused(With(o => o["Packages"]!.AsArray().Add(o["Packages"]![0]!.DeepClone())), "listed 2 times");
         Refused(With(o => o["Packages"]![0]!["Values"]!.AsArray().Add(Value(o).DeepClone())), "set 2 times");
-        Refused(With(o => o["Packages"] = new JsonArray()), "no Packages and no Textures");
+        Refused(With(o => o["Packages"] = new JsonArray()), "no Packages, Textures, Clones or Repoints");
         Refused(With(o => o["Expect"]!["Files"]!.AsObject()["other_mod.utoc"] = new string('a', 64)), "device file name of this mod");
         foreach (var bad in new[] { "..\\outside.png", "C:\\x.png", "/abs.png", "work/./x.png", "work//x.png" })
             Assert.IsNotNull(RecipeReader.PathRefusal(bad), bad);
@@ -175,6 +183,94 @@ public class RecipeTests
         CheckRefused(wrongSha.ToJsonString(), "the recipe pins bbbbbbbbbbbb");
         var missing = c18.DeepClone().AsObject(); missing["Inputs"]![id]!["Path"] = "work/out/art/C18/missing.png";
         CheckRefused(missing.ToJsonString(), "is missing");
+    }
+
+    // ---- stage 2c: Clones and Repoints ----
+
+    private static string WithRecipe(string name, Action<JsonObject> change) { var o = JsonNode.Parse(RecipeText(name))!.AsObject(); change(o); return o.ToJsonString(); }
+    private static JsonObject Clone(JsonObject o, int i = 0) => o["Clones"]![i]!.AsObject();
+    private static JsonObject Repoint(JsonObject o) => o["Repoints"]![0]!.AsObject();
+    private static JsonObject Margin(JsonObject o, int i = 0) => o["Repoints"]![0]!["Values"]![i]!.AsObject();
+    private static JsonArray MarginLeft(double stock, double value) =>
+        new(new JsonObject { ["Export"] = "Img_Plate", ["Path"] = "Margin.Left", ["Stock"] = stock, ["Value"] = value });
+
+    [TestMethod]
+    public void Reader_DataChecks_ClonesAndRepoints()
+    {
+        string C13(Action<JsonObject> change) => WithRecipe("C13", change);
+        Refused(C13(o => Clone(o)["Solid"] = "#00ff00"), "upper-case hex");
+        Refused(C13(o => Clone(o)["Solid"] = "green"), "#RRGGBB");
+        Refused(C13(o => Clone(o).Remove("Solid")), "exactly one of Solid and Input");
+        Refused(C13(o => Clone(o)["Input"] = "spare"), "exactly one of Solid and Input");
+        Refused(C13(o => { Clone(o).Remove("Solid"); Clone(o)["Input"] = "spare"; }), "isn't listed in Inputs");
+        Refused(C13(o => Clone(o)["StockSha256"] = "x"), "StockSha256");
+        Refused(C13(o => Clone(o)["From"] = Clone(o)["From"]!.GetValue<string>() + ".DemoTitlePlate"), "no object name");
+        Refused(C13(o => Clone(o)["NewName"] = "Demo/Title"), "NewName");
+        Refused(C13(o => Clone(o, 1)["From"] = Clone(o)["From"]!.GetValue<string>()), "made 2 times");
+        Refused(C13(o => Clone(o)["Resize"] = true), "Resize");
+        Refused(C13(o => Repoint(o)["To"] = Repoint(o)["To"]!.GetValue<string>() + "X"), "as long as From");
+        Refused(C13(o => Repoint(o)["To"] = Repoint(o)["From"]!.GetValue<string>()), "From equals To");
+        Refused(C13(o => Repoint(o)["To"] = "DemoTitleUCL01"), "object paths");
+        Refused(C13(o => o["Repoints"]!.AsArray().Add(Repoint(o).DeepClone())), "one per package");
+        Refused(C13(o => o["Packages"] = new JsonArray(new JsonObject { ["Package"] = Repoint(o)["Package"]!.GetValue<string>(), ["StockSha256"] = new string('0', 64), ["Values"] = new JsonArray() })),
+            "doesn't layer a re-point");
+        Refused(C13(o => Clone(o).Remove("NewName")), "not a valid recipe");
+
+        string C14(Action<JsonObject> change) => WithRecipe("C14", change);
+        Refused(C14(o => Margin(o)["Value"] = 0.33), "write the float32 value");
+        Refused(C14(o => Margin(o)["Value"] = 0.33000001311302185), "Value equals Stock");
+        Refused(C14(o => o["Repoints"]![0]!["Values"]!.AsArray().Add(Margin(o).DeepClone())), "set 2 times");
+        Refused(C14(o => Margin(o).Remove("Stock")), "not a valid recipe");
+        Refused(C14(o => { Clone(o).Remove("Input"); Clone(o)["Solid"] = "#00FF00"; Clone(o, 1).Remove("Input"); Clone(o, 1)["Solid"] = "#FF00FF"; }), "listed but not used");
+    }
+
+    [TestMethod]
+    public void Check_Refusals_ClonesAndRepoints()
+    {
+        string C13(Action<JsonObject> change) => WithRecipe("C13", change);
+        CheckRefused(C13(o => Clone(o)["StockSha256"] = new string('0', 64)), "game updated?");
+        CheckRefused(C13(o => Clone(o)["NewName"] = "DemoTitleUCL1"), "must be as long as");
+        CheckRefused(C13(o => Clone(o)["From"] = Clone(o)["From"]!.GetValue<string>() + "X"), "isn't in the game");
+        CheckRefused(C13(o => { Clone(o)["NewName"] = "DemoTitlePlate"; }), "already exists in the stock containers");
+        CheckRefused(C13(o => Repoint(o)["StockSha256"] = new string('0', 64)), "game updated?");
+        // a re-point to a package nobody ships would leave the widget without its texture in game
+        CheckRefused(C13(o => Repoint(o)["To"] = Repoint(o)["To"]!.GetValue<string>().Replace("UCL01", "UCL02")), "neither the recipe makes nor the game has");
+        // From must be what the package stores (NameRenamePatch finds it in the name map)
+        CheckRefused(C13(o => Repoint(o)["From"] = Repoint(o)["From"]!.GetValue<string>().Replace("Plate", "Platx")), "DemoTitleBase:");
+        // values: the export, a stored value, its stock value
+        CheckRefused(C13(o => Repoint(o)["Values"] = MarginLeft(0.5, 0)), "stock is 0.33, the recipe says 0.5");
+        CheckRefused(C13(o => { Repoint(o)["Values"] = MarginLeft(0.33, 0); Margin(o)["Export"] = "Img_Nope"; }), "0 exports are named Img_Nope");
+        CheckRefused(C13(o => { Repoint(o)["Values"] = MarginLeft(0.33, 0); Margin(o)["Path"] = "Margin.Nope"; }), "stock doesn't store it");
+        // C13 plus one margin is a valid recipe, but not C13: Expect.Chunks refuses it
+        CheckRefused(C13(o => Repoint(o)["Values"] = MarginLeft(0.33, 0)), "DemoTitleBase is sha256");
+
+        // a texture edit and a recipe re-point can't both write one package
+        var c18 = RecipeText("C18");
+        NeedsInputs(c18, "C18");
+        CheckRefused(WithRecipe("C18", o => o["Repoints"] = new JsonArray(new JsonObject
+        {
+            ["Package"] = o["Textures"]![0]!["Package"]!.GetValue<string>(), ["StockSha256"] = new string('0', 64), ["From"] = "/Game/A.A", ["To"] = "/Game/B.B",
+        })), "doesn't layer a re-point on that");
+    }
+
+    /// <summary>A recipe's pins are the device-tested ones (recipes\pins\device-tested.json), not typed separately.</summary>
+    [TestMethod]
+    public void RecipePins_AreTheDeviceTestedPins()
+    {
+        var pins = JsonNode.Parse(File.ReadAllText(Path.Combine(RepoRoot(), "recipes", "pins", "device-tested.json")))!["Canaries"]!.AsObject();
+        var compared = new List<string>();
+        foreach (var file in Directory.EnumerateFiles(Path.Combine(RepoRoot(), "recipes"), "*.json"))
+        {
+            var recipe = Parse(File.ReadAllText(file));
+            if (pins[recipe.Name] is not JsonObject canary) continue;
+            Assert.IsNotNull(recipe.Expect, $"{recipe.Name} is device-tested: its recipe must pin it");
+            CollectionAssert.AreEquivalent(canary["Files"]!.AsObject().Select(kv => $"{kv.Key} {kv.Value!["Sha256"]}").ToList(),
+                (recipe.Expect.Files ?? new Dictionary<string, string>()).Select(kv => $"{kv.Key} {kv.Value}").ToList(), $"{recipe.Name}: Expect.Files");
+            CollectionAssert.AreEquivalent(canary["Chunks"]!.AsObject().Select(kv => $"{kv.Key} {kv.Value}").ToList(),
+                (recipe.Expect.Chunks ?? new Dictionary<string, string>()).Select(kv => $"{kv.Key} {kv.Value}").ToList(), $"{recipe.Name}: Expect.Chunks");
+            compared.Add(recipe.Name);
+        }
+        CollectionAssert.IsSubsetOf(new[] { "C13", "C14", "C16b_test", "C18" }, compared, string.Join(", ", compared));
     }
 
     [TestMethod]
