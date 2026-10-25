@@ -13,7 +13,7 @@ namespace UmgEditor.Tests;
 /// Stage 2b: recipe-build (the export's one build path + Expect.Files) and recipe-from-set. Acceptance: recipes\C10, C12,
 /// C18 and C16b_test build into exactly the device-tested files; recipes\C18 and C16b_test are what recipe-from-set makes
 /// of projects C18 and C16b. Stage 2c: recipes\C13 and C14 (Clones + Repoints) too, with their clones and re-points
-/// checked on the mounted mod. Builds go to work\out\mods\zzrb-&lt;id&gt; and are deleted.
+/// checked on the mounted mod. Stage 2d: recipes\C15, C16 and C16b (package Layers). Builds go to work\out\mods\zzrb-&lt;id&gt; and are deleted.
 /// </summary>
 [TestClass]
 public class RecipeBuildTests
@@ -72,6 +72,9 @@ public class RecipeBuildTests
     [DataRow("C16b_test", true)]
     [DataRow("C13", false)]
     [DataRow("C14", false)]
+    [DataRow("C15", true)]
+    [DataRow("C16", true)]
+    [DataRow("C16b", true)]
     public void Acceptance_RecipeBuildsTheDeviceTestedFiles(string name, bool ack)
     {
         NeedsInputs(name);

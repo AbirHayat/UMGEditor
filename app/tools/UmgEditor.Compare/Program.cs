@@ -39,6 +39,7 @@ switch (args.FirstOrDefault())
     case "canary-insert": return CanaryInsert();
     case "canary-texture": return CanaryTexture();
     case "recipe-input": return RecipeInput();
+    case "recipe-ucl": return RecipeUcl();
     case "canary-scoreboard": return CanaryScoreboard();
     case "canary-ucl": return CanaryUcl();
     case "canary-font": return CanaryFont();
@@ -51,6 +52,7 @@ switch (args.FirstOrDefault())
         Console.WriteLine("       umgcompare export-dump <packagePath> <out.json> [--pc]   every export (widgets, slots, animations) as JSON");
         Console.WriteLine("       umgcompare export-tex <outDir> <objectPath>... [--pc | --mod DIR]   textures decoded to PNG (read-only)");
         Console.WriteLine("       umgcompare recipe-input C14 [--mod DIR]   copies C14's UCL image (third-party) into work\\out\\recipes\\_inputs as a PNG, prints its sha256");
+        Console.WriteLine("       umgcompare recipe-ucl C15|C16|C16b   writes work\\out\\recipes\\<name>.json: the canary as a recipe (the builder's ops, its edit set's values, the device-tested pins)");
         Console.WriteLine("       umgcompare font-usage [--name N[,N]] [--face F[,F]]   read-only: packages whose name map holds a font name, Font assets that use a face");
         Console.WriteLine("       umgcompare canary-font [C17a] [--ucl-pak FILE]   builds canary C17a (UCL's font as a loose .ufont in a pak-only mod, no package edits)");
         Console.WriteLine("       umgcompare canary-ucl [C16] [--set C16] [--only board,banners,replay[,pes]] [--art DIR] [--centre] [--font]   builds canary C16 (the complete UCL look); C16b = --centre; C17b = --centre --font");
@@ -210,6 +212,147 @@ int RecipeInput()
     else guard.WriteAllBytes(file, png);
     Console.WriteLine($"texture bytes sha256 {Sha(bgra)}");
     Console.WriteLine($"{file}: {png.Length:N0} B, sha256 {Sha(png)}");
+    return 0;
+}
+
+// Stage 2d: C15 (canary-scoreboard), C16 and C16b (canary-ucl, UclC16) as recipes. The same ops in the same order with
+// the builders' constants; values from the canary's edit set (RecipeFromSet.SavedValues: the saved file must equal a
+// rebuild); stock values read from the game; art as pinned .bgra inputs; Expect = recipes\pins\device-tested.json. The
+// recipe is only kept (copied into recipes\) when it builds the device-tested files byte for byte.
+int RecipeUcl()
+{
+    var name = args.ElementAtOrDefault(1);
+    if (name is not ("C15" or "C16" or "C16b")) { Console.WriteLine("usage: umgcompare recipe-ucl C15|C16|C16b"); return 2; }
+    using var source = GameSource.Open(config);
+    const string MT = UmgEditor.Core.Modding.UclC16.MT, DT = UmgEditor.Core.Modding.UclC16.DT;
+    const string Dark = UmgEditor.Core.Modding.UclC16.Dark, White = UmgEditor.Core.Modding.UclC16.White;
+    var root = UmgEditor.Core.Recipes.RecipeContext.RootOf(config);
+    var guard = new UmgEditor.Core.Patching.WriteGuard(config);
+    var set = name;
+    var artDir = $"work/out/art/{name}";
+    var stockShas = new Dictionary<string, string>();
+    string StockSha(string package) => stockShas.TryGetValue(package, out var s) ? s : stockShas[package] = Sha(source.ReadPackageBytes(package).Bytes);
+
+    var inputs = new Dictionary<string, UmgEditor.Core.Recipes.RecipeInput>();
+    string Input(string id, string file)
+    {
+        var path = $"{artDir}/{file}";
+        var full = Path.Combine(root, path);
+        Check($"input {path} exists", File.Exists(full));
+        inputs[id] = new UmgEditor.Core.Recipes.RecipeInput(path, File.Exists(full) ? Sha(File.ReadAllBytes(full)) : new string('0', 64));
+        return id;
+    }
+    UmgEditor.Core.Recipes.RecipePackage? Values(string package, params UmgEditor.Core.Recipes.RecipeLayer[] layers)
+    {
+        var session = UmgEditor.Core.Patching.PatchSession.Open(source, package, UmgEditor.Core.Patching.PatchSession.DefaultFolder(guard, package, set));
+        var (p, why) = UmgEditor.Core.Recipes.RecipeFromSet.SavedValues(session, layers.Length > 0 ? layers : null);
+        Check($"{GamePaths.ShortName(package)}: edit set {set} ({session.Saved.Count} values) re-plans and verifies against stock", p != null, why ?? "");
+        return p;
+    }
+    UmgEditor.Core.Recipes.RecipePackage NoValues(string package, params UmgEditor.Core.Recipes.RecipeLayer[] layers) => new(package, StockSha(package), [], layers);
+    UmgEditor.Core.Recipes.RecipeEnumSwap Swap(string export) => new(export, "color", Dark, White);
+    // C16b: Justification = Center on a banner text: the names first, then the tag (anchored on stock MatchTime Text_TeamName_Home)
+    UmgEditor.Core.Recipes.RecipeLayer[] Centre(string text) =>
+    [
+        new UmgEditor.Core.Recipes.AppendNamesLayer(["Justification", "ETextJustify", "ETextJustify::Center"]),
+        new UmgEditor.Core.Recipes.EnumInsertLayer(text, "VerticalAlignment", "Justification", "ByteProperty", "ETextJustify", "ETextJustify::Center",
+            new UmgEditor.Core.Recipes.RecipeAnchor(MT + "MatchTime", "Text_TeamName_Home")),
+    ];
+    var clones = new List<UmgEditor.Core.Recipes.RecipeClone>();
+    void CloneBoth(string folderPath, string stockName, string newName, string? input = null, int? w = null, int? h = null)
+    {
+        foreach (var folder in UmgEditor.Core.Modding.TextureEdits.ThemeFolders)
+        {
+            var from = $"{folderPath}{folder}/{stockName}";
+            clones.Add(new(from, StockSha(from), newName, Input: input, Width: w, Height: h, White: input == null));
+        }
+    }
+    var repoints = new List<UmgEditor.Core.Recipes.RecipeRepoint>();
+    void Repoint(string package, string from, string to, bool marginsZero)
+    {
+        List<UmgEditor.Core.Recipes.RecipeRepointValue>? values = null;
+        if (marginsZero)
+        {
+            var plate = source.LoadPackage(package).GetExports().Single(e => e.Name == "Img_Plate");
+            var stored = WidgetTreeReader.StoredValues(plate);
+            values = new[] { "Left", "Top", "Right", "Bottom" }.Select(side => new UmgEditor.Core.Recipes.RecipeRepointValue("Img_Plate", "Margin." + side,
+                (float) double.Parse(stored["Margin." + side], System.Globalization.CultureInfo.InvariantCulture), 0)).ToList();
+        }
+        repoints.Add(new(package, StockSha(package), from, to, values));
+    }
+    // the stock colour of a ColorTable row, as #RRGGBBAA
+    string StockRgba(string table, string row)
+    {
+        var (key, bytes) = source.ReadPackageBytes(table);
+        var (plan, why) = UmgEditor.Core.Patching.DataTableColorEdit.Plan(source, key, bytes, row, (0, 0, 0, 0));
+        var flat = UmgEditor.Core.Patching.TagInserter.Flatten(source.ParsePackage(key, bytes).ExportsLazy[0].Value);
+        Check($"{GamePaths.ShortName(table)} {row} located", plan != null, why ?? "");
+        return plan == null ? "#00000000" : "#" + string.Concat(new[] { "R", "G", "B", "A" }.Select(c => byte.Parse(flat[plan.Key + "." + c]).ToString("X2")));
+    }
+
+    var packages = new List<UmgEditor.Core.Recipes.RecipePackage?>();
+    var bar = "MatchTimeBarUC_0";
+    var barRename = new UmgEditor.Core.Recipes.RecipeRename(MT + "Tex720/MatchTimePlate_0.MatchTimePlate", MT + $"Tex720/{bar}.{bar[..^2]}");
+    var clipping = new UmgEditor.Core.Recipes.RemoveTagLayer("Normal_Display", "Clipping", "EWidgetClipping::ClipToBounds");
+    if (name == "C15")
+    {
+        // canary-scoreboard: edit set C15 → Img_Line's path + scores white → Normal_Display's clipping removed; the bar art
+        packages.Add(Values(MT + "MatchTime",
+            new UmgEditor.Core.Recipes.RenameLayer([barRename], [Swap("Text_Score_Home"), Swap("Text_Score_Away")]), clipping));
+        CloneBoth(MT, "MatchTimePlate_0", bar, Input("bar", $"{bar}_2964x96.bgra"), 2964, 96);
+    }
+    else
+    {
+        var centre = name == "C16b";
+        // board: MatchTime (edit set → bar + logo paths, scores white → clipping removed), the ColorTables, white plates, bar, logo
+        packages.Add(Values(MT + "MatchTime",
+            new UmgEditor.Core.Recipes.RenameLayer([barRename, new(UmgEditor.Core.Modding.UclC16.LogoFrom, UmgEditor.Core.Modding.UclC16.LogoTo)],
+                [Swap("Text_Score_Home"), Swap("Text_Score_Away")]), clipping));
+        foreach (var table in new[] { "/Game/Assets/ui/Color/ColorTable", "/Game/Assets/ui/Color/ColorTable0164F" })
+            packages.Add(NoValues(table, new UmgEditor.Core.Recipes.ColorRowsLayer([
+                new("STR_SWITCH_BRAND_1", StockRgba(table, "STR_SWITCH_BRAND_1"), "#FFFFFFFF"),
+                new("STR_SWITCH_BRAND_2", StockRgba(table, "STR_SWITCH_BRAND_2"), "#000000FF")])));
+        Repoint(MT + "MatchTimeBase_1", MT + "Tex720/MatchTimePlate_1.MatchTimePlate", MT + "Tex720/MatchTimeWhite_1.MatchTimeWhite", false);
+        Repoint(MT + "MatchTimeBase_2", MT + "Tex720/MatchTimePlate_2.MatchTimePlate", MT + "Tex720/MatchTimeWhite_2.MatchTimeWhite", false);
+        CloneBoth(MT, "MatchTimePlate_1", "MatchTimeWhite_1");
+        CloneBoth(MT, "MatchTimePlate_2", "MatchTimeWhite_2");
+        CloneBoth(MT, "MatchTimePlate_0", bar, Input("bar", $"{bar}_699x96.bgra"), 699, 96);
+        var logo = UmgEditor.Core.Modding.UclC16.LogoName;
+        clones.Add(new(UmgEditor.Core.Modding.UclC16.LogoSource, StockSha(UmgEditor.Core.Modding.UclC16.LogoSource), logo, Input: Input("logo", $"{logo}_80x80.bgra"), Width: 80, Height: 80));
+
+        // banners: MatchTimeGoal (edit set → player name white → its plate class DemoTitleBase [→ centred name]),
+        // MatchTimeCard [→ centred name], MatchTimeMemberChange, the navy gradient, the goal art on DemoTitleBase
+        packages.Add(Values(MT + "MatchTimeGoal", [
+            new UmgEditor.Core.Recipes.RenameLayer(null, [Swap("Text_PlayerName")]),
+            new UmgEditor.Core.Recipes.ClassSwapLayer("MatchTimeBase_1", DT + "DemoTitleBase"),
+            .. centre ? Centre("Text_PlayerName") : []]));
+        packages.Add(Values(MT + "MatchTimeCard", centre ? Centre("Text_Value") : []));
+        packages.Add(Values(MT + "MatchTimeMemberChange"));
+        Repoint(MT + "MatchTimeBase", MT + "Tex720/MatchTimePlate_0.MatchTimePlate", MT + "Tex720/MatchTimeNavyG_0.MatchTimeNavyG", true);
+        CloneBoth(MT, "MatchTimePlate_0", "MatchTimeNavyG_0", Input("navy", "MatchTimeNavyG_0_512x64.bgra"), 512, 64);
+        Repoint(DT + "DemoTitleBase", DT + "Tex720/DemoTitlePlate.DemoTitlePlate", DT + "Tex720/DemoTitleUCL01.DemoTitleUCL01", true);
+        CloneBoth(DT, "DemoTitlePlate", "DemoTitleUCL01", Input("goal", "DemoTitleUCL01_696x192.bgra"), 696, 192);
+
+        // replay: DemoTitle's plate → class MatchTimeBase (the navy gradient, above)
+        packages.Add(NoValues(DT + "DemoTitle", new UmgEditor.Core.Recipes.ClassSwapLayer("Plate_DemoTitleBg", MT + "MatchTimeBase")));
+    }
+    if (failures > 0) return 1;
+
+    // the device-tested pins
+    var pinned = System.Text.Json.Nodes.JsonNode.Parse(File.ReadAllText(Path.Combine(root, "recipes", "pins", "device-tested.json")))!["Canaries"]![name]!;
+    var expect = new UmgEditor.Core.Recipes.RecipeExpect(
+        pinned["Chunks"]!.AsObject().ToDictionary(kv => kv.Key, kv => kv.Value!.GetValue<string>()),
+        pinned["Files"]!.AsObject().ToDictionary(kv => kv.Key, kv => kv.Value!["Sha256"]!.GetValue<string>()));
+    var recipe = new UmgEditor.Core.Recipes.Recipe(UmgEditor.Core.Recipes.Recipe.CurrentVersion, name, pinned["Container"]!.GetValue<string>(), inputs,
+        packages.OfType<UmgEditor.Core.Recipes.RecipePackage>().ToList(), null, clones, repoints, expect);
+    var text = UmgEditor.Core.Recipes.RecipeReader.Write(recipe);
+    var (back, refusals) = UmgEditor.Core.Recipes.RecipeReader.Read(text);
+    Check("the recipe reads back and passes the data checks", back != null, string.Join(" | ", refusals));
+    if (failures > 0) return 1;
+    var recipes = UmgEditor.Core.Patching.WriteGuard.ForRecipes(config);
+    var file = Path.Combine(recipes.Root, name + ".json");
+    recipes.WriteAllText(file, text);
+    Console.WriteLine($"{file}: {packages.Count} packages, {clones.Count} clones, {repoints.Count} re-points, {inputs.Count} inputs; check it with umgmod recipe-check");
     return 0;
 }
 

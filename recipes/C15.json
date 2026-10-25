@@ -1,0 +1,771 @@
+{
+  "Recipe": 1,
+  "Name": "C15",
+  "Container": "pc9999_mobile_and_P",
+  "Inputs": {
+    "bar": {
+      "Path": "work/out/art/C15/MatchTimeBarUC_0_2964x96.bgra",
+      "Sha256": "01052dca4a6b6a49a0314a1e9edffaf02f3de8715c4cb8a4fb5b0aef3dc57a7b"
+    }
+  },
+  "Packages": [
+    {
+      "Package": "/Game/Assets/ui/Data/Widget/TVGraphics/SwitchAssets_Original/MatchTime/MatchTime",
+      "StockSha256": "65ea9c621fa6f2f4069ea1427d4b9961add222cbc52e4258b019fe0911c85910",
+      "Values": [
+        {
+          "Export": 13,
+          "Slot": "CanvasPanelSlot_1",
+          "Path": "LayoutData.Offsets.Left",
+          "Stock": 552,
+          "Value": 378,
+          "Inserted": false
+        },
+        {
+          "Export": 14,
+          "Slot": "CanvasPanelSlot_11",
+          "Path": "LayoutData.Offsets.Left",
+          "Stock": 372,
+          "Value": -148,
+          "Inserted": false
+        },
+        {
+          "Export": 17,
+          "Slot": "CanvasPanelSlot_8",
+          "Path": "LayoutData.Offsets.Left",
+          "Stock": 492,
+          "Value": -208,
+          "Inserted": false
+        },
+        {
+          "Export": 18,
+          "Slot": "CanvasPanelSlot_0",
+          "Path": "LayoutData.Offsets.Left",
+          "Stock": 12,
+          "Value": 14,
+          "Inserted": false
+        },
+        {
+          "Export": 18,
+          "Slot": "CanvasPanelSlot_0",
+          "Path": "LayoutData.Offsets.Right",
+          "Stock": 108,
+          "Value": 96,
+          "Inserted": false
+        },
+        {
+          "Export": 19,
+          "Slot": "CanvasPanelSlot_1",
+          "Path": "LayoutData.Offsets.Left",
+          "Stock": 368,
+          "Value": -152,
+          "Inserted": false
+        },
+        {
+          "Export": 20,
+          "Slot": "CanvasPanelSlot_12",
+          "Path": "LayoutData.Offsets.Right",
+          "Stock": 372,
+          "Value": 0,
+          "Inserted": false
+        },
+        {
+          "Export": 22,
+          "Slot": "CanvasPanelSlot_26",
+          "Path": "LayoutData.Offsets.Left",
+          "Stock": 185,
+          "Value": 0,
+          "Inserted": false
+        },
+        {
+          "Export": 22,
+          "Slot": "CanvasPanelSlot_26",
+          "Path": "LayoutData.Offsets.Right",
+          "Stock": 2,
+          "Value": 1580,
+          "Inserted": false
+        },
+        {
+          "Export": 22,
+          "Slot": "CanvasPanelSlot_26",
+          "Path": "ZOrder",
+          "Stock": 13,
+          "Value": 6,
+          "Inserted": false
+        },
+        {
+          "Export": 23,
+          "Slot": "CanvasPanelSlot_27",
+          "Path": "LayoutData.Offsets.Right",
+          "Stock": 120,
+          "Value": 0,
+          "Inserted": false
+        },
+        {
+          "Export": 30,
+          "Slot": "CanvasPanelSlot_6",
+          "Path": "LayoutData.Offsets.Left",
+          "Stock": 252,
+          "Value": 262,
+          "Inserted": false
+        },
+        {
+          "Export": 30,
+          "Slot": "CanvasPanelSlot_6",
+          "Path": "LayoutData.Offsets.Right",
+          "Stock": 108,
+          "Value": 96,
+          "Inserted": false
+        },
+        {
+          "Export": 31,
+          "Slot": "CanvasPanelSlot_3",
+          "Path": "LayoutData.Offsets.Left",
+          "Stock": 48,
+          "Value": 256,
+          "Inserted": false
+        },
+        {
+          "Export": 70,
+          "Slot": "MovieScene2DTransformSection_0",
+          "Path": "anim:Translation#0",
+          "Stock": -372,
+          "Value": 0,
+          "Inserted": false
+        },
+        {
+          "Export": 70,
+          "Slot": "MovieScene2DTransformSection_0",
+          "Path": "anim:Translation[1]#1",
+          "Stock": -60,
+          "Value": 0,
+          "Inserted": false
+        },
+        {
+          "Export": 70,
+          "Slot": "MovieScene2DTransformSection_0",
+          "Path": "anim:Translation[1]#2",
+          "Stock": -60,
+          "Value": 0,
+          "Inserted": false
+        },
+        {
+          "Export": 71,
+          "Slot": "MovieScene2DTransformSection_0",
+          "Path": "anim:Translation#0",
+          "Stock": -60,
+          "Value": 0,
+          "Inserted": false
+        },
+        {
+          "Export": 76,
+          "Slot": "MovieScene2DTransformSection_0",
+          "Path": "anim:Translation[1]#0",
+          "Stock": -60,
+          "Value": 0,
+          "Inserted": false
+        },
+        {
+          "Export": 77,
+          "Slot": "MovieScene2DTransformSection_0",
+          "Path": "anim:Translation#0",
+          "Stock": -372,
+          "Value": 0,
+          "Inserted": false
+        },
+        {
+          "Export": 78,
+          "Slot": "MovieScene2DTransformSection_0",
+          "Path": "anim:Translation#0",
+          "Stock": -402,
+          "Value": -30,
+          "Inserted": false
+        },
+        {
+          "Export": 81,
+          "Slot": "MovieScene2DTransformSection_0",
+          "Path": "anim:Translation[1]#0",
+          "Stock": 9,
+          "Value": 0,
+          "Inserted": false
+        },
+        {
+          "Export": 82,
+          "Slot": "MovieScene2DTransformSection_0",
+          "Path": "anim:Translation[1]#0",
+          "Stock": 9,
+          "Value": 0,
+          "Inserted": false
+        },
+        {
+          "Export": 83,
+          "Slot": "MovieScene2DTransformSection_0",
+          "Path": "anim:Translation#0",
+          "Stock": -372,
+          "Value": 0,
+          "Inserted": false
+        },
+        {
+          "Export": 84,
+          "Slot": "MovieScene2DTransformSection_0",
+          "Path": "anim:Translation#0",
+          "Stock": -60,
+          "Value": 0,
+          "Inserted": false
+        },
+        {
+          "Export": 89,
+          "Slot": "MovieScene2DTransformSection_0",
+          "Path": "anim:Translation[1]#0",
+          "Stock": -60,
+          "Value": 0,
+          "Inserted": false
+        },
+        {
+          "Export": 90,
+          "Slot": "MovieScene2DTransformSection_0",
+          "Path": "anim:Translation#0",
+          "Stock": -372,
+          "Value": 0,
+          "Inserted": false
+        },
+        {
+          "Export": 91,
+          "Slot": "MovieScene2DTransformSection_0",
+          "Path": "anim:Translation#0",
+          "Stock": -402,
+          "Value": -30,
+          "Inserted": false
+        },
+        {
+          "Export": 94,
+          "Slot": "MovieScene2DTransformSection_0",
+          "Path": "anim:Translation[1]#0",
+          "Stock": 9,
+          "Value": 0,
+          "Inserted": false
+        },
+        {
+          "Export": 95,
+          "Slot": "MovieScene2DTransformSection_0",
+          "Path": "anim:Translation[1]#0",
+          "Stock": 9,
+          "Value": 0,
+          "Inserted": false
+        },
+        {
+          "Export": 96,
+          "Slot": "MovieScene2DTransformSection_0",
+          "Path": "anim:Translation#1",
+          "Stock": -372,
+          "Value": 0,
+          "Inserted": false
+        },
+        {
+          "Export": 96,
+          "Slot": "MovieScene2DTransformSection_0",
+          "Path": "anim:Translation[1]#1",
+          "Stock": -60,
+          "Value": 0,
+          "Inserted": false
+        },
+        {
+          "Export": 96,
+          "Slot": "MovieScene2DTransformSection_0",
+          "Path": "anim:Translation[1]#2",
+          "Stock": -60,
+          "Value": 0,
+          "Inserted": false
+        },
+        {
+          "Export": 97,
+          "Slot": "MovieScene2DTransformSection_0",
+          "Path": "anim:Translation#1",
+          "Stock": -60,
+          "Value": 0,
+          "Inserted": false
+        },
+        {
+          "Export": 102,
+          "Slot": "MovieScene2DTransformSection_0",
+          "Path": "anim:Translation[1]#1",
+          "Stock": -60,
+          "Value": 0,
+          "Inserted": false
+        },
+        {
+          "Export": 103,
+          "Slot": "MovieScene2DTransformSection_0",
+          "Path": "anim:Translation#1",
+          "Stock": -372,
+          "Value": 0,
+          "Inserted": false
+        },
+        {
+          "Export": 104,
+          "Slot": "MovieScene2DTransformSection_0",
+          "Path": "anim:Translation#1",
+          "Stock": -402,
+          "Value": -30,
+          "Inserted": false
+        },
+        {
+          "Export": 107,
+          "Slot": "MovieScene2DTransformSection_0",
+          "Path": "anim:Translation[1]#1",
+          "Stock": 9,
+          "Value": 0,
+          "Inserted": false
+        },
+        {
+          "Export": 108,
+          "Slot": "MovieScene2DTransformSection_0",
+          "Path": "anim:Translation[1]#1",
+          "Stock": 9,
+          "Value": 0,
+          "Inserted": false
+        },
+        {
+          "Export": 977,
+          "Slot": "MovieSceneByteSection_0",
+          "Path": "anim:ByteCurve#0",
+          "Stock": 1,
+          "Value": 3,
+          "Inserted": false
+        },
+        {
+          "Export": 988,
+          "Slot": "MovieSceneByteSection_0",
+          "Path": "anim:ByteCurve#0",
+          "Stock": 1,
+          "Value": 3,
+          "Inserted": false
+        },
+        {
+          "Export": 989,
+          "Slot": "MovieSceneByteSection_0",
+          "Path": "anim:ByteCurve#0",
+          "Stock": 1,
+          "Value": 3,
+          "Inserted": false
+        },
+        {
+          "Export": 990,
+          "Slot": "MovieSceneByteSection_0",
+          "Path": "anim:ByteCurve#0",
+          "Stock": 1,
+          "Value": 3,
+          "Inserted": false
+        },
+        {
+          "Export": 991,
+          "Slot": "MovieSceneByteSection_0",
+          "Path": "anim:ByteCurve#0",
+          "Stock": 1,
+          "Value": 3,
+          "Inserted": false
+        },
+        {
+          "Export": 996,
+          "Slot": "MovieSceneByteSection_0",
+          "Path": "anim:ByteCurve#0",
+          "Stock": 1,
+          "Value": 3,
+          "Inserted": false
+        },
+        {
+          "Export": 997,
+          "Slot": "MovieSceneByteSection_0",
+          "Path": "anim:ByteCurve#0",
+          "Stock": 1,
+          "Value": 3,
+          "Inserted": false
+        },
+        {
+          "Export": 998,
+          "Slot": "MovieSceneByteSection_0",
+          "Path": "anim:ByteCurve#0",
+          "Stock": 1,
+          "Value": 3,
+          "Inserted": false
+        },
+        {
+          "Export": 999,
+          "Slot": "MovieSceneByteSection_0",
+          "Path": "anim:ByteCurve#0",
+          "Stock": 1,
+          "Value": 3,
+          "Inserted": false
+        },
+        {
+          "Export": 1000,
+          "Slot": "MovieSceneByteSection_0",
+          "Path": "anim:ByteCurve#0",
+          "Stock": 1,
+          "Value": 3,
+          "Inserted": false
+        },
+        {
+          "Export": 1001,
+          "Slot": "MovieSceneByteSection_0",
+          "Path": "anim:ByteCurve#0",
+          "Stock": 1,
+          "Value": 3,
+          "Inserted": false
+        },
+        {
+          "Export": 1003,
+          "Slot": "MovieSceneByteSection_0",
+          "Path": "anim:ByteCurve#0",
+          "Stock": 1,
+          "Value": 3,
+          "Inserted": false
+        },
+        {
+          "Export": 1004,
+          "Slot": "MovieSceneByteSection_0",
+          "Path": "anim:ByteCurve#0",
+          "Stock": 1,
+          "Value": 3,
+          "Inserted": false
+        },
+        {
+          "Export": 1005,
+          "Slot": "MovieSceneByteSection_0",
+          "Path": "anim:ByteCurve#0",
+          "Stock": 1,
+          "Value": 3,
+          "Inserted": false
+        },
+        {
+          "Export": 1006,
+          "Slot": "MovieSceneByteSection_0",
+          "Path": "anim:ByteCurve#0",
+          "Stock": 1,
+          "Value": 3,
+          "Inserted": false
+        },
+        {
+          "Export": 1007,
+          "Slot": "MovieSceneByteSection_0",
+          "Path": "anim:ByteCurve#0",
+          "Stock": 1,
+          "Value": 3,
+          "Inserted": false
+        },
+        {
+          "Export": 1008,
+          "Slot": "MovieSceneByteSection_0",
+          "Path": "anim:ByteCurve#0",
+          "Stock": 1,
+          "Value": 3,
+          "Inserted": false
+        },
+        {
+          "Export": 1009,
+          "Slot": "MovieSceneByteSection_0",
+          "Path": "anim:ByteCurve#0",
+          "Stock": 1,
+          "Value": 3,
+          "Inserted": false
+        },
+        {
+          "Export": 1011,
+          "Slot": "MovieSceneByteSection_0",
+          "Path": "anim:ByteCurve#1",
+          "Stock": 1,
+          "Value": 3,
+          "Inserted": false
+        },
+        {
+          "Export": 1013,
+          "Slot": "MovieSceneByteSection_0",
+          "Path": "anim:ByteCurve#1",
+          "Stock": 1,
+          "Value": 3,
+          "Inserted": false
+        },
+        {
+          "Export": 1014,
+          "Slot": "MovieSceneByteSection_0",
+          "Path": "anim:ByteCurve#1",
+          "Stock": 1,
+          "Value": 3,
+          "Inserted": false
+        },
+        {
+          "Export": 1015,
+          "Slot": "MovieSceneByteSection_0",
+          "Path": "anim:ByteCurve#1",
+          "Stock": 1,
+          "Value": 3,
+          "Inserted": false
+        },
+        {
+          "Export": 1016,
+          "Slot": "MovieSceneByteSection_0",
+          "Path": "anim:ByteCurve#1",
+          "Stock": 1,
+          "Value": 3,
+          "Inserted": false
+        },
+        {
+          "Export": 1018,
+          "Slot": "MovieSceneByteSection_0",
+          "Path": "anim:ByteCurve#1",
+          "Stock": 1,
+          "Value": 3,
+          "Inserted": false
+        },
+        {
+          "Export": 1019,
+          "Slot": "MovieSceneByteSection_0",
+          "Path": "anim:ByteCurve#1",
+          "Stock": 1,
+          "Value": 3,
+          "Inserted": false
+        },
+        {
+          "Export": 1023,
+          "Slot": "MovieSceneByteSection_0",
+          "Path": "anim:ByteCurve#1",
+          "Stock": 1,
+          "Value": 3,
+          "Inserted": false
+        },
+        {
+          "Export": 1024,
+          "Slot": "MovieSceneByteSection_0",
+          "Path": "anim:ByteCurve#1",
+          "Stock": 1,
+          "Value": 3,
+          "Inserted": false
+        },
+        {
+          "Export": 1025,
+          "Slot": "MovieSceneByteSection_0",
+          "Path": "anim:ByteCurve#1",
+          "Stock": 1,
+          "Value": 3,
+          "Inserted": false
+        },
+        {
+          "Export": 1026,
+          "Slot": "MovieSceneByteSection_0",
+          "Path": "anim:ByteCurve#1",
+          "Stock": 1,
+          "Value": 3,
+          "Inserted": false
+        },
+        {
+          "Export": 1027,
+          "Slot": "MovieSceneByteSection_0",
+          "Path": "anim:ByteCurve#1",
+          "Stock": 1,
+          "Value": 3,
+          "Inserted": false
+        },
+        {
+          "Export": 1028,
+          "Slot": "MovieSceneByteSection_0",
+          "Path": "anim:ByteCurve#1",
+          "Stock": 1,
+          "Value": 3,
+          "Inserted": false
+        },
+        {
+          "Export": 1029,
+          "Slot": "MovieSceneByteSection_0",
+          "Path": "anim:ByteCurve#1",
+          "Stock": 1,
+          "Value": 3,
+          "Inserted": false
+        },
+        {
+          "Export": 1030,
+          "Slot": "MovieSceneByteSection_0",
+          "Path": "anim:ByteCurve#1",
+          "Stock": 1,
+          "Value": 3,
+          "Inserted": false
+        },
+        {
+          "Export": 1291,
+          "Slot": "MovieSceneFloatSection_0",
+          "Path": "anim:FloatCurve#0",
+          "Stock": 0,
+          "Value": 1,
+          "Inserted": false
+        },
+        {
+          "Export": 1293,
+          "Slot": "MovieSceneFloatSection_0",
+          "Path": "anim:FloatCurve#2",
+          "Stock": 0,
+          "Value": 1,
+          "Inserted": false
+        },
+        {
+          "Export": 1326,
+          "Slot": "MovieSceneMarginSection_0",
+          "Path": "anim:LeftCurve#0",
+          "Stock": 48,
+          "Value": 256,
+          "Inserted": false
+        },
+        {
+          "Export": 1327,
+          "Slot": "MovieSceneMarginSection_0",
+          "Path": "anim:LeftCurve#0",
+          "Stock": 48,
+          "Value": 256,
+          "Inserted": false
+        },
+        {
+          "Export": 1328,
+          "Slot": "MovieSceneMarginSection_0",
+          "Path": "anim:LeftCurve#0",
+          "Stock": 96,
+          "Value": 304,
+          "Inserted": false
+        },
+        {
+          "Export": 1342,
+          "Slot": "MovieSceneMarginSection_0",
+          "Path": "anim:RightCurve#0",
+          "Stock": 180,
+          "Value": 492,
+          "Inserted": false
+        },
+        {
+          "Export": 1349,
+          "Slot": "MovieSceneMarginSection_0",
+          "Path": "anim:RightCurve#0",
+          "Stock": 180,
+          "Value": 492,
+          "Inserted": false
+        },
+        {
+          "Export": 1356,
+          "Slot": "MovieSceneMarginSection_0",
+          "Path": "anim:RightCurve#2",
+          "Stock": 180,
+          "Value": 492,
+          "Inserted": false
+        },
+        {
+          "Export": 1359,
+          "Slot": "MovieSceneMarginSection_0",
+          "Path": "anim:LeftCurve#0",
+          "Stock": 185,
+          "Value": 0,
+          "Inserted": false
+        },
+        {
+          "Export": 1359,
+          "Slot": "MovieSceneMarginSection_0",
+          "Path": "anim:LeftCurve#1",
+          "Stock": 185,
+          "Value": 0,
+          "Inserted": false
+        },
+        {
+          "Export": 1359,
+          "Slot": "MovieSceneMarginSection_0",
+          "Path": "anim:RightCurve#0",
+          "Stock": 2,
+          "Value": 1580,
+          "Inserted": false
+        },
+        {
+          "Export": 1359,
+          "Slot": "MovieSceneMarginSection_0",
+          "Path": "anim:RightCurve#1",
+          "Stock": 2,
+          "Value": 1580,
+          "Inserted": false
+        },
+        {
+          "Export": 1360,
+          "Slot": "MovieSceneMarginSection_0",
+          "Path": "anim:RightCurve#0",
+          "Stock": 120,
+          "Value": 0,
+          "Inserted": false
+        },
+        {
+          "Export": 1360,
+          "Slot": "MovieSceneMarginSection_0",
+          "Path": "anim:RightCurve#1",
+          "Stock": 120,
+          "Value": 0,
+          "Inserted": false
+        }
+      ],
+      "Layers": [
+        {
+          "Op": "Rename",
+          "Renames": [
+            {
+              "From": "/Game/Assets/ui/Data/Widget/TVGraphics/SwitchAssets_Original/MatchTime/Tex720/MatchTimePlate_0.MatchTimePlate",
+              "To": "/Game/Assets/ui/Data/Widget/TVGraphics/SwitchAssets_Original/MatchTime/Tex720/MatchTimeBarUC_0.MatchTimeBarUC"
+            }
+          ],
+          "EnumSwaps": [
+            {
+              "Export": "Text_Score_Home",
+              "Property": "color",
+              "From": "ColorEnum_String::NewEnumerator87",
+              "To": "ColorEnum_String::NewEnumerator86"
+            },
+            {
+              "Export": "Text_Score_Away",
+              "Property": "color",
+              "From": "ColorEnum_String::NewEnumerator87",
+              "To": "ColorEnum_String::NewEnumerator86"
+            }
+          ]
+        },
+        {
+          "Op": "RemoveTag",
+          "Export": "Normal_Display",
+          "Tag": "Clipping",
+          "Stock": "EWidgetClipping::ClipToBounds"
+        }
+      ]
+    }
+  ],
+  "Clones": [
+    {
+      "From": "/Game/Assets/ui/Data/Widget/TVGraphics/SwitchAssets_Original/MatchTime/Tex720/MatchTimePlate_0",
+      "StockSha256": "f064ee56a5b7199875f34e40ee8eb442d306c90edfc34fca28a39c305aac3669",
+      "NewName": "MatchTimeBarUC_0",
+      "Input": "bar",
+      "Width": 2964,
+      "Height": 96,
+      "White": false
+    },
+    {
+      "From": "/Game/Assets/ui/Data/Widget/TVGraphics/SwitchAssets_Original/MatchTime/0164F/Tex720/MatchTimePlate_0",
+      "StockSha256": "f3d0cdd512518c094433352f9a2be5da083f0887bf9b24eb07dac4bd5bd2f050",
+      "NewName": "MatchTimeBarUC_0",
+      "Input": "bar",
+      "Width": 2964,
+      "Height": 96,
+      "White": false
+    }
+  ],
+  "Repoints": [],
+  "Expect": {
+    "Chunks": {
+      "/Game/Assets/ui/Data/Widget/TVGraphics/SwitchAssets_Original/MatchTime/Tex720/MatchTimeBarUC_0": "af52ee1317eb021346c29dcec82918df99f47c604d5e69552d4bcf7376e49a8c",
+      "/Game/Assets/ui/Data/Widget/TVGraphics/SwitchAssets_Original/MatchTime/MatchTime": "dee01848b3baf75d97ddc5c06a2b47aa1d42132bd429421800ccb584a94e8eee",
+      "/Game/Assets/ui/Data/Widget/TVGraphics/SwitchAssets_Original/MatchTime/0164F/Tex720/MatchTimeBarUC_0": "a558b010e07322d2122cb1f338563a1bb02e898c0916ab131c315119ac20cd58"
+    },
+    "Files": {
+      "pc9999_mobile_and_P.pak": "0c9d79129f5ca913335ca2f864ae40d39818a16a12805c9ab55fa1329c7f9424",
+      "pc9999_mobile_and_P.ucas": "8ce4c7db6d5edc5f9bcf5ca7a73cffe3f0f4f954fd2adc50ddbf0a5da93720f2",
+      "pc9999_mobile_and_P.utoc": "b12f28b7f5b5fcce15643e01d3b215721f78046bee8f1fde70c1dee5ef8dd76d"
+    }
+  }
+}

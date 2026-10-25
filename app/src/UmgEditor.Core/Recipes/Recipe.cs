@@ -60,13 +60,82 @@ public static class RecipeSections
     {
         public IReadOnlyList<RecipeRepointValue> ValuesOrEmpty => p.Values ?? [];
     }
+
+    extension(RecipePackage p)
+    {
+        public IReadOnlyList<RecipeLayer> LayersOrEmpty => p.Layers ?? [];
+    }
+
+    extension(RenameLayer l)
+    {
+        public IReadOnlyList<RecipeRename> RenamesOrEmpty => l.Renames ?? [];
+        public IReadOnlyList<RecipeEnumSwap> EnumSwapsOrEmpty => l.EnumSwaps ?? [];
+    }
+
+    extension(RecipeLayer l)
+    {
+        /// <summary>The layer's "Op" as written in the recipe</summary>
+        public string Op => l switch
+        {
+            RenameLayer => "Rename", RemoveTagLayer => "RemoveTag", ClassSwapLayer => "ClassSwap", ColorRowsLayer => "ColorRows",
+            AppendNamesLayer => "AppendNames", EnumInsertLayer => "EnumInsert", _ => l.GetType().Name,
+        };
+    }
 }
 
 /// <param name="Path">Relative to the workspace root (the folder holding work\), inside it</param>
 public sealed record RecipeInput(string Path, string Sha256);
 
 /// <param name="StockSha256">The stock chunk the values were made on; a game update is a refusal, never a silent rebuild</param>
-public sealed record RecipePackage(string Package, string StockSha256, IReadOnlyList<RecipeValue> Values);
+/// <param name="Values">Layer 1 (the edit set's values, on stock); may be empty when Layers follow</param>
+/// <param name="Layers">Further layers, in order, each on the one before and each verified by its own tool; then the
+/// union check against stock (<see cref="Patching.LayerUnion"/>): no layer may change what an earlier one changed</param>
+public sealed record RecipePackage(string Package, string StockSha256, IReadOnlyList<RecipeValue> Values, IReadOnlyList<RecipeLayer>? Layers = null);
+
+/// <summary>One layer of a package: an existing tool with its own checks. JSON: an object whose first field is "Op".</summary>
+[JsonPolymorphic(TypeDiscriminatorPropertyName = "Op")]
+[JsonDerivedType(typeof(RenameLayer), "Rename")]
+[JsonDerivedType(typeof(RemoveTagLayer), "RemoveTag")]
+[JsonDerivedType(typeof(ClassSwapLayer), "ClassSwap")]
+[JsonDerivedType(typeof(ColorRowsLayer), "ColorRows")]
+[JsonDerivedType(typeof(AppendNamesLayer), "AppendNames")]
+[JsonDerivedType(typeof(EnumInsertLayer), "EnumInsert")]
+public abstract record RecipeLayer;
+
+/// <summary>NameRenamePatch: same-length name-map renames (soft paths) and enum values swapped to names already in the map (EnumValueSwap).</summary>
+public sealed record RenameLayer(IReadOnlyList<RecipeRename>? Renames = null, IReadOnlyList<RecipeEnumSwap>? EnumSwaps = null) : RecipeLayer;
+
+/// <param name="From">A soft path as the name map stores it; To must be as long, and its package made by the recipe or in the game</param>
+public sealed record RecipeRename(string From, string To);
+
+/// <param name="Property">The export's top-level enum property, e.g. color</param>
+public sealed record RecipeEnumSwap(string Export, string Property, string From, string To);
+
+/// <summary>TagRemover: a top-level tag back to its class default; Stock is the value it holds.</summary>
+public sealed record RemoveTagLayer(string Export, string Tag, string Stock) : RecipeLayer;
+
+/// <summary>ClassSwap: the export's class becomes the one of another stock package (To, e.g. /Game/…/DemoTitleBase).</summary>
+public sealed record ClassSwapLayer(string Export, string To) : RecipeLayer;
+
+/// <summary>DataTableColorEdit: rows' Color values, applied through NameRenamePatch.</summary>
+public sealed record ColorRowsLayer(IReadOnlyList<RecipeColorRow> Rows) : RecipeLayer;
+
+/// <param name="Stock">"#RRGGBBAA" as stock stores it</param>
+/// <param name="Color">"#RRGGBBAA"</param>
+public sealed record RecipeColorRow(string Row, string Stock, string Color);
+
+/// <summary>EnumTagInsert.AppendNames: names appended to the name map (old names and hashes kept, every export re-parses identically).</summary>
+public sealed record AppendNamesLayer(IReadOnlyList<string> Names) : RecipeLayer;
+
+/// <summary>
+/// EnumTagInsert.Insert: an enum tag inserted after a top-level tag. The tag builder is first checked byte for byte
+/// against a stock tag of the same name, type, enum and value (<see cref="Anchor"/>).
+/// </summary>
+/// <param name="Type">ByteProperty (TEnumAsByte) or EnumProperty</param>
+public sealed record EnumInsertLayer(string Export, string After, string Tag, string Type, string Enum, string Value, RecipeAnchor Anchor) : RecipeLayer;
+
+/// <param name="Export">An export of that stock package that stores the same tag</param>
+public sealed record RecipeAnchor(string Package, string Export);
 
 /// <summary>One edit, as an edit set's manifest stores it: the export, its name, the path, the stock value and the new one.</summary>
 /// <param name="Export">Slot export (layout values) or section/animation export (animation keys, range bounds)</param>
@@ -84,9 +153,12 @@ public sealed record RecipeTexture(string Package, string Widget, string Texture
 /// <summary>A new texture package next to <paramref name="From"/> (same folder), named <paramref name="NewName"/> (as long as From's short name).</summary>
 /// <param name="From">The stock B8G8R8A8 texture package to clone</param>
 /// <param name="StockSha256">From's stock chunk</param>
-/// <param name="Solid">"#RRGGBB": every pixel of every mip, at the stock size (exactly one of Solid and Input)</param>
-/// <param name="Input">A PNG input: mip 0 at the image's size, each further mip half the one before, as many mips as stock</param>
-public sealed record RecipeClone(string From, string StockSha256, string NewName, string? Solid = null, string? Input = null);
+/// <param name="Solid">"#RRGGBB": every pixel of every mip, at the stock size (exactly one of Solid, Input and White)</param>
+/// <param name="Input">An image input: mip 0 at the image's size, each further mip half the one before, as many mips as stock.
+/// A .png, or raw B, G, R, A bytes in a .bgra file with <paramref name="Width"/> and <paramref name="Height"/></param>
+/// <param name="White">The stock pixels with RGB white and the stock alpha kept, at the stock size</param>
+public sealed record RecipeClone(string From, string StockSha256, string NewName, string? Solid = null, string? Input = null,
+    int? Width = null, int? Height = null, bool White = false);
 
 /// <summary>One stock package whose soft path <paramref name="From"/> becomes <paramref name="To"/> (a same-length name-map rename).</summary>
 /// <param name="From">The name-map string, e.g. "/Game/…/Tex720/DemoTitlePlate.DemoTitlePlate"</param>
@@ -131,7 +203,7 @@ public static partial class RecipeReader
     {
         Recipe? recipe;
         try { recipe = JsonSerializer.Deserialize<Recipe>(json, Options); }
-        catch (JsonException e) { return (null, [$"not a valid recipe: {e.Message}"]); }
+        catch (Exception e) when (e is JsonException or NotSupportedException) { return (null, [$"not a valid recipe: {e.Message}"]); }
         if (recipe == null) return (null, ["not a valid recipe: empty"]);
         var refusals = Validate(recipe);
         return (refusals.Count == 0 ? recipe : null, refusals);
@@ -177,7 +249,10 @@ public static partial class RecipeReader
             var head = GamePaths.ShortName(p.Package);
             if (!p.Package.StartsWith("/Game/", StringComparison.Ordinal)) Refuse($"package \"{p.Package}\" must start with /Game/");
             if (!IsSha256(p.StockSha256)) Refuse($"{head}: StockSha256 must be 64 lower-case hex digits");
-            if (p.Values.Count == 0) Refuse($"{head}: no Values");
+            if (p.Values.Count == 0 && p.LayersOrEmpty.Count == 0) Refuse($"{head}: no Values and no Layers");
+            foreach (var (layer, n) in p.LayersOrEmpty.Select((l, i) => (l, i + (p.Values.Count > 0 ? 2 : 1))))
+                foreach (var why in LayerRefusals(layer))
+                    Refuse($"{head}: layer {n} ({layer.Op}): {why}");
             foreach (var dup in p.Values.GroupBy(v => (v.Export, v.Path)).Where(g => g.Count() > 1))
                 Refuse($"{head}: export {dup.Key.Export} {dup.Key.Path} is set {dup.Count()} times");
             foreach (var v in p.Values)
@@ -212,9 +287,12 @@ public static partial class RecipeReader
             if (!c.From.StartsWith("/Game/", StringComparison.Ordinal) || c.From.Contains('.')) Refuse($"{what}: From must be a /Game/ package path (no object name)");
             if (!IsSha256(c.StockSha256)) Refuse($"{what}: StockSha256 must be 64 lower-case hex digits");
             if (!ShortNameRegex().IsMatch(c.NewName)) Refuse($"{what}: NewName: letters, digits and '_'");
-            if ((c.Solid == null) == (c.Input == null)) Refuse($"{what}: give exactly one of Solid and Input");
+            if ((c.Solid != null ? 1 : 0) + (c.Input != null ? 1 : 0) + (c.White ? 1 : 0) != 1) Refuse($"{what}: give exactly one of Solid, Input and White");
             if (c.Solid != null && !SolidRegex().IsMatch(c.Solid)) Refuse($"{what}: Solid \"{c.Solid}\" must be #RRGGBB (upper-case hex)");
             if (c.Input != null && !inputs.ContainsKey(c.Input)) Refuse($"{what}: Input {c.Input} isn't listed in Inputs");
+            var raw = c.Input != null && inputs.TryGetValue(c.Input, out var image) && image.Path.EndsWith(".bgra", StringComparison.OrdinalIgnoreCase);
+            if (raw && (c.Width is not > 0 || c.Height is not > 0)) Refuse($"{what}: a .bgra input needs Width and Height");
+            if (!raw && (c.Width != null || c.Height != null)) Refuse($"{what}: Width and Height are only for a .bgra input (a PNG has its own)");
         }
 
         foreach (var dup in r.RepointsOrEmpty.GroupBy(p => p.Package, StringComparer.OrdinalIgnoreCase).Where(g => g.Count() > 1))
@@ -254,6 +332,64 @@ public static partial class RecipeReader
                     Refuse($"Expect.Files \"{file}\": a device file name of this mod and 64 lower-case hex digits");
         }
         return refusals;
+    }
+
+    [GeneratedRegex("^#[0-9A-F]{8}$")] private static partial Regex RgbaRegex();
+
+    /// <summary>"#RRGGBBAA" as bytes.</summary>
+    public static (byte R, byte G, byte B, byte A) ParseRgba(string rgba) =>
+        (Convert.ToByte(rgba[1..3], 16), Convert.ToByte(rgba[3..5], 16), Convert.ToByte(rgba[5..7], 16), Convert.ToByte(rgba[7..9], 16));
+
+    /// <summary>The data checks of one layer (its tool checks the rest against the package).</summary>
+    private static IEnumerable<string> LayerRefusals(RecipeLayer layer)
+    {
+        static bool Blank(params string?[] s) => s.Any(string.IsNullOrWhiteSpace);
+        switch (layer)
+        {
+            case RenameLayer l:
+                if (l.RenamesOrEmpty.Count == 0 && l.EnumSwapsOrEmpty.Count == 0) yield return "no Renames and no EnumSwaps";
+                foreach (var x in l.RenamesOrEmpty)
+                {
+                    if (!x.From.StartsWith("/Game/", StringComparison.Ordinal) || !x.To.StartsWith("/Game/", StringComparison.Ordinal) || !x.From.Contains('.') || !x.To.Contains('.'))
+                        yield return $"rename {x.From} → {x.To}: From and To must be /Game/ object paths (package.object)";
+                    if (x.From == x.To) yield return $"rename {x.From}: From equals To";
+                    if (x.From.Length != x.To.Length) yield return $"rename {x.From} → {x.To}: To must be as long as From ({x.From.Length} characters)";
+                }
+                foreach (var dup in l.RenamesOrEmpty.GroupBy(x => x.From).Where(g => g.Count() > 1)) yield return $"{dup.Key} is renamed {dup.Count()} times";
+                foreach (var x in l.EnumSwapsOrEmpty)
+                {
+                    if (Blank(x.Export, x.Property, x.From, x.To)) yield return "an enum swap needs Export, Property, From and To";
+                    else if (x.From == x.To) yield return $"{x.Export}.{x.Property}: From equals To";
+                }
+                foreach (var dup in l.EnumSwapsOrEmpty.GroupBy(x => (x.Export, x.Property)).Where(g => g.Count() > 1)) yield return $"{dup.Key.Export}.{dup.Key.Property} is swapped {dup.Count()} times";
+                break;
+            case RemoveTagLayer l:
+                if (Blank(l.Export, l.Tag, l.Stock)) yield return "Export, Tag and Stock are required";
+                break;
+            case ClassSwapLayer l:
+                if (Blank(l.Export)) yield return "Export is required";
+                if (!l.To.StartsWith("/Game/", StringComparison.Ordinal) || l.To.Contains('.')) yield return $"To \"{l.To}\" must be a /Game/ package path";
+                break;
+            case ColorRowsLayer l:
+                if (l.Rows.Count == 0) yield return "no Rows";
+                foreach (var row in l.Rows)
+                {
+                    if (Blank(row.Row)) yield return "a row needs its name";
+                    if (!RgbaRegex().IsMatch(row.Stock) || !RgbaRegex().IsMatch(row.Color)) yield return $"{row.Row}: Stock and Color must be #RRGGBBAA (upper-case hex)";
+                    else if (row.Stock == row.Color) yield return $"{row.Row}: Color equals Stock; leave the row out";
+                }
+                foreach (var dup in l.Rows.GroupBy(x => x.Row).Where(g => g.Count() > 1)) yield return $"row {dup.Key} is set {dup.Count()} times";
+                break;
+            case AppendNamesLayer l:
+                if (l.Names.Count == 0) yield return "no Names";
+                if (l.Names.Any(string.IsNullOrEmpty)) yield return "an empty name";
+                foreach (var dup in l.Names.GroupBy(x => x, StringComparer.Ordinal).Where(g => g.Count() > 1)) yield return $"{dup.Key} is listed {dup.Count()} times";
+                break;
+            case EnumInsertLayer l:
+                if (Blank(l.Export, l.After, l.Tag, l.Type, l.Enum, l.Value, l.Anchor.Export)) yield return "Export, After, Tag, Type, Enum, Value and Anchor.Export are required";
+                if (!l.Anchor.Package.StartsWith("/Game/", StringComparison.Ordinal)) yield return $"Anchor.Package \"{l.Anchor.Package}\" must start with /Game/";
+                break;
+        }
     }
 
     /// <summary>Why an input path isn't a plain relative path that stays inside the workspace, or null.</summary>

@@ -81,8 +81,11 @@ public static class RecipeCheck
         if (Directory.Exists(source.Config.PaksDir) && Directory.EnumerateFiles(source.Config.PaksDir, recipe.Container + ".*").Any())
             Refuse($"Container {recipe.Container} is a stock container name");
 
-        // stored values, inserted tags, animation keys and ranges: one in-memory session per package
+        // stored values, inserted tags, animation keys and ranges: one in-memory session per package (layer 1); then
+        // the package's Layers, each by its own tool on the one before; then the union check against stock
         var allEdits = EditSet.Empty;
+        var layered = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+        var renamedTo = new List<(string Head, string Package, string Names)>();
         foreach (var p in recipe.PackagesOrEmpty)
         {
             var head = GamePaths.ShortName(p.Package);
@@ -93,37 +96,70 @@ public static class RecipeCheck
             if (stockSha != p.StockSha256) { Refuse($"{head}: the stock chunk is sha256 {stockSha[..12]}…, the recipe was made on {p.StockSha256[..12]}… (game updated?)"); continue; }
 
             var session = PatchSession.InMemory(source, p.Package);
-            var before = result.Refusals.Count;
-            var changes = new List<FieldChange>();
-            foreach (var v in p.Values)
+            var chunk = stock;
+            var layers = new List<byte[]>();
+            if (p.Values.Count > 0)
             {
-                var what = $"{head}: {v.Slot}.{v.Path}";
-                var key = new FieldKey(session.PackagePath, v.Export, v.Path);
-                if (session.SlotName(v.Export) is var name && name != v.Slot) { Refuse($"{what}: export {v.Export} is {name}, not {v.Slot}"); continue; }
-                var stored = session.StockValue(key);
-                if (session.BaseValue(key) is not { } baseValue) { Refuse($"{what}: not stored in stock and no engine default is known"); continue; }
-                if ((float) baseValue != (float) v.Stock) { Refuse($"{what}: stock is {baseValue:R}, the recipe says {v.Stock:R}"); continue; }
-                if (v.Inserted != (stored == null)) { Refuse($"{what}: Inserted is {v.Inserted.ToString().ToLowerInvariant()}, but stock {(stored == null ? "doesn't store it (the edit adds a tag)" : "stores it")}"); continue; }
-                changes.Add(new FieldChange(key, v.Stock, v.Value));
-            }
-            if (result.Refusals.Count > before) continue;
-            if (session.Apply(EditResult.Of(changes)) is { } refused) { Refuse($"{head}: {refused}"); continue; }
-            if (session.Current.Count != p.Values.Count) { Refuse($"{head}: {p.Values.Count} values give {session.Current.Count} edits"); continue; }
+                var before = result.Refusals.Count;
+                var changes = new List<FieldChange>();
+                foreach (var v in p.Values)
+                {
+                    var what = $"{head}: {v.Slot}.{v.Path}";
+                    var key = new FieldKey(session.PackagePath, v.Export, v.Path);
+                    if (session.SlotName(v.Export) is var name && name != v.Slot) { Refuse($"{what}: export {v.Export} is {name}, not {v.Slot}"); continue; }
+                    var stored = session.StockValue(key);
+                    if (session.BaseValue(key) is not { } baseValue) { Refuse($"{what}: not stored in stock and no engine default is known"); continue; }
+                    if ((float) baseValue != (float) v.Stock) { Refuse($"{what}: stock is {baseValue:R}, the recipe says {v.Stock:R}"); continue; }
+                    if (v.Inserted != (stored == null)) { Refuse($"{what}: Inserted is {v.Inserted.ToString().ToLowerInvariant()}, but stock {(stored == null ? "doesn't store it (the edit adds a tag)" : "stores it")}"); continue; }
+                    changes.Add(new FieldChange(key, v.Stock, v.Value));
+                }
+                if (result.Refusals.Count > before) continue;
+                if (session.Apply(EditResult.Of(changes)) is { } refused) { Refuse($"{head}: {refused}"); continue; }
+                if (session.Current.Count != p.Values.Count) { Refuse($"{head}: {p.Values.Count} values give {session.Current.Count} edits"); continue; }
 
-            var rebuilt = session.Rebuild();
-            foreach (var r in rebuilt.Refusals) Refuse($"{head}: [{r.Rule}] {r.Message}");
-            if (!rebuilt.Ok) continue;
-            var plan = rebuilt.Plan;
-            result.Packages[session.PackagePath] = new ModPackage(session.PackagePath, session.FileKey, session.ChunkIdHex, rebuilt.Chunk!);
-            allEdits = allEdits.With(session.Current.Values.Select(kv => new FieldChange(kv.Key, 0, kv.Value)), _ => null);
-            var widgets = WidgetNames(context, session.PackagePath);
-            result.ExportEdits.AddRange(ExportEdit.Of(plan, (export, slot) => widgets.TryGetValue(export, out var w) ? $"{w} ({slot})" : slot, session.BaseValue));
-            result.Log.Add($"{head}: {plan.Entries.Count} in place, {plan.Insertions.Count} new tag{(plan.Insertions.Count == 1 ? "" : "s")}, " +
-                           $"{plan.AnimKeyCount} animation edit{(plan.AnimKeyCount == 1 ? "" : "s")} ({plan.AnimWrites.Count} writes); {plan.SizeText}; " +
-                           $"exact diff and re-parse passed; chunk sha256 {Sha256(rebuilt.Chunk!)}");
-            foreach (var e in plan.Entries) result.Log.Add($"    {e.SlotName}.{e.Key.Path} {e.OldValue:R} → {e.NewValue:R} @{e.OffsetHex} (±{e.Window}, {e.ContextMatches}×)");
-            foreach (var i in plan.Insertions) result.Log.Add($"    {i.SlotName}.{i.Path} = {i.Value:R} as a new tag @{i.InsertAtHex} before {i.Before}");
-            foreach (var w in plan.AnimWrites) result.Log.Add($"    {w.Description} ({w.Copy}) {w.OldValue:R} → {w.NewValue:R} @{w.OffsetHex}, {w.WindowText}");
+                var rebuilt = session.Rebuild();
+                foreach (var r in rebuilt.Refusals) Refuse($"{head}: [{r.Rule}] {r.Message}");
+                if (!rebuilt.Ok) continue;
+                var plan = rebuilt.Plan;
+                layers.Add(chunk = rebuilt.Chunk!);
+                allEdits = allEdits.With(session.Current.Values.Select(kv => new FieldChange(kv.Key, 0, kv.Value)), _ => null);
+                var widgets = WidgetNames(context, session.PackagePath);
+                result.ExportEdits.AddRange(ExportEdit.Of(plan, (export, slot) => widgets.TryGetValue(export, out var w) ? $"{w} ({slot})" : slot, session.BaseValue));
+                result.Log.Add($"{head}: {plan.Entries.Count} in place, {plan.Insertions.Count} new tag{(plan.Insertions.Count == 1 ? "" : "s")}, " +
+                               $"{plan.AnimKeyCount} animation edit{(plan.AnimKeyCount == 1 ? "" : "s")} ({plan.AnimWrites.Count} writes); {plan.SizeText}; " +
+                               $"exact diff and re-parse passed; chunk sha256 {Sha256(rebuilt.Chunk!)}");
+                foreach (var e in plan.Entries) result.Log.Add($"    {e.SlotName}.{e.Key.Path} {e.OldValue:R} → {e.NewValue:R} @{e.OffsetHex} (±{e.Window}, {e.ContextMatches}×)");
+                foreach (var i in plan.Insertions) result.Log.Add($"    {i.SlotName}.{i.Path} = {i.Value:R} as a new tag @{i.InsertAtHex} before {i.Before}");
+                foreach (var w in plan.AnimWrites) result.Log.Add($"    {w.Description} ({w.Copy}) {w.OldValue:R} → {w.NewValue:R} @{w.OffsetHex}, {w.WindowText}");
+            }
+
+            var swaps = new List<(ulong Old, ulong New)>();
+            var failed = false;
+            foreach (var (layer, n) in p.LayersOrEmpty.Select((l, i) => (l, i + (p.Values.Count > 0 ? 2 : 1))))
+            {
+                var what = $"{head}: layer {n} ({layer.Op})";
+                LayerResult applied;
+                // a tool that throws on the recipe's input refuses the layer (the recipe is wrong, not the check)
+                try { applied = ApplyLayer(source, session.FileKey, chunk, layer); }
+                catch (Exception e) { applied = new(null, "", [$"{e.GetType().Name}: {e.Message}"], []); }
+                foreach (var r in applied.Refusals) Refuse($"{what}: {r}");
+                if (applied.Chunk == null) { failed = true; break; }
+                layers.Add(chunk = applied.Chunk);
+                if (applied.Swap is { } swap) swaps.Add(swap);
+                foreach (var to in applied.RenamedTo) renamedTo.Add((head, session.PackagePath, to));
+                result.Log.Add($"{what}: {applied.What}; checked; chunk sha256 {Sha256(chunk)}");
+                foreach (var l in applied.Log) result.Log.Add("    " + l);
+            }
+            if (failed) continue;
+            if (p.LayersOrEmpty.Count > 0)
+            {
+                layered.Add(session.PackagePath);
+                var (problems, changes) = LayerUnion.Check(source, session.FileKey, stock, layers);
+                foreach (var problem in problems) Refuse($"{head}: union of the layers against stock: {problem}");
+                if (problems.Count > 0) continue;
+                result.Log.Add($"{head}: final re-parse against stock = the union of {layers.Count} layer(s) ({changes} values)");
+            }
+            result.Packages[session.PackagePath] = new ModPackage(session.PackagePath, session.FileKey, session.ChunkIdHex, chunk) { ImportedPackageSwaps = swaps };
         }
         if (!result.Ok) return result;
 
@@ -136,6 +172,8 @@ public static class RecipeCheck
             var valueChunks = result.Chunks;
             var textures = TextureEdits.Plan(source, context.TextureUsage(), root, edits, p => valueChunks.GetValueOrDefault(p), p => context.Usage.AllUsers(p));
             foreach (var r in textures.Refusals) Refuse(r);
+            foreach (var p in textures.Packages.Where(p => layered.Contains(p.PackagePath)))
+                Refuse($"{GamePaths.ShortName(p.PackagePath)}: a texture edit re-points a package with Layers; recipe format 1 doesn't layer them");
             result.Textures = textures;
             if (!result.Ok) return result;
             foreach (var l in textures.Log.Where(l => !l.StartsWith("    ", StringComparison.Ordinal))) result.Log.Add(l);
@@ -164,18 +202,32 @@ public static class RecipeCheck
                 // the largest mip asked for is mip 0
                 made = TextureClone.Build(source, c.From, c.NewName, (w, h) => { var px = pixels(w, h); if (mip0 == null || px.Length > mip0.Length) mip0 = px; return px; });
             }
+            else if (c.White)
+                (made, mip0) = TextureEdits.CloneWhite(source, c.From, c.NewName);
             else
             {
-                var (image, bad) = PngReader.Read(Path.Combine(root, recipe.InputsOrEmpty[c.Input!].Path));
-                if (image == null) { Refuse($"{what}: input {c.Input}: {bad}"); continue; }
-                made = TextureEdits.CloneImage(source, c.From, c.NewName, new TextureClone.Mip(image.Width, image.Height, image.Bgra));
-                mip0 = image.Bgra;
+                var file = Path.Combine(root, recipe.InputsOrEmpty[c.Input!].Path);
+                TextureClone.Mip art;
+                if (c.Width is { } w && c.Height is { } h)
+                {
+                    var bgra = File.ReadAllBytes(file);
+                    if (bgra.Length != (long) w * h * 4) { Refuse($"{what}: input {c.Input} is {bgra.Length} bytes, not {w}x{h} BGRA ({(long) w * h * 4})"); continue; }
+                    art = new TextureClone.Mip(w, h, bgra);
+                }
+                else
+                {
+                    var (image, bad) = PngReader.Read(file);
+                    if (image == null) { Refuse($"{what}: input {c.Input}: {bad}"); continue; }
+                    art = new TextureClone.Mip(image.Width, image.Height, image.Bgra);
+                }
+                made = TextureEdits.CloneImage(source, c.From, c.NewName, art);
+                mip0 = art.Bgra;
             }
             foreach (var r in made.Refusals) Refuse($"{what}: {r}");
             if (made.Package == null || mip0 == null) continue;
             result.Packages[made.Package.PackagePath] = made.Package;
             result.CloneMips.Add((made.Package.PackagePath, mip0));
-            result.Log.Add($"{what}: new texture package from {c.From} ({c.Solid ?? "input " + c.Input}), chunk sha256 {Sha256(made.Package.Chunk)}");
+            result.Log.Add($"{what}: new texture package from {c.From} ({c.Solid ?? (c.White ? "white" : "input " + c.Input)}), chunk sha256 {Sha256(made.Package.Chunk)}");
             foreach (var l in made.Log) result.Log.Add("    " + l);
         }
 
@@ -208,11 +260,21 @@ public static class RecipeCheck
             var repointed = SoftPathRepoint.Build(source, p.Package, p.From, p.To, p.ValuesOrEmpty.Count > 0 ? p.ValuesOrEmpty.Select(v => (v.Export, v.Path, v.Value)).ToList() : null);
             foreach (var r in repointed.Refusals) Refuse($"{head}: {r}");
             if (repointed.Package == null) continue;
+            var (union, _) = LayerUnion.Check(source, fileKey, stock, [repointed.Package.Chunk]);
+            foreach (var problem in union) Refuse($"{head}: re-parse against stock: {problem}");
+            if (union.Count > 0) continue;
             result.Packages[repointed.Package.PackagePath] = repointed.Package;
             result.RepointNames.Add((repointed.Package.PackagePath, p.To));
             result.Log.Add($"{head}: re-pointed {p.From} → {p.To}{(p.ValuesOrEmpty.Count > 0 ? $", {p.ValuesOrEmpty.Count} stored value{(p.ValuesOrEmpty.Count == 1 ? "" : "s")}" : "")}; " +
                            $"exact diff and re-parse passed; chunk sha256 {Sha256(repointed.Package.Chunk)}");
             foreach (var l in repointed.Log) result.Log.Add("    " + l);
+        }
+        // a rename in a layer must point at a package the recipe makes or the game has, as a re-point must
+        foreach (var (head, package, names) in renamedTo)
+        {
+            var toPackage = names[..names.LastIndexOf('.')];
+            if (!result.Packages.ContainsKey(toPackage) && StockSha(toPackage).Why != null) Refuse($"{head}: a rename names {toPackage}, which neither the recipe makes nor the game has");
+            else result.RepointNames.Add((package, names));
         }
         if (!result.Ok) return result;
 
@@ -239,6 +301,89 @@ public static class RecipeCheck
         if (recipe.Expect?.Files is { Count: > 0 } files)
             result.Log.Add($"Expect.Files: {files.Count} device file{(files.Count == 1 ? "" : "s")} pinned; checked when the recipe is built");
         return result;
+    }
+
+    /// <summary>One layer's outcome: the new chunk (null when refused), what it did, a class swap's imported package swap, the soft paths a rename now names.</summary>
+    private sealed record LayerResult(byte[]? Chunk, string What, IReadOnlyList<string> Refusals, IReadOnlyList<string> Log,
+        (ulong Old, ulong New)? Swap = null, IReadOnlyList<string>? Renamed = null)
+    {
+        public IReadOnlyList<string> RenamedTo => Renamed ?? [];
+    }
+
+    /// <summary>A layer through its own tool, on <paramref name="chunk"/> (each tool checks itself: exact diff, re-parse, walk).</summary>
+    private static LayerResult ApplyLayer(GameSource source, string fileKey, byte[] chunk, RecipeLayer layer)
+    {
+        switch (layer)
+        {
+            case RenameLayer l:
+            {
+                var parsed = source.ParsePackage(fileKey, chunk);
+                var names = parsed.ExportsLazy.Select(e => e.Value.Name).ToList();
+                var layout = ZenPackageLayout.Read(chunk, parsed);
+                var writes = new List<(int Offset, byte[] Bytes, string What)>();
+                var expected = new Dictionary<(int Export, string Path), string>();
+                foreach (var x in l.EnumSwapsOrEmpty)
+                {
+                    if (names.Count(n => n == x.Export) != 1) return new(null, "", [$"{names.Count(n => n == x.Export)} exports are named {x.Export}"], []);
+                    var index = names.IndexOf(x.Export);
+                    var (at, bytes, why) = EnumValueSwap.Plan(chunk, layout, index, x.Property, x.From, x.To);
+                    if (why != null) return new(null, "", [$"{x.Export}.{x.Property} {x.From} → {x.To}: {why}"], []);
+                    writes.Add((at, bytes, $"{x.Export}.{x.Property} → {x.To}"));
+                    expected[(index, "Properties." + x.Property)] = x.To;
+                }
+                var r = NameRenamePatch.Apply(source, fileKey, chunk, l.RenamesOrEmpty.Select(x => (x.From, x.To)).ToList(), writes, expected);
+                return new(r.Chunk, $"{l.RenamesOrEmpty.Count} rename(s), {l.EnumSwapsOrEmpty.Count} enum swap(s)", r.Refusals, r.Log,
+                    Renamed: l.RenamesOrEmpty.Select(x => x.To).ToList());
+            }
+            case RemoveTagLayer l:
+            {
+                var r = TagRemover.Remove(source, fileKey, chunk, l.Export, l.Tag, l.Stock);
+                return new(r.Chunk, $"{l.Export}.{l.Tag} ({l.Stock}) removed", r.Refusals, r.Log);
+            }
+            case ClassSwapLayer l:
+            {
+                try { _ = source.ReadPackageBytes(l.To); }
+                catch (Exception e) { return new(null, "", [$"the class package {l.To} isn't in the game ({e.Message})"], []); }
+                var r = ClassSwap.Swap(source, fileKey, chunk, l.Export, l.To);
+                return new(r.Chunk, $"{l.Export}'s class → {GamePaths.ShortName(l.To)}_C", r.Refusals, r.Log, r.Chunk != null ? r.PackageSwap : null);
+            }
+            case ColorRowsLayer l:
+            {
+                var writes = new List<(int Offset, byte[] Bytes, string What)>();
+                var expected = new Dictionary<(int Export, string Path), string>();
+                var parsed = source.ParsePackage(fileKey, chunk);
+                if (parsed.ExportsLazy.Length != 1) return new(null, "", ["not a package with one DataTable export"], []);
+                var flat = TagInserter.Flatten(parsed.ExportsLazy[0].Value);
+                foreach (var row in l.Rows)
+                {
+                    var (plan, why) = DataTableColorEdit.Plan(source, fileKey, chunk, row.Row, RecipeReader.ParseRgba(row.Color));
+                    if (plan == null) return new(null, "", [$"{row.Row}: {why}"], []);
+                    var (sr, sg, sb, sa) = RecipeReader.ParseRgba(row.Stock);
+                    string? C(string c) => flat.GetValueOrDefault(plan.Key + "." + c);
+                    if (C("R") != sr.ToString() || C("G") != sg.ToString() || C("B") != sb.ToString() || C("A") != sa.ToString())
+                        return new(null, "", [$"{row.Row}: stock is R {C("R")} G {C("G")} B {C("B")} A {C("A")}, the recipe says {row.Stock}"], []);
+                    writes.Add((plan.Offset, plan.Bgra, plan.What));
+                    foreach (var kv in plan.Expected) expected[kv.Key] = kv.Value;
+                }
+                var r = NameRenamePatch.Apply(source, fileKey, chunk, [], writes, expected);
+                return new(r.Chunk, $"{l.Rows.Count} colour row(s)", r.Refusals, r.Log);
+            }
+            case AppendNamesLayer l:
+            {
+                var r = EnumTagInsert.AppendNames(source, fileKey, chunk, l.Names);
+                return new(r.Chunk, $"{l.Names.Count} name(s) appended", r.Refusals, r.Log);
+            }
+            case EnumInsertLayer l:
+            {
+                // the tag builder first reproduces a stock tag of the same kind, byte for byte
+                if (EnumTagInsert.CheckAgainst(source, l.Anchor.Package, l.Anchor.Export, l.Tag, l.Type, l.Enum, l.Value) is { } bad)
+                    return new(null, "", [$"the {l.Tag} tag builder doesn't reproduce stock's ({GamePaths.ShortName(l.Anchor.Package)} {l.Anchor.Export}): {bad}"], []);
+                var r = EnumTagInsert.Insert(source, fileKey, chunk, l.Export, l.After, l.Tag, l.Type, l.Enum, l.Value);
+                return new(r.Chunk, $"{l.Export}.{l.Tag} = {l.Value} inserted after {l.After}", r.Refusals, r.Log);
+            }
+            default:
+                return new(null, "", [$"unknown layer {layer.GetType().Name}"], []);
+        }
     }
 
     /// <summary>Slot export → the widget it holds (for the instructions); empty when the tree doesn't load.</summary>

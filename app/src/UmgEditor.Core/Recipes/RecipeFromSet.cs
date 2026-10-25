@@ -1,5 +1,6 @@
 using System.Security.Cryptography;
 using UmgEditor.Core.Editing;
+using UmgEditor.Core.Patching;
 
 namespace UmgEditor.Core.Recipes;
 
@@ -19,12 +20,9 @@ public static class RecipeFromSet
         var packages = new List<RecipePackage>();
         foreach (var s in controller.Sessions.Where(s => s.Saved.Count > 0).OrderBy(s => s.PackagePath, StringComparer.Ordinal))
         {
-            var (chunk, why) = s.ReadSavedChunk();
-            if (chunk == null) { refusals.Add(why!); continue; }
-            packages.Add(new RecipePackage(s.PackagePath, s.StockSha256, s.Saved.Values
-                .OrderBy(kv => kv.Key.SlotExport).ThenBy(kv => kv.Key.Path, StringComparer.Ordinal)
-                .Select(kv => new RecipeValue(kv.Key.SlotExport, s.SlotName(kv.Key.SlotExport), kv.Key.Path, s.BaseValue(kv.Key) ?? double.NaN, kv.Value,
-                    s.StockValue(kv.Key) == null)).ToList()));
+            var (package, why) = SavedValues(s);
+            if (package == null) { refusals.Add(why!); continue; }
+            packages.Add(package);
         }
 
         var fullRoot = Path.GetFullPath(root).TrimEnd(Path.DirectorySeparatorChar) + Path.DirectorySeparatorChar;
@@ -54,5 +52,19 @@ public static class RecipeFromSet
         var (back, bad) = RecipeReader.Read(RecipeReader.Write(recipe));
         if (back == null) return (null, bad);
         return (recipe, []);
+    }
+
+    /// <summary>
+    /// A session's saved edits as a recipe package (Values only, ordered by export and path), refused unless its saved
+    /// file equals a rebuild of them. Also used by umgcompare recipe-ucl for the canaries' edit sets.
+    /// </summary>
+    public static (RecipePackage? Package, string? Why) SavedValues(PatchSession s, IReadOnlyList<RecipeLayer>? layers = null)
+    {
+        var (chunk, why) = s.ReadSavedChunk();
+        if (chunk == null) return (null, why);
+        return (new RecipePackage(s.PackagePath, s.StockSha256, s.Saved.Values
+            .OrderBy(kv => kv.Key.SlotExport).ThenBy(kv => kv.Key.Path, StringComparer.Ordinal)
+            .Select(kv => new RecipeValue(kv.Key.SlotExport, s.SlotName(kv.Key.SlotExport), kv.Key.Path, s.BaseValue(kv.Key) ?? double.NaN, kv.Value,
+                s.StockValue(kv.Key) == null)).ToList(), layers), null);
     }
 }

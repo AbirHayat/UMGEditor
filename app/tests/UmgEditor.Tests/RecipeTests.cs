@@ -12,7 +12,9 @@ namespace UmgEditor.Tests;
 /// Stage 2a: the recipe format (strict, data only) and recipe-check (read only, in memory). Acceptance: recipes\C10,
 /// C12 and C18 (device-tested: an inserted tag; 23 values + 2 tags + key/range edits; the appended + pointed texture
 /// route) give exactly their pinned chunks. Stage 2c: Clones and Repoints, acceptance recipes\C13 (solid-colour clones +
-/// a re-point) and C14 (UCL's image, resized clones, a re-point with 9-slice margins 0).
+/// a re-point) and C14 (UCL's image, resized clones, a re-point with 9-slice margins 0). Stage 2d: package Layers
+/// (Rename, RemoveTag, ClassSwap, ColorRows, AppendNames, EnumInsert) and White / .bgra clones, acceptance recipes\C15,
+/// C16 and C16b (made by umgcompare recipe-ucl from the builders that made the device-tested mods).
 /// </summary>
 [TestClass]
 public class RecipeTests
@@ -59,6 +61,9 @@ public class RecipeTests
     [DataRow("C18", 4, 0)]
     [DataRow("C13", 3, 0)]
     [DataRow("C14", 3, 0)]
+    [DataRow("C15", 3, 3)]
+    [DataRow("C16", 22, 15)]
+    [DataRow("C16b", 22, 15)]
     public void Acceptance_RecipeGivesThePinnedChunks_AndWritesNothing(string name, int chunks, int danger)
     {
         var json = RecipeText(name);
@@ -213,10 +218,12 @@ public class RecipeTests
         string C13(Action<JsonObject> change) => WithRecipe("C13", change);
         Refused(C13(o => Clone(o)["Solid"] = "#00ff00"), "upper-case hex");
         Refused(C13(o => Clone(o)["Solid"] = "green"), "#RRGGBB");
-        Refused(C13(o => Clone(o).Remove("Solid")), "exactly one of Solid and Input");
-        Refused(C13(o => Clone(o)["Input"] = "spare"), "exactly one of Solid and Input");
+        Refused(C13(o => Clone(o).Remove("Solid")), "exactly one of Solid, Input and White");
+        Refused(C13(o => Clone(o)["Input"] = "spare"), "exactly one of Solid, Input and White");
         Refused(C13(o => { Clone(o).Remove("Solid"); Clone(o)["Input"] = "spare"; }), "isn't listed in Inputs");
         Refused(C13(o => Clone(o)["StockSha256"] = "x"), "StockSha256");
+        Refused(C13(o => Clone(o)["White"] = true), "exactly one of Solid, Input and White");
+        Refused(C13(o => Clone(o)["Width"] = 2), "only for a .bgra input");
         Refused(C13(o => Clone(o)["From"] = Clone(o)["From"]!.GetValue<string>() + ".DemoTitlePlate"), "no object name");
         Refused(C13(o => Clone(o)["NewName"] = "Demo/Title"), "NewName");
         Refused(C13(o => Clone(o, 1)["From"] = Clone(o)["From"]!.GetValue<string>()), "made 2 times");
@@ -264,6 +271,85 @@ public class RecipeTests
         {
             ["Package"] = o["Textures"]![0]!["Package"]!.GetValue<string>(), ["StockSha256"] = new string('0', 64), ["From"] = "/Game/A.A", ["To"] = "/Game/B.B",
         })), "doesn't layer a re-point on that");
+    }
+
+    // ---- stage 2d: package Layers ----
+
+    private static readonly string DemoTitle = Tv + "DemoTitle/DemoTitle", MatchTime = Tv + "MatchTime/MatchTime";
+
+    /// <summary>A recipe with one package and the given layers (no values), its stock pinned.</summary>
+    private static string Layered(string package, params JsonObject[] layers) => new JsonObject
+    {
+        ["Recipe"] = 1, ["Name"] = "zzlayers", ["Container"] = "pc9999_mobile_and_P",
+        ["Packages"] = new JsonArray(new JsonObject
+        {
+            ["Package"] = package, ["StockSha256"] = RecipeCheck.Sha256(Source.ReadPackageBytes(package).Bytes),
+            ["Values"] = new JsonArray(), ["Layers"] = new JsonArray(layers),
+        }),
+    }.ToJsonString();
+
+    private static JsonObject Layer(string op, params (string Key, JsonNode? Value)[] fields)
+    {
+        var o = new JsonObject { ["Op"] = op };
+        foreach (var (k, v) in fields) o[k] = v;
+        return o;
+    }
+
+    private static JsonObject ScoreSwap(string from, string to) => Layer("Rename", ("EnumSwaps", new JsonArray(new JsonObject
+        { ["Export"] = "Text_Score_Home", ["Property"] = "color", ["From"] = from, ["To"] = to })));
+
+    private const string Dark = "ColorEnum_String::NewEnumerator87", White = "ColorEnum_String::NewEnumerator86";
+
+    [TestMethod]
+    public void Reader_DataChecks_Layers()
+    {
+        var (good, why) = RecipeReader.Read(Layered(MatchTime, ScoreSwap(Dark, White)));
+        Assert.IsNotNull(good, string.Join(" | ", why));
+        Refused(Layered(MatchTime), "no Values and no Layers");
+        Refused(Layered(MatchTime, Layer("SkipVerify")), "not a valid recipe");
+        Refused(Layered(MatchTime, new JsonObject { ["Export"] = "Normal_Display" }), "not a valid recipe");
+        Refused(Layered(MatchTime, Layer("RemoveTag", ("Export", "Normal_Display"), ("Tag", "Clipping"), ("Stock", "x"), ("Window", 512))), "not a valid recipe");
+        Refused(Layered(MatchTime, Layer("RemoveTag", ("Export", "Normal_Display"), ("Tag", "Clipping"))), "not a valid recipe");
+        Refused(Layered(MatchTime, Layer("Rename")), "no Renames and no EnumSwaps");
+        Refused(Layered(MatchTime, ScoreSwap(Dark, Dark)), "From equals To");
+        Refused(Layered(MatchTime, Layer("Rename", ("Renames", new JsonArray(new JsonObject { ["From"] = "/Game/A.A", ["To"] = "/Game/BB.BB" })))), "as long as From");
+        Refused(Layered(MatchTime, Layer("ClassSwap", ("Export", "Plate_DemoTitleBg"), ("To", MatchTime + ".MatchTime_C"))), "a /Game/ package path");
+        Refused(Layered(MatchTime, Layer("ColorRows", ("Rows", new JsonArray(new JsonObject { ["Row"] = "R", ["Stock"] = "#ffffffff", ["Color"] = "#000000FF" })))), "upper-case hex");
+        Refused(Layered(MatchTime, Layer("ColorRows", ("Rows", new JsonArray(new JsonObject { ["Row"] = "R", ["Stock"] = "#000000FF", ["Color"] = "#000000FF" })))), "Color equals Stock");
+        Refused(Layered(MatchTime, Layer("AppendNames", ("Names", new JsonArray("A", "A")))), "listed 2 times");
+        Refused(Layered(MatchTime, Layer("EnumInsert", ("Export", "Text_Value"), ("After", "VerticalAlignment"), ("Tag", "Justification"), ("Type", "ByteProperty"),
+            ("Enum", "ETextJustify"), ("Value", "ETextJustify::Center"))), "not a valid recipe"); // no Anchor
+        // a .bgra input needs its size
+        Refused(WithRecipe("C15", o => Clone(o).Remove("Width")), "needs Width and Height");
+    }
+
+    [TestMethod]
+    public void Check_Refusals_Layers()
+    {
+        // each tool refuses on its own checks; the refusal names the package, the layer and its op
+        CheckRefused(Layered(MatchTime, Layer("RemoveTag", ("Export", "Normal_Display"), ("Tag", "Clipping"), ("Stock", "EWidgetClipping::Inherit"))), "MatchTime: layer 1 (RemoveTag)");
+        CheckRefused(Layered(MatchTime, ScoreSwap(White, Dark)), "MatchTime: layer 1 (Rename): Text_Score_Home.color");
+        CheckRefused(Layered(DemoTitle, Layer("ClassSwap", ("Export", "Plate_DemoTitleBg"), ("To", Tv + "MatchTime/NoSuchBase"))), "DemoTitle: layer 1 (ClassSwap)");
+        const string table = "/Game/Assets/ui/Color/ColorTable";
+        CheckRefused(Layered(table, Layer("ColorRows", ("Rows", new JsonArray(new JsonObject { ["Row"] = "STR_SWITCH_BRAND_1", ["Stock"] = "#123456FF", ["Color"] = "#FFFFFFFF" })))),
+            "the recipe says #123456FF");
+        CheckRefused(Layered(table, Layer("ColorRows", ("Rows", new JsonArray(new JsonObject { ["Row"] = "NO_SUCH_ROW", ["Stock"] = "#123456FF", ["Color"] = "#FFFFFFFF" })))),
+            "no row NO_SUCH_ROW");
+        // a rename must name a package the recipe makes or the game has
+        CheckRefused(Layered(MatchTime, Layer("Rename", ("Renames", new JsonArray(new JsonObject
+            { ["From"] = Tv + "MatchTime/Tex720/MatchTimePlate_0.MatchTimePlate", ["To"] = Tv + "MatchTime/Tex720/MatchTimeNopeX_0.MatchTimeNopeX" })))), "neither the recipe makes nor the game has");
+        // the enum tag builder must reproduce the anchor's stock tag: an anchor that doesn't store it refuses the layer
+        var names = Layer("AppendNames", ("Names", new JsonArray("Justification", "ETextJustify", "ETextJustify::Center")));
+        CheckRefused(Layered(Tv + "MatchTime/MatchTimeCard", names, Layer("EnumInsert", ("Export", "Text_Value"), ("After", "VerticalAlignment"), ("Tag", "Justification"),
+            ("Type", "ByteProperty"), ("Enum", "ETextJustify"), ("Value", "ETextJustify::Center"), ("Anchor", new JsonObject { ["Package"] = MatchTime, ["Export"] = "Img_Line" }))),
+            "doesn't reproduce stock's");
+        // two layers may not change one value: the second swap puts the colour back, which the union check refuses
+        CheckRefused(Layered(MatchTime, ScoreSwap(Dark, White), ScoreSwap(White, Dark)), "union of the layers against stock");
+
+        // a class swap carries its imported package swap into the mod's store entry
+        var swapped = Check(Layered(DemoTitle, Layer("ClassSwap", ("Export", "Plate_DemoTitleBg"), ("To", Tv + "MatchTime/MatchTimeBase"))));
+        Assert.IsTrue(swapped.Ok, string.Join("\n", swapped.Refusals));
+        Assert.AreEqual(1, swapped.Packages[DemoTitle].ImportedPackageSwaps.Count);
     }
 
     /// <summary>A recipe's pins are the device-tested ones (recipes\pins\device-tested.json), not typed separately.</summary>
