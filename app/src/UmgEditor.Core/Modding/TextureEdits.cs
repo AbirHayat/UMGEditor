@@ -362,7 +362,7 @@ public static class TextureEdits
             if (!edit.MarginsZero && edit.Mode == TextureEditMode.Image && StoredMarginWidgets(source, changing) is { Count: > 0 } sliced)
                 warnings.Add($"{string.Join(", ", sliced)} {(sliced.Count == 1 ? "is" : "are")} 9-sliced (stored Margin): the image's borders stay at their own size and only the middle stretches; tick Margins 0 to stretch the whole image");
             if (pointed.Count > 0)
-                warnings.Add($"{string.Join(", ", pointed.Select(GamePaths.ShortName))}: the new path is appended to the name map and only the changing widgets point at it; this route is untested on device until canary C18 passes");
+                warnings.Add($"{string.Join(", ", pointed.Select(GamePaths.ShortName))}: the new path is appended to the name map and only the changing widgets point at it (proven on device by canary C18)");
             plan.Items.Add(new TextureEditInfo(edit, from, to, storing, following, clonePaths, width, height, shown.PlatformData.SizeX, shown.PlatformData.SizeY, warnings, pointed));
         }
 

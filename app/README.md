@@ -198,7 +198,7 @@ umgmod [--set NAME] tex-reset <package> <widget>
   re-points the widget to the new package. The stock texture is never touched. Two routes: when every image of the
   package naming the path changes and the new path is as long, the path is **renamed** in place (C13-C16, proven);
   otherwise the new path is **appended** to the package's name map and only the changing widgets' stored path is
-  **pointed** at it (8 bytes each; untested on device until canary C18).
+  **pointed** at it (8 bytes each; proven on device by canary C18, 2026-10-25).
   - `tex-info` shows what a widget draws (size, format, theme copies, its 9-slice margins), every widget in any
     package that names the same texture, and where each is shown (embedding packages; `[online]`).
     `tex-users <texture>` lists the same for a texture (path or unique suffix; the `Tex720` copy is meant).
