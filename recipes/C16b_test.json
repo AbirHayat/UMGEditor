@@ -126,7 +126,7 @@
           "Slot": "CanvasPanelSlot_0",
           "Path": "LayoutData.Offsets.Top",
           "Stock": -1,
-          "Value": 737,
+          "Value": 847,
           "Inserted": false
         },
         {
@@ -2629,7 +2629,7 @@
       "/Game/Assets/ui/Data/Widget/General/Modals/ExtraLoginBonus/Tex720/ExtraLoginBonusInU1": "ec1ba4600090908f49ca408a3660c8e3e2d19a9ff92985ef7002dc6f900066d2",
       "/Game/Assets/ui/Data/Widget/TVGraphics/SwitchAssets_Original/MatchStats/0164F/Tex720/MatchStatsPlateU1_3": "b5209fa3936022c5883269cacb4826adbbeab09a3d67f0c3785ffcbe9c0e82b7",
       "/Game/Assets/ui/Data/Widget/TVGraphics/SwitchAssets_Original/MatchScore/0164F/Tex720/MatchScorePlaU1_0": "0f1cabdf9198d938b3c722cb6eb932f45727697ab596ba3f24015cd7081eaf16",
-      "/Game/Assets/ui/Data/Widget/TVGraphics/SwitchAssets_Original/MatchCard/MatchCard": "d86f784453e978f6e7b13ae7e51fb37a63fec480f401405dc965a9281bd7c81e",
+      "/Game/Assets/ui/Data/Widget/TVGraphics/SwitchAssets_Original/MatchCard/MatchCard": "30bfa075f9fe216afb131affe0b411500370cc346453dce72ef1d5117d5a7257",
       "/Game/Assets/ui/Data/Widget/TVGraphics/SwitchAssets_Original/MatchStats/Tex720/MatchStatsPlateU4_3": "3cd3b78c0875322bc3e85553894fd3c6d8d7d068dba06119a7a5b26b4462274e",
       "/Game/Assets/ui/Data/Widget/TVGraphics/SwitchAssets_Original/MatchScore/MatchScoreBase_2": "f49fae2a46d8eb21cc91e88b712c0e7b56417d3e526c650fddcd1c687f7479d6",
       "/Game/Assets/ui/Data/Widget/General/Views/CenterView/Tex720/CenterView_SortIconDoU1": "ac98d9f63f66926fa8e9c02b80975208c56ced72418ebf02d502d6596c62e7ed",
@@ -2663,8 +2663,8 @@
     },
     "Files": {
       "pc9999_mobile_and_P.pak": "0c9d79129f5ca913335ca2f864ae40d39818a16a12805c9ab55fa1329c7f9424",
-      "pc9999_mobile_and_P.ucas": "82ff5deb9d8c4ce1075b2ce352b94ba8003afbc1ed288bcefb42b669d146b3d1",
-      "pc9999_mobile_and_P.utoc": "b4a053283b2926b7d006dcc3614540094005a6412c42e93faee8478ac2f68e9e"
+      "pc9999_mobile_and_P.ucas": "eca1244369b6e8d1e97f726491ad8c8171f77caa1cae79b4c2a58f352817cbba",
+      "pc9999_mobile_and_P.utoc": "e3da18f3fbe8057f1fefb9f6b2ad9f80f0db28ccd8668eb1b155e10e6b0d27bd"
     }
   }
 }

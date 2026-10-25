@@ -368,7 +368,8 @@ public class TextureEditTests
 
     /// <summary>
     /// The user's C16b_test (built from project C16b on 2026-10-24 and working in game): its textures.json is version 1,
-    /// so its "Widget" edits load as Package, and planning it again gives the same chunks as its build.json.
+    /// so its "Widget" edits load as Package, and planning it again gives the same chunks as its build.json, except the
+    /// deliberate changes since (changed-since-device-test.json: MatchCard, whose Img_VI_1 is parked off-screen since 2026-10-25).
     /// </summary>
     [TestMethod]
     public void C16bTest_Version1Project_PlansTheChunksOfItsBuild()
@@ -384,11 +385,13 @@ public class TextureEditTests
         Assert.AreEqual(0, plan.Items.Sum(i => i.Pointed.Count), "a version 1 project keeps renaming in place");
         var shipped = System.Text.Json.JsonDocument.Parse(File.ReadAllText(build)).RootElement.GetProperty("Packages").EnumerateArray()
             .ToDictionary(p => p.GetProperty("PackagePath").GetString()!, p => p.GetProperty("ChunkSha256").GetString()!, StringComparer.OrdinalIgnoreCase);
+        var changed = PinOverrides.ChunksOf("C16b_test");
+        Assert.IsTrue(changed.Count > 0 && plan.All.Any(p => changed.ContainsKey(p.PackagePath)), "the deliberate MatchCard change is planned here");
         int compared = 0;
         foreach (var p in plan.All)
         {
             Assert.IsTrue(shipped.TryGetValue(p.PackagePath, out var sha), $"{p.PackagePath} isn't in C16b_test");
-            Assert.AreEqual(sha, Sha(p.Chunk), $"{p.PackagePath} differs from C16b_test's chunk");
+            Assert.AreEqual(changed.GetValueOrDefault(p.PackagePath, sha), Sha(p.Chunk), $"{p.PackagePath} differs from C16b_test's chunk (or its deliberate change)");
             compared++;
         }
         Console.WriteLine($"{compared} chunks identical to C16b_test ({plan.Clones.Count} clones)");

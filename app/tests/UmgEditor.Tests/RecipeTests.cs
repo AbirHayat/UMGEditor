@@ -420,24 +420,43 @@ public class RecipeTests
         Assert.AreEqual(RecipeReader.Read(RecipeText("C17a")).Recipe!.Expect!.Files!["pc9998_mobile_and_P.pak"], RecipeCheck.Sha256(r.LoosePaks.Single().Bytes));
     }
 
-    /// <summary>A recipe's pins are the device-tested ones (recipes\pins\device-tested.json), not typed separately.</summary>
+    /// <summary>
+    /// A recipe's pins are the device-tested ones (recipes\pins\device-tested.json), not typed separately, except the
+    /// deliberate changes in changed-since-device-test.json: each replaces an existing device-tested pin (its Was) with a
+    /// different value (C16b_test: MatchCard Img_VI_1 parked off-screen, so the MatchCard chunk, the .ucas and the .utoc).
+    /// </summary>
     [TestMethod]
     public void RecipePins_AreTheDeviceTestedPins()
     {
         var pins = JsonNode.Parse(File.ReadAllText(Path.Combine(RepoRoot(), "recipes", "pins", "device-tested.json")))!["Canaries"]!.AsObject();
+        var changes = PinOverrides.Load();
+        foreach (var (name, change) in changes)
+        {
+            Assert.IsTrue(pins[name] is JsonObject, $"changed-since-device-test.json: {name} isn't device-tested");
+            foreach (var (key, c) in change.Chunks)
+                Assert.AreEqual(pins[name]!["Chunks"]![key]?.GetValue<string>(), c.Was, $"{name}: {key} must replace the device-tested pin");
+            foreach (var (key, c) in change.Files)
+                Assert.AreEqual(pins[name]!["Files"]![key]?["Sha256"]?.GetValue<string>(), c.Was, $"{name}: {key} must replace the device-tested pin");
+            Assert.IsTrue(change.Chunks.Values.Concat(change.Files.Values).All(c => c.Now != c.Was && c.Now.Length == 64), $"{name}: every change changes the pin");
+            Assert.IsFalse(string.IsNullOrWhiteSpace(change.Why) || string.IsNullOrWhiteSpace(change.Date), $"{name}: say why and when");
+        }
         var compared = new List<string>();
         foreach (var file in Directory.EnumerateFiles(Path.Combine(RepoRoot(), "recipes"), "*.json"))
         {
             var recipe = Parse(File.ReadAllText(file));
             if (pins[recipe.Name] is not JsonObject canary) continue;
             Assert.IsNotNull(recipe.Expect, $"{recipe.Name} is device-tested: its recipe must pin it");
-            CollectionAssert.AreEquivalent(canary["Files"]!.AsObject().Select(kv => $"{kv.Key} {kv.Value!["Sha256"]}").ToList(),
+            var change = changes.GetValueOrDefault(recipe.Name);
+            string File_(string key, JsonNode? pin) => $"{key} {(change?.Files.TryGetValue(key, out var c) == true ? c.Now : pin!["Sha256"])}";
+            string Chunk(string key, JsonNode? pin) => $"{key} {(change?.Chunks.TryGetValue(key, out var c) == true ? c.Now : pin)}";
+            CollectionAssert.AreEquivalent(canary["Files"]!.AsObject().Select(kv => File_(kv.Key, kv.Value)).ToList(),
                 (recipe.Expect.Files ?? new Dictionary<string, string>()).Select(kv => $"{kv.Key} {kv.Value}").ToList(), $"{recipe.Name}: Expect.Files");
-            CollectionAssert.AreEquivalent(canary["Chunks"]!.AsObject().Select(kv => $"{kv.Key} {kv.Value}").ToList(),
+            CollectionAssert.AreEquivalent(canary["Chunks"]!.AsObject().Select(kv => Chunk(kv.Key, kv.Value)).ToList(),
                 (recipe.Expect.Chunks ?? new Dictionary<string, string>()).Select(kv => $"{kv.Key} {kv.Value}").ToList(), $"{recipe.Name}: Expect.Chunks");
             compared.Add(recipe.Name);
         }
         CollectionAssert.IsSubsetOf(new[] { "C13", "C14", "C16b_test", "C18" }, compared, string.Join(", ", compared));
+        CollectionAssert.IsSubsetOf(changes.Keys.ToList(), compared, "every changed canary has a recipe that carries the change");
     }
 
     /// <summary>Canary C8 as a recipe: Time_Timer Left 368 → 491, which left 0.9 px inside Normal_Display and vanished in game.</summary>

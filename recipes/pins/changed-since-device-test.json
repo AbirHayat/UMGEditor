@@ -1,0 +1,25 @@
+{
+  "About": "Pins that deliberately differ from recipes/pins/device-tested.json (which stays the record of what was on the phone). A recipe of a device-tested canary pins device-tested.json with these replacements; each one must replace an existing pin with a different value. Text and hashes only.",
+  "Changes": {
+    "C16b_test": {
+      "Date": "2026-10-25",
+      "Why": "User decision: MatchCard Img_VI_1 is hidden. Its slot Top 737 -> 847 parks it off-screen like Img_VI_2..4 (top edge y 1029.6 px at 1786x1000, as Img_VI_2), replacing the 'completely outside Mask_1' Danger with the 'moved completely off-screen' Warning. Not device-tested yet.",
+      "Chunks": {
+        "/Game/Assets/ui/Data/Widget/TVGraphics/SwitchAssets_Original/MatchCard/MatchCard": {
+          "Was": "d86f784453e978f6e7b13ae7e51fb37a63fec480f401405dc965a9281bd7c81e",
+          "Now": "30bfa075f9fe216afb131affe0b411500370cc346453dce72ef1d5117d5a7257"
+        }
+      },
+      "Files": {
+        "pc9999_mobile_and_P.ucas": {
+          "Was": "82ff5deb9d8c4ce1075b2ce352b94ba8003afbc1ed288bcefb42b669d146b3d1",
+          "Now": "eca1244369b6e8d1e97f726491ad8c8171f77caa1cae79b4c2a58f352817cbba"
+        },
+        "pc9999_mobile_and_P.utoc": {
+          "Was": "b4a053283b2926b7d006dcc3614540094005a6412c42e93faee8478ac2f68e9e",
+          "Now": "e3da18f3fbe8057f1fefb9f6b2ad9f80f0db28ccd8668eb1b155e10e6b0d27bd"
+        }
+      }
+    }
+  }
+}

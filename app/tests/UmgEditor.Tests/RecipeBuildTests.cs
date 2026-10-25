@@ -70,7 +70,7 @@ public class RecipeBuildTests
     [DataRow("C10", false)]
     [DataRow("C12", false)]
     [DataRow("C18", false)]
-    [DataRow("C16b_test", true)]
+    [DataRow("C16b_test", false)] // no Danger since Img_VI_1 is parked off-screen (2026-10-25)
     [DataRow("C13", false)]
     [DataRow("C14", false)]
     [DataRow("C15", false)]

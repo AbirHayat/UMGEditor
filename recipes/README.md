@@ -141,7 +141,7 @@ the result with `Expect.Chunks`. It writes nothing: only the shared caches under
 | `C16b.json` | C16b | C16 with set C16b's values and art, plus AppendNames + EnumInsert (Justification = Center) on MatchTimeGoal and MatchTimeCard |
 | `C17a.json` | C17a | no container: `pc9998_mobile_and_P.pak` with UCL's font as `eFootballStencil-Regular.ufont` |
 | `C17b.json` | C17b | C16b + UCL's font on the scoreboard: NameTag layers on 21 texts in 7 packages (MatchTimeTimer/Additional/Aggregate font-only), `pes` FontFace (Latin HeadlineBoldSub → NotoSansThai-ExtraBold), and the font pak with UCL's font as `NotoSansThai-ExtraBold.ufont`; 26 chunks + 4 device files |
-| `C16b_test.json` | C16b_test | `recipe-from-set` of project C16b: 8 packages, 255 values, 36 texture edits (version 1 scopes = Package), 74 chunks; one Danger warning (MatchCard `Img_VI_1` moved below `Mask_1`; stock Show keys), so it needs `--ack-danger` |
+| `C16b_test.json` | C16b_test | `recipe-from-set` of project C16b: 8 packages, 255 values, 36 texture edits (version 1 scopes = Package), 74 chunks; no Danger since 2026-10-25: MatchCard `Img_VI_1` (was below `Mask_1`, the one Danger) is hidden by the user's decision, parked off-screen (Top 737 → 847) like `Img_VI_2`–`4`. That changes the MatchCard chunk, the `.ucas` and the `.utoc` against the device-tested build: `pins/changed-since-device-test.json` (not device-tested yet) |
 
 C15, C16, C16b, C17a and C17b are written by `umgcompare recipe-ucl <name>` from the builders that made the
 device-tested mods (`canary-scoreboard`, `UclC16`, `canary-font`): the same ops in the same order, the values from the canary's edit set (the saved
@@ -167,5 +167,6 @@ the device` line (online packages are listed without a box: the mod never goes o
 
 Each of these builds into exactly its device-tested files (`RecipeBuildTests`).
 
-Every recipe of a device-tested canary must pin exactly what `pins/device-tested.json` holds
-(`RecipePins_AreTheDeviceTestedPins`). `pins/device-tested.json` holds the sha256 of every device-tested canary's files and chunks (C13–C18, C16b_test).
+Every recipe of a device-tested canary must pin exactly what `pins/device-tested.json` holds, except the deliberate
+changes listed in `pins/changed-since-device-test.json` (each replaces an existing pin and says why and when;
+`RecipePins_AreTheDeviceTestedPins`). `device-tested.json` itself stays the record of what was on the phone. `pins/device-tested.json` holds the sha256 of every device-tested canary's files and chunks (C13–C18, C16b_test).
