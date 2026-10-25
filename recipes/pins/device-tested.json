@@ -1,0 +1,346 @@
+{
+  "About": "sha256 of the device-tested canaries, taken from their files in work/out/mods/<name> (mod/ = the files that were on the phone, raw/chunks = the chunks packed). Text and hashes only.",
+  "Canaries": {
+    "C13": {
+      "Container": "pc9999_mobile_and_P",
+      "Retoc": "1587f00d57c5046dc51dbc5c0e39f65d937a57943cac1db4ce059335d3a1e3a4",
+      "Stub": "0c9d79129f5ca913335ca2f864ae40d39818a16a12805c9ab55fa1329c7f9424",
+      "Files": {
+        "pc9999_mobile_and_P.pak": {
+          "Size": 365,
+          "Sha256": "0c9d79129f5ca913335ca2f864ae40d39818a16a12805c9ab55fa1329c7f9424"
+        },
+        "pc9999_mobile_and_P.ucas": {
+          "Size": 7005,
+          "Sha256": "47360bb61f304f21a3d529ad2ef82a3a0a97b903e5e87f7d9f650b56283093ca"
+        },
+        "pc9999_mobile_and_P.utoc": {
+          "Size": 873,
+          "Sha256": "cdd3c06feedb83fcfc47cf1bf9bdf07ec3edcd78ac4d64fb075dcda57b651237"
+        }
+      },
+      "Chunks": {
+        "/Game/Assets/ui/Data/Widget/TVGraphics/SwitchAssets_Original/DemoTitle/0164F/Tex720/DemoTitleUCL01": "127cffb00df30a05f828ebf848b6cfbe57ebce852eaff88e8f1b76fed776fef3",
+        "/Game/Assets/ui/Data/Widget/TVGraphics/SwitchAssets_Original/DemoTitle/Tex720/DemoTitleUCL01": "872a666435e677030944793aacf387a6abd8d81ba019e818e6daf1a000d6c36c",
+        "/Game/Assets/ui/Data/Widget/TVGraphics/SwitchAssets_Original/DemoTitle/DemoTitleBase": "8fc63650260a47196b0b8e448dd0a2d96a3d0e0119ae1f21d05bc6e2d0c1ee34"
+      }
+    },
+    "C14": {
+      "Container": "pc9999_mobile_and_P",
+      "Retoc": "1587f00d57c5046dc51dbc5c0e39f65d937a57943cac1db4ce059335d3a1e3a4",
+      "Stub": "0c9d79129f5ca913335ca2f864ae40d39818a16a12805c9ab55fa1329c7f9424",
+      "Files": {
+        "pc9999_mobile_and_P.pak": {
+          "Size": 365,
+          "Sha256": "0c9d79129f5ca913335ca2f864ae40d39818a16a12805c9ab55fa1329c7f9424"
+        },
+        "pc9999_mobile_and_P.ucas": {
+          "Size": 1209657,
+          "Sha256": "51e174c49ecf890a87860706b5745c75ad0af86acd4e9e873b5b74f85577c8bd"
+        },
+        "pc9999_mobile_and_P.utoc": {
+          "Size": 1089,
+          "Sha256": "cfc188a3cd75dba61eae2e05e6f74e0b88c477a6f1234a406632b403747ca61b"
+        }
+      },
+      "Chunks": {
+        "/Game/Assets/ui/Data/Widget/TVGraphics/SwitchAssets_Original/DemoTitle/0164F/Tex720/DemoTitleUCL01": "604945987e4b7917c7db9c541412efe5b2ce38796e593ea5fd311a0d04adf245",
+        "/Game/Assets/ui/Data/Widget/TVGraphics/SwitchAssets_Original/DemoTitle/Tex720/DemoTitleUCL01": "4f4c126e4e71689a44a75f284fc8667059a7b8394c0930be4ad795d6e6c6b12d",
+        "/Game/Assets/ui/Data/Widget/TVGraphics/SwitchAssets_Original/DemoTitle/DemoTitleBase": "c26d96fd4fad7fca5144f39a31e87d699d8be317b8dfd03428fab122107ca56a"
+      }
+    },
+    "C15": {
+      "Container": "pc9999_mobile_and_P",
+      "Retoc": "1587f00d57c5046dc51dbc5c0e39f65d937a57943cac1db4ce059335d3a1e3a4",
+      "Stub": "0c9d79129f5ca913335ca2f864ae40d39818a16a12805c9ab55fa1329c7f9424",
+      "Files": {
+        "pc9999_mobile_and_P.pak": {
+          "Size": 365,
+          "Sha256": "0c9d79129f5ca913335ca2f864ae40d39818a16a12805c9ab55fa1329c7f9424"
+        },
+        "pc9999_mobile_and_P.ucas": {
+          "Size": 3547785,
+          "Sha256": "8ce4c7db6d5edc5f9bcf5ca7a73cffe3f0f4f954fd2adc50ddbf0a5da93720f2"
+        },
+        "pc9999_mobile_and_P.utoc": {
+          "Size": 1507,
+          "Sha256": "b12f28b7f5b5fcce15643e01d3b215721f78046bee8f1fde70c1dee5ef8dd76d"
+        }
+      },
+      "Chunks": {
+        "/Game/Assets/ui/Data/Widget/TVGraphics/SwitchAssets_Original/MatchTime/Tex720/MatchTimeBarUC_0": "af52ee1317eb021346c29dcec82918df99f47c604d5e69552d4bcf7376e49a8c",
+        "/Game/Assets/ui/Data/Widget/TVGraphics/SwitchAssets_Original/MatchTime/MatchTime": "dee01848b3baf75d97ddc5c06a2b47aa1d42132bd429421800ccb584a94e8eee",
+        "/Game/Assets/ui/Data/Widget/TVGraphics/SwitchAssets_Original/MatchTime/0164F/Tex720/MatchTimeBarUC_0": "a558b010e07322d2122cb1f338563a1bb02e898c0916ab131c315119ac20cd58"
+      }
+    },
+    "C16": {
+      "Container": "pc9999_mobile_and_P",
+      "Retoc": "1587f00d57c5046dc51dbc5c0e39f65d937a57943cac1db4ce059335d3a1e3a4",
+      "Stub": "0c9d79129f5ca913335ca2f864ae40d39818a16a12805c9ab55fa1329c7f9424",
+      "Files": {
+        "pc9999_mobile_and_P.pak": {
+          "Size": 365,
+          "Sha256": "0c9d79129f5ca913335ca2f864ae40d39818a16a12805c9ab55fa1329c7f9424"
+        },
+        "pc9999_mobile_and_P.ucas": {
+          "Size": 3909701,
+          "Sha256": "d1ab238457a94762e35c235c58cf53b7d74c7f50b32c8a693b200e6e2b017636"
+        },
+        "pc9999_mobile_and_P.utoc": {
+          "Size": 3641,
+          "Sha256": "38dd8ec8d6e4c66677f9850fc607a58875a36f4df486245624298620f10536c7"
+        }
+      },
+      "Chunks": {
+        "/Game/Assets/ui/Data/Widget/TVGraphics/SwitchAssets_Original/MatchTime/MatchTimeBase": "e58e2f07879e8991046ecb84e1855c51c3bbd2df0b2e63390150d3e7808b87d7",
+        "/Game/Assets/ui/Data/Widget/TVGraphics/SwitchAssets_Original/MatchTime/MatchTimeGoal": "dee28b0f08191705e4b73fe89e0bbfb31506357d88f5abf9162a2667011b9adc",
+        "/Game/Assets/ui/Data/Widget/TVGraphics/SwitchAssets_Original/MatchTime/MatchTimeMemberChange": "66390448640d6bbb78ff36ab6d407988339c781283651da1ee615ad067126e6b",
+        "/Game/Assets/ui/Data/Widget/TVGraphics/SwitchAssets_Original/MatchTime/0164F/Tex720/MatchTimeNavyG_0": "b8678a04cec6e46c121221d8c051120fccf564a3482784b3af33c8e6a441a41c",
+        "/Game/Assets/ui/Data/Widget/TVGraphics/SwitchAssets_Original/MatchTime/Tex720/MatchTimeWhite_1": "a459497bbdf94f512735614c11c7a12da32bb9e10b8bc5f41f2daf9ec25899cc",
+        "/Game/Assets/ui/Data/Widget/TVGraphics/SwitchAssets_Original/MatchTime/Tex720/MatchTimeBarUC_0": "058a7f45b1571b057910ac241b5d6ae9b3f8446de31ef40d95514f93c8bd37fc",
+        "/Game/Assets/ui/Color/ColorTable0164F": "6f500b989099fba39f4249a9c704445ccf5b44ffb3bbb1e7a2394cd8951b332c",
+        "/Game/Assets/ui/Data/Widget/TVGraphics/SwitchAssets_Original/MatchTime/MatchTimeCard": "994ad9273edbce48a762d66b304f06f11a50b2351bc637a71061d415fd09a3b4",
+        "/Game/Assets/ui/Data/Widget/TVGraphics/SwitchAssets_Original/DemoTitle/0164F/Tex720/DemoTitleUCL01": "86478e83825c13ba7d94aaac8b17cb3ed93c1891c35b1e553f4aa94d244da304",
+        "/Game/Assets/ui/Data/Widget/TVGraphics/SwitchAssets_Original/DemoTitle/Tex720/DemoTitleUCL01": "6c92fd749e6be90906b746aff1fd80d841057491ac13b8c5f163f7950f01e227",
+        "/Game/Assets/ui/Data/Widget/TVGraphics/SwitchAssets_Original/MatchTime/MatchTime": "9f0671a30f8f80df8e9b9b429b397a5a65050de57452bba7839d5ddb4888e871",
+        "/Game/Assets/ui/Data/Widget/TVGraphics/SwitchAssets_Original/MatchTime/0164F/Tex720/MatchTimeBarUC_0": "b7ea4fc33b961aa65535e9abe8d3bbe625d56706c37d24ed3f086709a6ef70d3",
+        "/Game/Assets/ui/Data/Widget/TVGraphics/SwitchAssets_Original/MatchTime/0164F/Tex720/MatchTimeWhite_2": "58fa951b155d4ad970ab0ef6ce3dc6855d966f3463ea2bf9039b687db569dd91",
+        "/Game/Assets/ui/Color/ColorTable": "9dd950d5b65447070b02adda5632a0c2b32e99c66e68fd987ade8c0a45be67e3",
+        "/Game/Assets/ui/Data/Widget/TVGraphics/SwitchAssets_Original/MatchTime/Tex720/MatchTimeNavyG_0": "e870154849749c6d307bee7d6f96d991cea5b9391f9738bb857d7123fed3c82b",
+        "/Game/Assets/ui/Data/Widget/TVGraphics/SwitchAssets_Original/DemoTitle/DemoTitleBase": "c26d96fd4fad7fca5144f39a31e87d699d8be317b8dfd03428fab122107ca56a",
+        "/Game/Assets/ui/Data/Widget/TVGraphics/SwitchAssets_Original/MatchTime/MatchTimeBase_2": "82d4bc1ade38e8c48effcb99b8cf89c2cf7acf9db7ee3006c8def8cba66c272a",
+        "/Game/Assets/ui/Data/Widget/TVGraphics/SwitchAssets_Original/MatchTime/Tex720/MatchTimeWhite_2": "10b44dbaf9fda177c61d6fe7dc7c477d6685c8f17e1bac4c18bf923e3136fc8a",
+        "/Game/Assets/ui/Data/Widget/General/Modals/ExtraLoginBonus/Tex720/ExtraLoginBonusUCLb": "066d0ba30f97eaf2a62f15f91e54ea496d26bf8310d4f5e12d46363fb7248da8",
+        "/Game/Assets/ui/Data/Widget/TVGraphics/SwitchAssets_Original/DemoTitle/DemoTitle": "3c4f93892c3e3da6b2478a7b2e55461ee07dc9fdcb20dd1a2ff78b7c8f0aca24",
+        "/Game/Assets/ui/Data/Widget/TVGraphics/SwitchAssets_Original/MatchTime/0164F/Tex720/MatchTimeWhite_1": "04fff800dc11794bfa9174de41acd526dd349cdc52d2c536fa0652ee850d69dc",
+        "/Game/Assets/ui/Data/Widget/TVGraphics/SwitchAssets_Original/MatchTime/MatchTimeBase_1": "5b379ed4cdb7fad6d0ea9540869450748357a6cbe730735d3132578c1a7d3a04"
+      }
+    },
+    "C16b": {
+      "Container": "pc9999_mobile_and_P",
+      "Retoc": "1587f00d57c5046dc51dbc5c0e39f65d937a57943cac1db4ce059335d3a1e3a4",
+      "Stub": "0c9d79129f5ca913335ca2f864ae40d39818a16a12805c9ab55fa1329c7f9424",
+      "Files": {
+        "pc9999_mobile_and_P.pak": {
+          "Size": 365,
+          "Sha256": "0c9d79129f5ca913335ca2f864ae40d39818a16a12805c9ab55fa1329c7f9424"
+        },
+        "pc9999_mobile_and_P.ucas": {
+          "Size": 3909927,
+          "Sha256": "b1996bdfd5954fe36529cdecad3c2a06edc6b7ed74e090a7e90a037f79dcb926"
+        },
+        "pc9999_mobile_and_P.utoc": {
+          "Size": 3641,
+          "Sha256": "f639fbeb5a4a089389eac6753bb1bf993d3c869761e94f7534682a59abb74ecb"
+        }
+      },
+      "Chunks": {
+        "/Game/Assets/ui/Data/Widget/TVGraphics/SwitchAssets_Original/MatchTime/MatchTimeBase": "e58e2f07879e8991046ecb84e1855c51c3bbd2df0b2e63390150d3e7808b87d7",
+        "/Game/Assets/ui/Data/Widget/TVGraphics/SwitchAssets_Original/MatchTime/MatchTimeGoal": "a42326ab8193d312cf3069c5a8d6fa540fefdd914d7d8e4ce3589982cbd4323b",
+        "/Game/Assets/ui/Data/Widget/TVGraphics/SwitchAssets_Original/MatchTime/MatchTimeMemberChange": "66390448640d6bbb78ff36ab6d407988339c781283651da1ee615ad067126e6b",
+        "/Game/Assets/ui/Data/Widget/TVGraphics/SwitchAssets_Original/MatchTime/0164F/Tex720/MatchTimeNavyG_0": "b8678a04cec6e46c121221d8c051120fccf564a3482784b3af33c8e6a441a41c",
+        "/Game/Assets/ui/Data/Widget/TVGraphics/SwitchAssets_Original/MatchTime/Tex720/MatchTimeWhite_1": "a459497bbdf94f512735614c11c7a12da32bb9e10b8bc5f41f2daf9ec25899cc",
+        "/Game/Assets/ui/Data/Widget/TVGraphics/SwitchAssets_Original/MatchTime/Tex720/MatchTimeBarUC_0": "058a7f45b1571b057910ac241b5d6ae9b3f8446de31ef40d95514f93c8bd37fc",
+        "/Game/Assets/ui/Color/ColorTable0164F": "6f500b989099fba39f4249a9c704445ccf5b44ffb3bbb1e7a2394cd8951b332c",
+        "/Game/Assets/ui/Data/Widget/TVGraphics/SwitchAssets_Original/MatchTime/MatchTimeCard": "eb7b9afb8f979a222d680535bff9c843361da690612b31c8937f741a2f648922",
+        "/Game/Assets/ui/Data/Widget/TVGraphics/SwitchAssets_Original/DemoTitle/0164F/Tex720/DemoTitleUCL01": "d1430ee88bb30e312716fb8736ad1e601035c91a39499c49d59f454e877386ba",
+        "/Game/Assets/ui/Data/Widget/TVGraphics/SwitchAssets_Original/DemoTitle/Tex720/DemoTitleUCL01": "202a0609cd4570bcba810a7eb86008436607fa069b17a9639fa45351ff8f1e80",
+        "/Game/Assets/ui/Data/Widget/TVGraphics/SwitchAssets_Original/MatchTime/MatchTime": "9f0671a30f8f80df8e9b9b429b397a5a65050de57452bba7839d5ddb4888e871",
+        "/Game/Assets/ui/Data/Widget/TVGraphics/SwitchAssets_Original/MatchTime/0164F/Tex720/MatchTimeBarUC_0": "b7ea4fc33b961aa65535e9abe8d3bbe625d56706c37d24ed3f086709a6ef70d3",
+        "/Game/Assets/ui/Data/Widget/TVGraphics/SwitchAssets_Original/MatchTime/0164F/Tex720/MatchTimeWhite_2": "58fa951b155d4ad970ab0ef6ce3dc6855d966f3463ea2bf9039b687db569dd91",
+        "/Game/Assets/ui/Color/ColorTable": "9dd950d5b65447070b02adda5632a0c2b32e99c66e68fd987ade8c0a45be67e3",
+        "/Game/Assets/ui/Data/Widget/TVGraphics/SwitchAssets_Original/MatchTime/Tex720/MatchTimeNavyG_0": "e870154849749c6d307bee7d6f96d991cea5b9391f9738bb857d7123fed3c82b",
+        "/Game/Assets/ui/Data/Widget/TVGraphics/SwitchAssets_Original/DemoTitle/DemoTitleBase": "c26d96fd4fad7fca5144f39a31e87d699d8be317b8dfd03428fab122107ca56a",
+        "/Game/Assets/ui/Data/Widget/TVGraphics/SwitchAssets_Original/MatchTime/MatchTimeBase_2": "82d4bc1ade38e8c48effcb99b8cf89c2cf7acf9db7ee3006c8def8cba66c272a",
+        "/Game/Assets/ui/Data/Widget/TVGraphics/SwitchAssets_Original/MatchTime/Tex720/MatchTimeWhite_2": "10b44dbaf9fda177c61d6fe7dc7c477d6685c8f17e1bac4c18bf923e3136fc8a",
+        "/Game/Assets/ui/Data/Widget/General/Modals/ExtraLoginBonus/Tex720/ExtraLoginBonusUCLb": "066d0ba30f97eaf2a62f15f91e54ea496d26bf8310d4f5e12d46363fb7248da8",
+        "/Game/Assets/ui/Data/Widget/TVGraphics/SwitchAssets_Original/DemoTitle/DemoTitle": "3c4f93892c3e3da6b2478a7b2e55461ee07dc9fdcb20dd1a2ff78b7c8f0aca24",
+        "/Game/Assets/ui/Data/Widget/TVGraphics/SwitchAssets_Original/MatchTime/0164F/Tex720/MatchTimeWhite_1": "04fff800dc11794bfa9174de41acd526dd349cdc52d2c536fa0652ee850d69dc",
+        "/Game/Assets/ui/Data/Widget/TVGraphics/SwitchAssets_Original/MatchTime/MatchTimeBase_1": "5b379ed4cdb7fad6d0ea9540869450748357a6cbe730735d3132578c1a7d3a04"
+      }
+    },
+    "C16b_test": {
+      "Container": "pc9999_mobile_and_P",
+      "Retoc": "1587f00d57c5046dc51dbc5c0e39f65d937a57943cac1db4ce059335d3a1e3a4",
+      "Stub": "0c9d79129f5ca913335ca2f864ae40d39818a16a12805c9ab55fa1329c7f9424",
+      "Files": {
+        "pc9999_mobile_and_P.pak": {
+          "Size": 365,
+          "Sha256": "0c9d79129f5ca913335ca2f864ae40d39818a16a12805c9ab55fa1329c7f9424"
+        },
+        "pc9999_mobile_and_P.ucas": {
+          "Size": 43370465,
+          "Sha256": "82ff5deb9d8c4ce1075b2ce352b94ba8003afbc1ed288bcefb42b669d146b3d1"
+        },
+        "pc9999_mobile_and_P.utoc": {
+          "Size": 16902,
+          "Sha256": "b4a053283b2926b7d006dcc3614540094005a6412c42e93faee8478ac2f68e9e"
+        }
+      },
+      "Chunks": {
+        "/Game/Assets/ui/Data/Widget/TVGraphics/SwitchAssets_Original/MatchStats/0164F/Tex720/MatchStatsPlaU1": "45cb8fda36ebc2caf5d625b95a3e8fd85a6c52f1ab758314022b0f31ce60edd2",
+        "/Game/Assets/ui/Data/Widget/TVGraphics/SwitchAssets_Original/MatchStats/0164F/Tex720/MatchStatsPlateU4_3": "7a31c2cebdcc45a5ef90f9a4d9d70465c10b71a732c725d5a7e489ad65a6ebaf",
+        "/Game/Assets/ui/Data/Widget/TVGraphics/SwitchAssets_Original/MatchTime/MatchTimeGoal": "3fdbb67dd9358e7aff0f87f472527bc3f8758cd4a33cacfeab7d703472843129",
+        "/Game/Assets/ui/Data/Widget/TVGraphics/SwitchAssets_Original/MatchStats/0164F/Tex720/MatchStatsPlateU1_5": "9e1bf4e22910edb1e5392782482421a7d030d1a025a4cacb500d1f8f33f8afbb",
+        "/Game/Assets/ui/Data/Widget/TVGraphics/SwitchAssets_Original/MatchTime/MatchTimeMemberChange": "66390448640d6bbb78ff36ab6d407988339c781283651da1ee615ad067126e6b",
+        "/Game/Assets/ui/Data/Widget/TVGraphics/SwitchAssets_Original/MatchScore/MatchScore": "a2a69bf0c79b665a79360f5fdf1eba71ac42c2141ba42cf97b077424dcaa5a2c",
+        "/Game/Assets/ui/Data/Widget/TVGraphics/SwitchAssets_Original/MatchPKScore/0164F/Tex720/MatchPKScoreLine_YellU1": "d9acadcf59793db3267f276d458fa5fd5a41a86b84c6003992bd97f5652bd1fc",
+        "/Game/Assets/ui/Data/Widget/TVGraphics/SwitchAssets_Original/MatchPlayer/0164F/Tex720/MatchPlayerPlaU1_2": "0062b660fea390565ac6f1798c244769f9abd46417062a408b1804e6b22f861f",
+        "/Game/Assets/ui/Data/Widget/TVGraphics/SwitchAssets_Original/MatchCard/MatchCardBase_3": "26912ec70e70c83069144a413644d1a227dd622637993f3e80b101dfda6bd92f",
+        "/Game/Assets/ui/Data/Widget/TVGraphics/SwitchAssets_Original/MatchStats/Tex720/MatchStatsPlateU1_5": "be9061a170b4244a4c7ecab0470992363820a5934a353c9735486e233e9ec609",
+        "/Game/Assets/ui/Data/Widget/General/Views/CenterView/Tex720/CenterView_SortIconU4": "4f457013950c24550800fe2355fa12b5c18d4ab9a69f84d39cb2726cff7122d3",
+        "/Game/Assets/ui/Data/Widget/General/Views/CenterView/Tex720/CenterView_SortIconU2": "2c7b0463f61ef64fe077807ab2fb92a349d80ee411a2d882d57ca25075d7ac44",
+        "/Game/Assets/ui/Data/Widget/TVGraphics/SwitchAssets_Original/MatchPKScore/Tex720/MatchPKScoreLine_YellU1": "079aecea1bf9593b701baa1b2d29918d89825ee6eec512eef8bcee89b6e11da8",
+        "/Game/Assets/ui/Data/Widget/TVGraphics/SwitchAssets_Original/MatchStats/0164F/Tex720/MatchStatsPlaU1_2": "14ee85369e96e96620330ca291829a29d1071e0fed19e4c9ef1df019f58324d4",
+        "/Game/Assets/ui/Data/Widget/General/StartFlow/OperationSelect/Tex720/OperationSelectBaU1": "b0451cb763d7e9795b2a97562114535a7a9f36c11e995a4ca7ce2d14ef30ea44",
+        "/Game/Assets/ui/Data/Widget/TVGraphics/SwitchAssets_Original/MatchStarPlayer/MatchStarPlayer": "82522db6d7b25d01bf2fbd0a4d4d93dba1f6374ba45484a5083341c9829ae9e3",
+        "/Game/Assets/ui/Data/Widget/TVGraphics/SwitchAssets_Original/MatchStats/0164F/Tex720/MatchStatsPlateU3_3": "a7aca525c91cdd644410636d2c6a1ae26fd84b6650abd5ff8c48e6d67d1631c5",
+        "/Game/Assets/ui/Data/Widget/TVGraphics/SwitchAssets_Original/MatchPlayer/MatchPlayerBase": "44106bfba09ae2d7d0dfae1e40fd277037f24cd98dea611b6a76b54b9e3496e4",
+        "/Game/Assets/ui/Data/Widget/TVGraphics/SwitchAssets_Original/MatchPlayer/Tex720/MatchPlayerPlaU1_2": "97ab70a0d400dfc7505ed7e2d82c54b66171e81f919bea4f918e101f0bee5a48",
+        "/Game/Assets/ui/Data/Widget/TVGraphics/SwitchAssets_Original/MatchScore/Tex720/MatchScorePlaU1_0": "4da9cfbb6855b69b1078faf242f1a8ed8e3aaaa0c696b45618f6b62599f5c79e",
+        "/Game/Assets/ui/Data/Widget/TVGraphics/SwitchAssets_Original/MatchStats/Tex720/MatchStatsPlaU1": "2faac60f7a49a908fde2d9029af36bf198f080b8917d8d0433b890ec81dd386b",
+        "/Game/Assets/ui/Data/Widget/TVGraphics/SwitchAssets_Original/MatchTime/MatchTimeCard": "994ad9273edbce48a762d66b304f06f11a50b2351bc637a71061d415fd09a3b4",
+        "/Game/Assets/ui/Data/Widget/TVGraphics/SwitchAssets_Original/MatchPlayer/Tex720/MatchPlayerPlaU1": "c640f027b08e3fa50fc581b27c78ccb194150773131d93ae16607a98e53997bc",
+        "/Game/Assets/ui/Data/Widget/General/Views/DetailView/Tex720/DetailViewBannerNewsMaintenanU1": "0abed6cfed534c963d998397978e36b911b1ccc168c8cc5aafd27f85e306e0c0",
+        "/Game/Assets/ui/Data/Widget/Match/Alert/AlertCampaignPoint/Tex720/AlertCampaignPoint_Mask_EffeU3": "b74734f956f0c19234155086566357be101fcfb03f799d8946e047f393b7cfff",
+        "/Game/Assets/ui/Data/Widget/TVGraphics/SwitchAssets_Original/MatchCard/MatchCardBase": "1c966506c0954ccc16cc966bff4d73240f206901f3fc4bf19660744350681515",
+        "/Game/Assets/ui/Data/Widget/General/Modals/ExtraLoginBonus/Tex720/ExtraLoginBonusInU3": "88a582b01305b577c93690ff57f509f3aac8211b3647e394eff752cc44a380f0",
+        "/Game/Assets/ui/Data/Widget/TVGraphics/SwitchAssets_Original/MatchCard/MatchCardIconWeather": "f4d670977a101652f3d7a32ce71aae90c572025659e3cf9ad8f5d4d3256ccd8f",
+        "/Game/Assets/ui/Data/Widget/TVGraphics/SwitchAssets_Original/MatchCard/MatchCardBase_2": "14d29c6885472e9afba9e776bba3154fa36091f04339cd344917783e0dd76b22",
+        "/Game/Assets/ui/Data/Widget/TVGraphics/SwitchAssets_Original/MatchPlayer/MatchPlayerBase_3": "451b7cdbb957c5d05ecfc93b4f634437f4054318013781dfa524cf108fe10521",
+        "/Game/Assets/ui/Data/Widget/Parts/Components/Plates/UiPlateChoiceR24/Tex720/UiPlateChoiceR24DaU1": "4e64a959063ae3773c484855af3d89226e67504141c164d3a5ab9f014d9e3e3d",
+        "/Game/Assets/ui/Data/Widget/TVGraphics/SwitchAssets_Original/MatchTime/MatchTime": "afdbd038b7fb1a88ede350d75bab3a612c212551ef16dccdf258fd7a4f7901ad",
+        "/Game/Assets/ui/Data/Widget/TVGraphics/SwitchAssets_Original/MatchStats/Tex720/MatchStatsPlateU3_3": "719308b35082bbb83c49f3f4d78ff05890f347e457005dc7104c5a7b6a014bc6",
+        "/Game/Assets/ui/Data/Widget/TVGraphics/SwitchAssets_Original/MatchStats/MatchStatsBase": "3491800c8ac5aadb88738f354ee4380e53023ca5641cea6599cb10bca2fc648d",
+        "/Game/Assets/ui/Data/Widget/TVGraphics/SwitchAssets_Original/MatchPKScore/0164F/Tex720/MatchPKScorePlate_YellU1": "e831cfeaa25df14ff3022e7b2367e7b719031f7bf63d93e09ca1c0d0b6212a40",
+        "/Game/Assets/ui/Data/Widget/Match/Alert/AlertCampaignPoint/Tex720/AlertCampaignPoint_Mask_EffeU2": "81d2ff72e2b3495e93671afa4e920db16a9379cf5e09879c222f4197733b8d27",
+        "/Game/Assets/ui/Data/Widget/TVGraphics/SwitchAssets_Original/MatchStats/Tex720/MatchStatsPlateU2_3": "ea7626c8878e96739f6b42b3fecbe61aafd6916ac26f4ccd706833e5cbdd5423",
+        "/Game/Assets/ui/Data/Widget/TVGraphics/SwitchAssets_Original/MatchPlayer/0164F/Tex720/MatchPlayerPlaU1": "e10ffafa8147f66bc160ba5a2ce948f8bbca3c837e84f6d019c11f0831fb1642",
+        "/Game/Assets/ui/Data/Widget/TVGraphics/SwitchAssets_Original/MatchStats/0164F/Tex720/MatchStatsPlateU2_3": "da16bc0d3f25741e326f3e5b4240d1993e68ceb97f2f5bb4e0974271844d3948",
+        "/Game/Assets/ui/Data/Widget/TVGraphics/SwitchAssets_Original/MatchPKScore/MatchPKScore": "82ea065b560d605a8da97c599be6c87865c6b5a108b8202313e5b776f4d1e528",
+        "/Game/Assets/ui/Data/Widget/General/Modals/ExtraLoginBonus/Tex720/ExtraLoginBonusInU1": "ec1ba4600090908f49ca408a3660c8e3e2d19a9ff92985ef7002dc6f900066d2",
+        "/Game/Assets/ui/Data/Widget/TVGraphics/SwitchAssets_Original/MatchStats/0164F/Tex720/MatchStatsPlateU1_3": "b5209fa3936022c5883269cacb4826adbbeab09a3d67f0c3785ffcbe9c0e82b7",
+        "/Game/Assets/ui/Data/Widget/TVGraphics/SwitchAssets_Original/MatchScore/0164F/Tex720/MatchScorePlaU1_0": "0f1cabdf9198d938b3c722cb6eb932f45727697ab596ba3f24015cd7081eaf16",
+        "/Game/Assets/ui/Data/Widget/TVGraphics/SwitchAssets_Original/MatchCard/MatchCard": "d86f784453e978f6e7b13ae7e51fb37a63fec480f401405dc965a9281bd7c81e",
+        "/Game/Assets/ui/Data/Widget/TVGraphics/SwitchAssets_Original/MatchStats/Tex720/MatchStatsPlateU4_3": "3cd3b78c0875322bc3e85553894fd3c6d8d7d068dba06119a7a5b26b4462274e",
+        "/Game/Assets/ui/Data/Widget/TVGraphics/SwitchAssets_Original/MatchScore/MatchScoreBase_2": "f49fae2a46d8eb21cc91e88b712c0e7b56417d3e526c650fddcd1c687f7479d6",
+        "/Game/Assets/ui/Data/Widget/General/Views/CenterView/Tex720/CenterView_SortIconDoU1": "ac98d9f63f66926fa8e9c02b80975208c56ced72418ebf02d502d6596c62e7ed",
+        "/Game/Assets/ui/Data/Widget/General/Views/CenterView/Tex720/CenterView_SortIconU3": "37721ad859710e97db2aa565ec12e79a34ce16ddd09260b2801e5d04cd19fdac",
+        "/Game/Assets/ui/Data/Widget/General/Modals/TransactionNotice/Tex720/TransactionNotice_BliU1": "cb2ec15b3c7911fa80a53b5ffff86f8cba65d75e5cadb6643379bdda2dcf6d88",
+        "/Game/Assets/ui/Data/Widget/Match/Alert/AlertCampaignPoint/Tex720/AlertCampaignPoint_Mask_EffeU1": "2f1dab1341e2c61ff0a9b85fb912054965c9fb8386dcdf9bab2b880f091bd4ec",
+        "/Game/Assets/ui/Data/Widget/General/Modals/ExtraLoginBonus/Tex720/ExtraLoginBonusInU4": "4811c383217f8ab8d3a077e7e11722dfec4bb1aca263254f9f24f3abe14f25a7",
+        "/Game/Assets/ui/Data/Widget/General/Modals/ExtraLoginBonus/Tex720/ExtraLoginBonusInU2": "9334b920a42faedae0c5423ae2699d96cf8a8e8d1b46576cb78e796810f0510e",
+        "/Game/Assets/ui/Data/Widget/TVGraphics/SwitchAssets_Original/MatchPlayer/0164F/Tex720/MatchPlayerPlaU1_3": "191190003cd312b8de28bcd92f447939cefe28df23d2ea551cb20a8013e3080a",
+        "/Game/Assets/ui/Data/Widget/TVGraphics/SwitchAssets_Original/MatchPlayer/MatchPlayerBase_2": "f82782ffdd14eafdb737c5e08b0a7fc8e71bb86bdf354f05deeb4e3cc7712a35",
+        "/Game/Assets/ui/Data/Widget/TVGraphics/SwitchAssets_Original/MatchPlayer/Tex720/MatchPlayerPlaU1_3": "001494720b86a7e1b8713bf763f3cb8e087bff581fb2f47011efde7c1a8a3743",
+        "/Game/Assets/ui/Data/Widget/General/Modals/TransactionNotice/Tex720/TransactionNotice_BliU2": "f1f8746a4c4aba06ecc461905ff8c85990ff1b87f367121969d6b47597822c4b",
+        "/Game/Assets/ui/Data/Widget/TVGraphics/SwitchAssets_Original/MatchScore/MatchScoreBase": "e760bfa36702d00fac2202c6a76421075081082a85c76cc8bf559afe37f47630",
+        "/Game/Assets/ui/Data/Widget/TVGraphics/SwitchAssets_Original/MatchStats/MatchStats_2": "05b0ff62deeb41abe907ca3deff2e1dbaea43be72f1ba2ce1e54706ea6a7b170",
+        "/Game/Assets/ui/Data/Widget/General/MatchFlow/CommandClassic/Tex720/CommandClassicFingU2": "c57b4550d814590fc375cfb588f5143915f8fafebfb092540293758cfa56f5d1",
+        "/Game/Assets/ui/Data/Widget/TVGraphics/SwitchAssets_Original/MatchPKScore/Tex720/MatchPKScorePlate_BlU1": "772fa6a76ea154b6d549d6a62ffd02e7c2c83803241923ee275c10af261dc732",
+        "/Game/Assets/ui/Data/Widget/General/Views/CenterView/Tex720/CenterView_SortIconU1": "987d7761d16d84ac9f0e81553acdee7a9efd0942e279842a6b423df939a7292d",
+        "/Game/Assets/ui/Data/Widget/TVGraphics/SwitchAssets_Original/MatchScore/0164F/Tex720/MatchScorePlaU1_1": "8a9d0219c2087f88044afc847548e88b9631dd508f3c0b10918f9bc47bbbe25b",
+        "/Game/Assets/ui/Data/Widget/TVGraphics/SwitchAssets_Original/MatchStats/Tex720/MatchStatsPlateU1_3": "bebe4434502a330d27b670a771f9edee94d00c51970cbb51d8ae6bef96d9fbf8",
+        "/Game/Assets/ui/Data/Widget/TVGraphics/SwitchAssets_Original/MatchStats/MatchStatsBase_2": "69933f27b5195e90a33ce23e065cbb33336aab928f8d896b99422b265ceec05e",
+        "/Game/Assets/ui/Data/Widget/General/Views/CenterView/Tex720/CenterView_SortIconDoU2": "9f3b4e8098040e0195264a351369ada02a0129c7b7b427d5f5529d6e798aa29e",
+        "/Game/Assets/ui/Data/Widget/TVGraphics/SwitchAssets_Original/MatchStats/Tex720/MatchStatsPlaU1_2": "cb5bfd0315902d0d9ae6a21009718f2003cee631f6dba532d829405e344f431e",
+        "/Game/Assets/ui/Data/Widget/TVGraphics/SwitchAssets_Original/MatchStats/0164F/Tex720/MatchStatsPlaU2_2": "ef2d528055b6d0b3d481f7b1e2c188f32425de3678d763cec3ff8a2222316ad8",
+        "/Game/Assets/ui/Data/Widget/TVGraphics/SwitchAssets_Original/MatchStats/MatchStats": "7f9be8c449b942299ef34a255e0fbec767c7ce082ff4b8ffaa7af9077e09ba2d",
+        "/Game/Assets/ui/Data/Widget/TVGraphics/SwitchAssets_Original/MatchStats/Tex720/MatchStatsPlaU2_2": "b7dfeb7d0360c15bc539444fbc6f7ddb691a33e98169b37cde278148f81fce8c",
+        "/Game/Assets/ui/Data/Widget/TVGraphics/SwitchAssets_Original/MatchScore/Tex720/MatchScorePlaU1_1": "0d346fb6050da3cd9aee7791da40dbb297dd13df72f5773ebae7d9f4c632623f",
+        "/Game/Assets/ui/Data/Widget/TVGraphics/SwitchAssets_Original/MatchPKScore/Tex720/MatchPKScorePlate_YellU1": "67d86b2f607f42b8aa968a99275c01ac2296e093f269567c901699bb7d510210",
+        "/Game/Assets/ui/Data/Widget/TVGraphics/SwitchAssets_Original/MatchCard/MatchCard_2": "d6989046bbabc4b2e63dd5d8c7740d8e69fe19e781ff73a7b5e68023500b1b21",
+        "/Game/Assets/ui/Data/Widget/General/MatchFlow/CommandClassic/Tex720/CommandClassicFingU1": "57d2682f7b3afd05b9c2bfee328def26be6a6bcad4d8c59450fb0bf7920167b2",
+        "/Game/Assets/ui/Data/Widget/TVGraphics/SwitchAssets_Original/MatchPKScore/0164F/Tex720/MatchPKScorePlate_BlU1": "a2339e7dfc937c14cc5c464406d9bb987280a980a29574ccdf9f854fb5b36944"
+      }
+    },
+    "C17b": {
+      "Container": "pc9999_mobile_and_P",
+      "Retoc": "1587f00d57c5046dc51dbc5c0e39f65d937a57943cac1db4ce059335d3a1e3a4",
+      "Stub": "0c9d79129f5ca913335ca2f864ae40d39818a16a12805c9ab55fa1329c7f9424",
+      "Files": {
+        "pc9998_mobile_and_P.pak": {
+          "Size": 67170,
+          "Sha256": "1401303fdec69b4da4947f3f83621b36439e0dd0049a120b62b2bcd392cfa8fa"
+        },
+        "pc9999_mobile_and_P.pak": {
+          "Size": 365,
+          "Sha256": "0c9d79129f5ca913335ca2f864ae40d39818a16a12805c9ab55fa1329c7f9424"
+        },
+        "pc9999_mobile_and_P.ucas": {
+          "Size": 4181192,
+          "Sha256": "e71a61183a84d3393fcb81f0fce9f1ec5e9caa4a07ca98a312733f749a7fd8df"
+        },
+        "pc9999_mobile_and_P.utoc": {
+          "Size": 4187,
+          "Sha256": "3397f3038d5b52dc61f43d992aa69aeb1dd0e69b0b7f8369679c26e9b1d9be0e"
+        }
+      },
+      "Chunks": {
+        "/Game/Assets/ui/Data/Widget/TVGraphics/SwitchAssets_Original/MatchTime/MatchTimeBase": "e58e2f07879e8991046ecb84e1855c51c3bbd2df0b2e63390150d3e7808b87d7",
+        "/Game/Assets/ui/Data/Widget/TVGraphics/SwitchAssets_Original/MatchTime/MatchTimeGoal": "98a9dc7af27507be3eef8f09c0f66adbffbff82ec63e0781a14b1fe747ee21ec",
+        "/Game/Assets/ui/Data/Widget/TVGraphics/SwitchAssets_Original/MatchTime/MatchTimeMemberChange": "a6a9b63a3c7002177c1e286d995a42ca8650c55ed0558c5f7c2757cd821c74fc",
+        "/Game/Assets/ui/Data/Widget/TVGraphics/SwitchAssets_Original/MatchTime/0164F/Tex720/MatchTimeNavyG_0": "b8678a04cec6e46c121221d8c051120fccf564a3482784b3af33c8e6a441a41c",
+        "/Game/Assets/ui/Data/Widget/TVGraphics/SwitchAssets_Original/MatchTime/Tex720/MatchTimeWhite_1": "a459497bbdf94f512735614c11c7a12da32bb9e10b8bc5f41f2daf9ec25899cc",
+        "/Game/Assets/ui/Data/Widget/TVGraphics/SwitchAssets_Original/MatchTime/Tex720/MatchTimeBarUC_0": "058a7f45b1571b057910ac241b5d6ae9b3f8446de31ef40d95514f93c8bd37fc",
+        "/Game/Assets/ui/Data/Widget/TVGraphics/SwitchAssets_Original/MatchTime/MatchTimeAdditional": "6d697ec2c8084eb980e8b40982330c7b675ed59caae555aed886838d354b53d6",
+        "/Game/Assets/ui/Data/Widget/TVGraphics/SwitchAssets_Original/MatchTime/MatchTimeTimer": "d54ed56a2e15fd702a44327bc37238bebf55e898b422b75845c98165da4bde0e",
+        "/Game/Assets/ui/Color/ColorTable0164F": "6f500b989099fba39f4249a9c704445ccf5b44ffb3bbb1e7a2394cd8951b332c",
+        "/Game/Assets/ui/Data/Widget/TVGraphics/SwitchAssets_Original/MatchTime/MatchTimeCard": "76104f378666e9ae4eb30550150a4c8a3d3b6d7ff6e255775de634690fb689a2",
+        "/Game/Assets/ui/Data/Widget/TVGraphics/SwitchAssets_Original/DemoTitle/0164F/Tex720/DemoTitleUCL01": "d1430ee88bb30e312716fb8736ad1e601035c91a39499c49d59f454e877386ba",
+        "/Game/Assets/ui/Data/Widget/TVGraphics/SwitchAssets_Original/DemoTitle/Tex720/DemoTitleUCL01": "202a0609cd4570bcba810a7eb86008436607fa069b17a9639fa45351ff8f1e80",
+        "/Game/Assets/ui/Data/Widget/TVGraphics/SwitchAssets_Original/MatchTime/MatchTime": "ad2e22742ce3175ebd7fdf566bc1f32af16d65ac9ffe46570a8d586d9842737d",
+        "/Game/Platforms/_Android/Assets/ui/Font/pes": "09a27dd843b6a8c7c6da4692a4ec245a18c4c79c0a22cb3e4e741d0d356a909b",
+        "/Game/Assets/ui/Data/Widget/TVGraphics/SwitchAssets_Original/MatchTime/0164F/Tex720/MatchTimeBarUC_0": "b7ea4fc33b961aa65535e9abe8d3bbe625d56706c37d24ed3f086709a6ef70d3",
+        "/Game/Assets/ui/Data/Widget/TVGraphics/SwitchAssets_Original/MatchTime/0164F/Tex720/MatchTimeWhite_2": "58fa951b155d4ad970ab0ef6ce3dc6855d966f3463ea2bf9039b687db569dd91",
+        "/Game/Assets/ui/Color/ColorTable": "9dd950d5b65447070b02adda5632a0c2b32e99c66e68fd987ade8c0a45be67e3",
+        "/Game/Assets/ui/Data/Widget/TVGraphics/SwitchAssets_Original/MatchTime/Tex720/MatchTimeNavyG_0": "e870154849749c6d307bee7d6f96d991cea5b9391f9738bb857d7123fed3c82b",
+        "/Game/Assets/ui/Data/Widget/TVGraphics/SwitchAssets_Original/DemoTitle/DemoTitleBase": "c26d96fd4fad7fca5144f39a31e87d699d8be317b8dfd03428fab122107ca56a",
+        "/Game/Assets/ui/Data/Widget/TVGraphics/SwitchAssets_Original/MatchTime/MatchTimeBase_2": "82d4bc1ade38e8c48effcb99b8cf89c2cf7acf9db7ee3006c8def8cba66c272a",
+        "/Game/Assets/ui/Data/Widget/TVGraphics/SwitchAssets_Original/MatchTime/Tex720/MatchTimeWhite_2": "10b44dbaf9fda177c61d6fe7dc7c477d6685c8f17e1bac4c18bf923e3136fc8a",
+        "/Game/Assets/ui/Data/Widget/General/Modals/ExtraLoginBonus/Tex720/ExtraLoginBonusUCLb": "066d0ba30f97eaf2a62f15f91e54ea496d26bf8310d4f5e12d46363fb7248da8",
+        "/Game/Assets/ui/Data/Widget/TVGraphics/SwitchAssets_Original/MatchTime/MatchTimeAggregate": "60b52da038a7fad45959e9947d2b6ffc2eb36969690810ece43faa43ebdf8159",
+        "/Game/Assets/ui/Data/Widget/TVGraphics/SwitchAssets_Original/DemoTitle/DemoTitle": "3c4f93892c3e3da6b2478a7b2e55461ee07dc9fdcb20dd1a2ff78b7c8f0aca24",
+        "/Game/Assets/ui/Data/Widget/TVGraphics/SwitchAssets_Original/MatchTime/0164F/Tex720/MatchTimeWhite_1": "04fff800dc11794bfa9174de41acd526dd349cdc52d2c536fa0652ee850d69dc",
+        "/Game/Assets/ui/Data/Widget/TVGraphics/SwitchAssets_Original/MatchTime/MatchTimeBase_1": "5b379ed4cdb7fad6d0ea9540869450748357a6cbe730735d3132578c1a7d3a04"
+      }
+    },
+    "C18": {
+      "Container": "pc9999_mobile_and_P",
+      "Retoc": "1587f00d57c5046dc51dbc5c0e39f65d937a57943cac1db4ce059335d3a1e3a4",
+      "Stub": "0c9d79129f5ca913335ca2f864ae40d39818a16a12805c9ab55fa1329c7f9424",
+      "Files": {
+        "pc9999_mobile_and_P.pak": {
+          "Size": 365,
+          "Sha256": "0c9d79129f5ca913335ca2f864ae40d39818a16a12805c9ab55fa1329c7f9424"
+        },
+        "pc9999_mobile_and_P.ucas": {
+          "Size": 652031,
+          "Sha256": "3f0430d7e4431489f78175a548630171bfb132848c0f1ba4f1f10a09f6514ad4"
+        },
+        "pc9999_mobile_and_P.utoc": {
+          "Size": 1272,
+          "Sha256": "7a4fbb44df105b53fcb72fd9770a1fe14dc62efd509cd0f2605f07f6f7afd754"
+        }
+      },
+      "Chunks": {
+        "/Game/Assets/ui/Data/Widget/General/Modals/ExtraLoginBonus/Tex720/ExtraLoginBonusInU1": "b54118b747c9763d82cabeaff47bd408316f73f2b439ef21d8a31211cd61a22b",
+        "/Game/Assets/ui/Data/Widget/General/Modals/ExtraLoginBonus/Tex720/ExtraLoginBonusInU2": "534493094b15e9da859bae80c8715a758b63767a91b96b39136b29bc6331fa56",
+        "/Game/Assets/ui/Data/Widget/TVGraphics/TVGraphicsCommon/VirtualPad/VirtualPadButtonLarge": "bdade22c0c7267deff16fc2ab7d26eadeb78f2a060c4b2ffb79af66e047d83aa",
+        "/Game/Assets/ui/Data/Widget/TVGraphics/SwitchAssets_Original/MatchMemberChangeSpecial/MatchMemberChangeSpecial": "760a638598b216c22417677e269478553d2d81a26f236bb9004ec1ee40e8b800"
+      }
+    },
+    "C17a": {
+      "Files": {
+        "pc9998_mobile_and_P.pak": {
+          "Size": 67170,
+          "Sha256": "d91ded285a47301d3a856c9f06a6520c6516ca6172dfee06d83f8c9104a3737f"
+        }
+      },
+      "Inputs": {
+        "eFootballStencil-Regular.ufont": "be2671574c21254cb81f8aab9410e10dd30b2213075ae79acfcb72989a371f77"
+      },
+      "Chunks": {}
+    }
+  }
+}
