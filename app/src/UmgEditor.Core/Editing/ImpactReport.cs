@@ -77,7 +77,9 @@ public sealed record ClipCut(string Clipper, RectangleF Box, RectangleF Visible,
 
 /// <summary>A widget box that differs between the stock and the edited layout of one package.</summary>
 /// <param name="Cut">Set when a clipping ancestor cuts the edited box (partly or entirely), even as much as in stock</param>
-public sealed record ImpactBox(BoxChange Change, IReadOnlyList<EdgeChange> Edges, bool Edited, ClipCut? Cut = null)
+/// <param name="Hidden">How the edits hide the box by layout ("collapsed to 0 px wide", "moved completely off-screen …")
+/// when stock gave it a size on screen; null otherwise (see <see cref="HiddenReason"/>)</param>
+public sealed record ImpactBox(BoxChange Change, IReadOnlyList<EdgeChange> Edges, bool Edited, ClipCut? Cut = null, string? Hidden = null)
 {
     /// <summary>The edit makes a clip cut off more of it than in stock: marked in the panel, the instructions and umgmod.</summary>
     public bool CutOff => Cut?.CutsMoreThanStock == true;
@@ -99,8 +101,37 @@ public sealed record ImpactBox(BoxChange Change, IReadOnlyList<EdgeChange> Edges
     public string SizeText => $"{EdgeChange.F(Change.Before.Width)}×{EdgeChange.F(Change.Before.Height)} → {EdgeChange.F(Change.After.Width)}×{EdgeChange.F(Change.After.Height)} px";
 
     public string ToText() =>
-        $"    {Path}{(Edited ? "  [edited]" : "")}{(Visible ? "" : "  [hidden in the stored pose]")}{(CutOff ? $"  [{Cut!.Text}]" : "")}\n" +
+        $"    {Path}{(Edited ? "  [edited]" : "")}{(Visible ? "" : "  [hidden in the stored pose]")}{(CutOff ? $"  [{Cut!.Text}]" : "")}{(Hidden != null ? $"  [{Hidden}]" : "")}\n" +
         string.Join("", Edges.Select(e => $"      {e.Text}\n"));
+
+    private const float MovedPx = 0.01f;
+
+    /// <summary>
+    /// The edits hide this box by layout, clip or no clip: collapsed to 0 px (stock had a size) or moved completely
+    /// off-screen (stock was on screen). The same tests as the Collapsed / OffScreen warnings, which only look at
+    /// clipped widgets. A collapsed panel still draws children that keep a size; those aren't hidden.
+    /// </summary>
+    public static string? HiddenReason(BoxChange change, int viewportWidth, int viewportHeight)
+    {
+        RectangleF b = change.Before, a = change.After;
+        if (b.Width <= MovedPx || b.Height <= MovedPx) return null;
+        if (a.Width <= MovedPx || a.Height <= MovedPx) return $"collapsed to 0 px {(a.Width <= MovedPx ? "wide" : "high")}";
+        var viewport = new RectangleF(0, 0, viewportWidth, viewportHeight);
+        return !a.IntersectsWith(viewport) && b.IntersectsWith(viewport)
+            ? $"moved completely off-screen (x {EdgeChange.F(a.X)}–{EdgeChange.F(a.Right)}, y {EdgeChange.F(a.Y)}–{EdgeChange.F(a.Bottom)} px)"
+            : null;
+    }
+}
+
+/// <summary>
+/// A widget the edits hide on purpose (collapsed or parked off-screen), with how many boxes inside it are hidden
+/// with it. Listed in the build log and the test instructions so each can be confirmed absent on the device.
+/// </summary>
+public sealed record HiddenWidget(string Package, bool Online, ImpactBox Box, int Inside)
+{
+    public string Text => $"{Package}{(Online ? " (online)" : "")}: `{Box.ShortPath}` {Box.Hidden}" +
+                          (Inside > 0 ? $" (and {Inside} widget{(Inside == 1 ? "" : "s")} inside it)" : "") +
+                          (Box.Visible ? "" : "; hidden in the stored pose too");
 }
 
 /// <summary>One package the edits reach: its changed boxes and the warnings for it.</summary>
@@ -114,6 +145,18 @@ public sealed record ImpactPackage(AffectedPackage Package, IReadOnlyList<Impact
     public string Note => Package.Edited ? "edited in this project" + (Package.Board != null ? $" · {Package.Board.Label}" : "")
         : Package.Board?.Label is { } board ? $"{board} · via {Package.Via}" : "via " + Package.Via;
     public int HiddenCount => Boxes.Count(b => !b.Visible);
+
+    /// <summary>The boxes the edits hide (<see cref="ImpactBox.Hidden"/>), outermost: a hidden box inside another one is counted there.</summary>
+    public IReadOnlyList<HiddenWidget> HiddenByEdits
+    {
+        get
+        {
+            var hidden = Boxes.Where(b => b.Hidden != null).ToList();
+            static bool Inside(ImpactBox b, ImpactBox outer) => b.Path.StartsWith(outer.Path + "/", StringComparison.Ordinal);
+            return hidden.Where(b => !hidden.Any(o => Inside(b, o)))
+                .Select(b => new HiddenWidget(Name, IsOnline, b, hidden.Count(i => Inside(i, b)))).ToList();
+        }
+    }
 
     public string ChangeText => Error != null ? "couldn't be laid out: " + Error
         : Boxes.Count == 0 ? "no box changes"
@@ -139,6 +182,8 @@ public sealed record ImpactReport(string Project, int ViewportWidth, int Viewpor
     public int ChangedCount => Packages.Count(p => p.Boxes.Count > 0);
     public int WarningCount => Packages.Sum(p => p.Warnings.Count);
     public bool IsEmpty => Packages.Count == 0;
+    /// <summary>Every widget the edits hide on purpose, offline packages first.</summary>
+    public IReadOnlyList<HiddenWidget> HiddenByEdits => Packages.OrderBy(p => p.IsOnline).SelectMany(p => p.HiddenByEdits).ToList();
 
     public string Summary => IsEmpty
         ? $"No edits in project {Project}: nothing is affected."
@@ -164,7 +209,12 @@ public sealed record ImpactReport(string Project, int ViewportWidth, int Viewpor
                     Edge("left", c.Before.X, c.After.X), Edge("right", c.Before.Right, c.After.Right),
                     Edge("top", c.Before.Y, c.After.Y), Edge("bottom", c.Before.Bottom, c.After.Bottom),
                 };
-                return new ImpactBox(c, edges, e?.Inputs.Any(x => x.Source == ValueSource.Edited) == true, e == null ? null : ClipCut.Of(e, s));
+                var hidden = ImpactBox.HiddenReason(c, viewportWidth, viewportHeight);
+                // as with the clip warnings: only animations whose keys the edits change make the stored pose uncertain; a 0 px
+                // widget only comes back through a margin track on its own slot (a translation moves it but keeps it 0 px)
+                if (hidden != null && e != null && EditWarnings.EditedMovingAnimations(e, i.Edits, i.Edited.ClipRemoved, ownSlotOnly: hidden.StartsWith("collapsed")) is { Count: > 0 } animated)
+                    hidden += $"; uncertain: {string.Join(", ", animated)} move{(animated.Count == 1 ? "s" : "")} it and the edits change {(animated.Count == 1 ? "its" : "their")} keys";
+                return new ImpactBox(c, edges, e?.Inputs.Any(x => x.Source == ValueSource.Edited) == true, e == null ? null : ClipCut.Of(e, s), hidden);
             }).ToList();
             return new ImpactPackage(i.Package, boxes, EditWarnings.ForImpact(i.Stock, i.Edited, i.Edits), null);
         }).ToList();

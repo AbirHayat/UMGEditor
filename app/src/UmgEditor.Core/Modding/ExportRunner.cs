@@ -80,6 +80,10 @@ public static class ExportRunner
         var report = ImpactReport.Build(env.Project, env.Width, env.Height, impacts);
         foreach (var w in ExportWarning.From(report))
             log?.Report($"  {w.Text}{(w.IsDanger ? " (acknowledged)" : "")}");
+        // the widgets the edits hide on purpose, clip or no clip: each one is a line to confirm on the device
+        var hidden = report.HiddenByEdits;
+        log?.Report(hidden.Count == 0 ? "Hidden on purpose by the edits: none" : $"Hidden on purpose by the edits ({hidden.Count}; confirm each is gone on the device):");
+        foreach (var h in hidden) log?.Report($"  {h.Text}");
         var instructions = Path.Combine(plan.OutDir, ModInstructions.FileName);
         mods.WriteAllText(instructions, ModInstructions.Build(plan, build, report, p => env.Usage.DirectUsers(p).Count == 0, DateTime.Now, p => env.Usage.AllUsers(p)));
         log?.Report($"{files.Count} prediction files in {predictions}");

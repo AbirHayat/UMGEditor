@@ -162,6 +162,31 @@ public static class ModInstructions
             L($"- **{w.Warning.Severity}** · {w.Package}{(w.Online ? " (online)" : "")}: {w.Warning.Message}" +
               (w.IsDanger ? plan.Request.IsAcknowledged(w) ? " *Acknowledged before the build (export dialog tick or umgmod build --ack-danger).*" : " *Not acknowledged.*" : ""));
         L();
+        var hidden = impact.HiddenByEdits;
+        L("## Hidden on purpose");
+        if (hidden.Count == 0) L("None: the edits collapse no widget to 0 px and move none off-screen.");
+        foreach (var h in hidden) L($"- {h.Text}");
+        L();
+        // every Warning and Danger, plus hidden widgets no warning names (the Collapsed / OffScreen warnings only look at clipped widgets)
+        var confirm = warnings.Where(w => w.Warning.Severity >= Severity.Warning).ToList();
+        var unwarned = hidden.Where(h => !confirm.Any(w => w.Package == h.Package && w.Warning.Kind is WarningKind.Collapsed or WarningKind.OffScreen &&
+                                                           w.Warning.Message.StartsWith(h.Box.Name + " is ", StringComparison.Ordinal))).ToList();
+        L("## Confirm on the device");
+        var offlineConfirm = confirm.Where(w => !w.Online).ToList();
+        var offlineHidden = unwarned.Where(h => !h.Online).ToList();
+        if (offlineConfirm.Count == 0 && offlineHidden.Count == 0) L("Nothing beyond the screenshots: no Warning or Danger and nothing hidden on purpose offline.");
+        foreach (var w in offlineConfirm)
+            L($"- [ ] Confirm on the device ({ScreenName(w.Package)}, {HowToSee(w.Package)}): **{w.Warning.Severity}** · {w.Package}: {w.Warning.Message}");
+        foreach (var h in offlineHidden)
+            L($"- [ ] Confirm on the device ({ScreenName(h.Package)}, {HowToSee(h.Package)}): `{h.Box.ShortPath}` doesn't show ({h.Box.Hidden}).");
+        var onlineConfirm = confirm.Where(w => w.Online).Select(w => $"{w.Package}: {w.Warning.Message}")
+            .Concat(unwarned.Where(h => h.Online).Select(h => $"{h.Package}: `{h.Box.ShortPath}` {h.Box.Hidden}")).ToList();
+        if (onlineConfirm.Count > 0)
+        {
+            L($"\nOnline, predicted only and never confirmed ({OnlineWarning.ToLowerInvariant()}):");
+            foreach (var line in onlineConfirm) L($"- {line}");
+        }
+        L();
         L("## Files to copy");
         L("| File | Size | sha256 |");
         L("|---|---|---|");

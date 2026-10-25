@@ -282,6 +282,8 @@ try
             foreach (var l in checkResult.Log) Console.WriteLine(l);
             Console.WriteLine(checkResult.Warnings.Count == 0 ? "layout warnings: none" : $"layout warnings ({checkResult.Warnings.Count}):");
             foreach (var w in checkResult.Warnings) Console.WriteLine($"  {w.Text}{(w.IsDanger ? ackDanger ? $" (acknowledged by {BuildCommand.AckFlag})" : " (NOT acknowledged)" : "")}");
+            Console.WriteLine(checkResult.Hidden.Count == 0 ? "hidden on purpose by the edits: none" : $"hidden on purpose by the edits ({checkResult.Hidden.Count}):");
+            foreach (var h in checkResult.Hidden) Console.WriteLine($"  {h.Text}");
             if (!checkResult.Ok) { foreach (var r in checkResult.Refusals) Console.Error.WriteLine($"refused: {r}"); return 2; }
             if (checkResult.Danger.Count > 0 && !ackDanger)
             {

@@ -161,6 +161,10 @@ canary 1: Mask at Left 829), except when the layout itself can't tell, which is 
 A `RemoveTag` layer that takes a widget's `ClipToBounds` away (C15–C17b: `Normal_Display`) is laid out without that
 clip. With these rules no canary that passed on the phone has a Danger warning; C8's edit still has one.
 
+`recipe-check` and every build also list the widgets **hidden on purpose** (collapsed to 0 px or moved off-screen by the
+edits, clipped or not), and `TEST_INSTRUCTIONS.md` turns each Warning, Danger and hidden widget into a `- [ ] Confirm on
+the device` line (online packages are listed without a box: the mod never goes online).
+
 Each of these builds into exactly its device-tested files (`RecipeBuildTests`).
 
 Every recipe of a device-tested canary must pin exactly what `pins/device-tested.json` holds

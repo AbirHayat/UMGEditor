@@ -38,6 +38,8 @@ public sealed class RecipeCheckResult
     /// <summary>Widgets whose Clipping a RemoveTag layer removes (LayoutEngine.ClipKey): laid out without their clip in the predictions</summary>
     public HashSet<string> ClipRemoved { get; } = [];
     public List<ExportWarning> Warnings { get; } = [];
+    /// <summary>Widgets the value edits hide on purpose (collapsed or parked off-screen), as the build log and TEST_INSTRUCTIONS.md list them</summary>
+    public List<HiddenWidget> Hidden { get; } = [];
     /// <summary>Danger warnings: a build needs --ack-danger for these (a recipe can't acknowledge them)</summary>
     public IReadOnlyList<ExportWarning> Danger => Warnings.Where(w => w.IsDanger).ToList();
     /// <summary>Expect.Chunks was given and every chunk matches it</summary>
@@ -323,6 +325,7 @@ public static class RecipeCheck
                     result.ClipRemoved.Add(Layout.LayoutEngine.ClipKey(p.Package, l.Export));
             var impact = ImpactReport.Build(recipe.Name, context.ViewportWidth, context.ViewportHeight, context.Impact.Predict(allEdits, context.LoadTree, result.ClipRemoved));
             result.Warnings.AddRange(ExportWarning.From(impact));
+            result.Hidden.AddRange(impact.HiddenByEdits);
         }
 
         // pins

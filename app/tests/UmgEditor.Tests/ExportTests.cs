@@ -149,6 +149,9 @@ public class ExportTests
         StringAssert.StartsWith(md, $"# Mod {ModName}: test instructions");
         StringAssert.Contains(md, "> **Remove the mod before playing online.**");
         StringAssert.Contains(md, "## Warnings (Impact panel)\nNone: no rescale");
+        StringAssert.Contains(md, "## Hidden on purpose\nNone: the edits collapse no widget");
+        StringAssert.Contains(md, "## Confirm on the device\nNothing beyond the screenshots");
+        Assert.IsTrue(log.Contains("Hidden on purpose by the edits: none"), string.Join("\n", log));
         Assert.IsFalse(md.Contains("cut off by") || md.Contains("not checked"), "C6 pushes nothing out of a clip");
         foreach (var screen in new[] { "MatchTime", "MatchTimeGoal", "MatchTimeCard", "MatchTimeMemberChange",
                      "MatchTimeConnection", "MatchTimeConnectionGoal", "MatchTimeConnectionCard", "MatchTimeConnectionMemberChange" })
@@ -256,6 +259,10 @@ public class ExportTests
         Console.WriteLine(md);
         StringAssert.Contains(md, "## Warnings (Impact panel)\n- **Danger** · MatchTime: Time_Timer ends up almost completely outside Normal_Display");
         StringAssert.Contains(md, "*Acknowledged before the build (export dialog tick or umgmod build --ack-danger).*");
+        // an acknowledged Danger is still a line to confirm on the device; the timer keeps its size on screen, so it isn't "hidden on purpose"
+        StringAssert.Contains(md, "## Confirm on the device\n- [ ] Confirm on the device (scoreboard, ≥ 10 s into play): **Danger** · MatchTime: Time_Timer ends up almost completely outside Normal_Display");
+        StringAssert.Contains(md, "## Hidden on purpose\nNone");
+        Assert.IsTrue(log.Contains("Hidden on purpose by the edits: none"), string.Join("\n", log));
         StringAssert.Contains(md, "| `…/Normal/Normal_Display/Time_Timer` **cut off by Normal_Display: 0.9×57.4 of 118.5×59.3 px visible, practically gone** |");
         StringAssert.Contains(md, "`…/Timer/Plate_MatchTimeBg/CanvasPanel_0` **outside Normal_Display: not visible**");
         StringAssert.Contains(md, "A box marked *cut off* / *outside* loses more to a clipping ancestor than in stock");

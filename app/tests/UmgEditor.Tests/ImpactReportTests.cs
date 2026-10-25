@@ -178,6 +178,36 @@ public class ImpactReportTests
     }
 
     /// <summary>
+    /// The build log and the instructions list every widget the edits hide on purpose, clip or no clip: Mask (inside
+    /// Normal_Display's clip) also has its Collapsed / OffScreen warning, Time_Additional (no clipping ancestor) has
+    /// none, and a hidden widget inside a hidden one is counted there, not listed twice.
+    /// </summary>
+    [TestMethod]
+    public void HiddenByEdits_CollapsedOrParked_ClipOrNoClip()
+    {
+        var collapsed = Report(Edit(MatchTime, "Mask", (n, e) => SlotEditor.SetField(n, e, Right, 0)));
+        Console.WriteLine(string.Join("\n", collapsed.HiddenByEdits.Select(h => h.Text)));
+        var mask = collapsed.HiddenByEdits.Single();
+        Assert.AreEqual(("Mask", "collapsed to 0 px wide"), (mask.Box.Name, mask.Box.Hidden));
+        Assert.IsTrue(collapsed.Packages.Single().Warnings.Any(w => w.Kind == WarningKind.Collapsed));
+
+        var parked = Report(Edit(MatchTime, "Mask", (n, e) => SlotEditor.SetField(n, e, "LayoutData.Offsets.Left", 3000)));
+        Console.WriteLine(string.Join("\n", parked.HiddenByEdits.Select(h => h.Text)));
+        var away = parked.HiddenByEdits.Single();
+        Assert.AreEqual("Mask", away.Box.Name);
+        StringAssert.StartsWith(away.Box.Hidden, "moved completely off-screen (x ");
+        Assert.AreEqual(parked.Packages.Single().Boxes.Count(b => b.Hidden != null) - 1, away.Inside, "its children go with it, counted under Mask");
+
+        var additional = Report(Edit(MatchTime, "Time_Additional", (n, e) => SlotEditor.SetField(n, e, Right, 0))).Packages.Single();
+        Console.WriteLine(additional.ToText());
+        var text = additional.HiddenByEdits.Single();
+        Assert.AreEqual(("Time_Additional", "collapsed to 0 px wide"), (text.Box.Name, text.Box.Hidden));
+        Assert.IsFalse(additional.Warnings.Any(w => w.Kind is WarningKind.Collapsed or WarningKind.OffScreen), "no clip, so no warning: only the hidden list names it");
+
+        Assert.AreEqual(0, Report(Edit(Base, "Img_Plate", (n, e) => SlotEditor.SetField(n, e, Right, 100))).HiddenByEdits.Count, "C6 hides nothing");
+    }
+
+    /// <summary>
     /// Canary C8 in game: Time_Timer Left 368→491 left 0.9 px of it inside Normal_Display (clips at x 500) and the timer
     /// was gone. Danger, and the timer's boxes are marked cut off; the away name, cut 1.9 px at the bottom in stock as
     /// well, isn't marked.

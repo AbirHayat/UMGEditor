@@ -183,12 +183,13 @@ public sealed class EditWarnings(LayoutEngine engine, UsageGraph usage, int view
     /// Stock animations whose keys aren't edited don't count: canary C8's timer vanished in game although Info_On can
     /// translate it by -372.
     /// </summary>
-    internal static List<string> EditedMovingAnimations(LayoutBox box, EditSet? edits, IReadOnlySet<string> clipRemoved)
+    /// <param name="ownSlotOnly">Only margin tracks on the widget's own slot (the ones that can also resize it)</param>
+    internal static List<string> EditedMovingAnimations(LayoutBox box, EditSet? edits, IReadOnlySet<string> clipRemoved, bool ownSlotOnly = false)
     {
         var found = new List<string>();
         if (edits is not { Count: > 0 }) return found;
-        for (var b = box; b != null && !ClipsIn(b, clipRemoved); b = b.Parent)
-            foreach (var use in b.Node.Animations.Where(a => a.MovesWidget && a.MovingSections is { Count: > 0 }))
+        for (var b = box; b != null && !ClipsIn(b, clipRemoved) && (!ownSlotOnly || b == box); b = b.Parent)
+            foreach (var use in b.Node.Animations.Where(a => a.MovesWidget && a.MovingSections is { Count: > 0 } && (!ownSlotOnly || a.OnSlot)))
                 if (edits.Values.Any(kv => kv.Key.Path.StartsWith("anim:", StringComparison.Ordinal) && use.MovingSections!.Contains(kv.Key.SlotExport)
                                            && kv.Key.Package.Equals(b.Node.PackagePath, StringComparison.OrdinalIgnoreCase)))
                 {
