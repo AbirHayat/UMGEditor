@@ -10,7 +10,9 @@ files are only read. Edits go to `work\edits`, mods to `work\out\mods`.
 - Needs the .NET 10 SDK, the stock Paks of the game (the OBB contents) and retoc (see *External tools* below).
 - Build: `dotnet build app/UmgEditor.slnx -c Release`.
 - Run: `app\src\UmgEditor.App\bin\Release\net10.0-windows\UmgEditor.App.exe`. Without a `umgeditor.json` next to the
-  exe it uses the defaults in `Core/GameConfig.cs`. To point it elsewhere, put a `umgeditor.json` there with `PaksDir`
+  exe it uses `%APPDATA%\UmgEditor\umgeditor.json` and the defaults in `Core/GameConfig.cs` (a file next to the exe
+  overrides the fields it names). The AES key has no default and is never in the repo: put `{ "AesKey": "0x…" }` in
+  `%APPDATA%\UmgEditor\umgeditor.json` (without it nothing opens). To point it elsewhere, put a `umgeditor.json` there with `PaksDir`
   (the stock Paks folder), `AesKey`, `WorkDir`, `RetocPath` and `ModStubPak`. The first start builds the UI index
   (`work\cache`), which takes a while once.
 

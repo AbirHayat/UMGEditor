@@ -26,7 +26,7 @@ Bulk headers inside the export header use mixed widths (some mips store counts/o
 
 🧰 Required Tools​
 FModel(with AES key support) for browsing & extraction
-eFootball AES Key: 0x4552D45005DFE94964893F4925EC747D3D591401E060ED8B3D58BE5721C81295
+eFootball AES Key: not stored in this repo; it is "AesKey" in %APPDATA%\UmgEditor\umgeditor.json
 UAssetGUI (or equivalent) for inspecting legacy .uasset properties (never for saving shipped assets!)
 Hex Editor (e.g. HxD) for precise, byte-by-byte edits
 A Zen ↔ Legacy converter (e.g. a patched retoc) to convert the container pair to legacy packages and back

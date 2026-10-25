@@ -34,6 +34,8 @@ public sealed class GameSource : IDisposable
     public static GameSource Open(GameConfig config)
     {
         if (!Directory.Exists(config.PaksDir)) throw new DirectoryNotFoundException($"Paks folder not found: {config.PaksDir}");
+        if (string.IsNullOrWhiteSpace(config.AesKey))
+            throw new InvalidDataException($"No AES key: put \"AesKey\" in {GameConfig.UserSettingsPath}");
 
         // GAME_eFootball: CUE4Parse knows eFootball's non-standard package store entries.
         // Ordinal paths: the game ships both ui/library/core and ui/library/Core.

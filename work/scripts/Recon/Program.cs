@@ -13,7 +13,6 @@ using CUE4Parse_Conversion.Options;
 using Newtonsoft.Json;
 
 const string PaksDir = @"E:\n3tron\patch\obb\mobile\org\all\PesMobile\Content\Paks";
-const string AesKey = "0x4552D45005DFE94964893F4925EC747D3D591401E060ED8B3D58BE5721C81295";
 const string WidgetRoot = "PesMobile/Content/Assets/ui/Data/Widget/";
 var workDir = Path.GetFullPath(Path.Combine(AppContext.BaseDirectory, @"..\..\..\..\..\"));
 var reconDir = Path.Combine(workDir, "recon");
@@ -21,6 +20,15 @@ var reconDir = Path.Combine(workDir, "recon");
 if (args.Length == 0)
 {
     Console.WriteLine("usage: Recon survey|graph|dump <pkg>|tex <pkg> [--usmap file]");
+    return 1;
+}
+
+// the AES key is never in the repo: it is "AesKey" in %APPDATA%\UmgEditor\umgeditor.json (as for the editor)
+var settingsPath = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData), "UmgEditor", "umgeditor.json");
+var AesKey = File.Exists(settingsPath) ? Newtonsoft.Json.Linq.JObject.Parse(File.ReadAllText(settingsPath))["AesKey"]?.ToString() : null;
+if (string.IsNullOrWhiteSpace(AesKey))
+{
+    Console.WriteLine($"No AES key: put \"AesKey\" in {settingsPath}");
     return 1;
 }
 

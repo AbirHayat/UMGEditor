@@ -6,7 +6,7 @@ All commands run from `E:\n3tron\ai_tools\scoreboard\work` in Git Bash. Nothing 
 
 ```sh
 R=/e/n3tron/patch/Tools/retoc-x86_64-pc-windows-msvc/retoc.exe
-K=0x4552D45005DFE94964893F4925EC747D3D591401E060ED8B3D58BE5721C81295
+K=$(grep -oE '0x[0-9A-Fa-f]{64}' "$APPDATA/UmgEditor/umgeditor.json")  # the AES key, never stored in the repo
 P="E:/n3tron/patch/obb/mobile/org/all/PesMobile/Content/Paks"
 ```
 
